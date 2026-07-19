@@ -1,0 +1,92 @@
+schemaVersion: 1
+
+identity:
+  recipePack: balanced
+  compatibilityMode: HEDONIST
+
+global:
+  enabled: false
+  intensity: 0.75
+  variation: 0.50
+  fatigueProtection: true
+  stopOnPause: true
+  stopOnWorldUnload: true
+  panicKey: "UNKNOWN_UNASSIGNED"
+
+buttplug:
+  serverUrl: "ws://127.0.0.1:12345"
+  autoConnect: false
+  autoScan: false
+  reconnect:
+    enabled: true
+    maxDelaySeconds: 30
+  allowRemoteServer: false
+
+events:
+  attack:       { enabled: true,  multiplier: 0.80 }
+  hurt:         { enabled: true,  multiplier: 1.00 }
+  mining:       { enabled: true,  multiplier: 0.55 }
+  blockBreak:   { enabled: true,  multiplier: 0.75 }
+  place:        { enabled: true,  multiplier: 0.35 }
+  harvest:      { enabled: true,  multiplier: 0.45 }
+  fishingBite:  { enabled: true,  multiplier: 0.70 }
+  xp:           { enabled: true,  multiplier: 0.50 }
+  advancement:  { enabled: true,  multiplier: 0.75 }
+  vitality:     { enabled: true,  multiplier: 0.40 }
+  explosion:    { enabled: true,  multiplier: 1.00 }
+
+outputPolicy:
+  Vibrate:
+    enabled: true
+  Position:
+    enabled: false
+    experimental: true
+  HwPositionWithDuration:
+    enabled: false
+    experimental: true
+  Oscillate:
+    enabled: false
+  Rotate:
+    enabled: false
+  Constrict:
+    enabled: false
+  Temperature:
+    enabled: false
+  Led:
+    enabled: false
+  Spray:
+    enabled: false
+    permanentlyUnsupported: true
+
+devices:
+  # Saved keys are best-effort identities, never raw DeviceIndex values.
+  "Example Device|Vibrate:2":
+    enabled: true
+    maxLevel: 0.70
+    features:
+      "Vibrate|0|Main motor":
+        enabled: true
+        multiplier: 1.00
+
+positionCalibrations:
+  "Example Stroker|HwPositionWithDuration:1":
+    enabled: false
+    minimum: 0.20
+    maximum: 0.80
+    neutral: 0.50
+    invert: false
+    gameplayTravelFraction: 0.20
+    requireReturnToNeutral: true
+
+accumulation:
+  capacity: 100.0
+  decayPerSecond: 1.5
+  outputCurve: smoothstep
+  contributions:
+    attack: 5.0
+    hurt: 10.0
+    blockBreak: 0.25
+    oreBreak: 1.0
+    place: 0.5
+    xpPerFive: 1.0
+    advancement: 1.0

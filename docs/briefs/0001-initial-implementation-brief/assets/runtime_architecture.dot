@@ -1,0 +1,19 @@
+digraph G {
+  graph [rankdir=LR, bgcolor="white", margin=0.1, nodesep=0.35, ranksep=0.55, fontname="DejaVu Sans"];
+  node [shape=box, style="rounded,filled", fillcolor="#F5F7FA", color="#4B5563", fontname="DejaVu Sans", fontsize=10, margin="0.12,0.08"];
+  edge [color="#6B7280", arrowsize=0.7, fontname="DejaVu Sans", fontsize=8];
+  mc [label="Minecraft client\nNeoForge adapters"];
+  buffer [label="Tick event buffer\n+ state trackers"];
+  domain [label="Intent / Scene\nrecipe engine"];
+  mixer [label="Mixer + scheduler\npriority, expiry, coalescing"];
+  bp [label="Buttplug v4 provider\nWebSocket + device registry"];
+  intiface [label="Intiface Central\nButtplug server"];
+  dev [label="One or more devices\nfeature-level outputs"];
+  config [label="Config + calibration\nprofiles / legacy import", shape=note, fillcolor="#FFF7ED"];
+  stop [label="Universal stop path\npause / unload / panic", shape=note, fillcolor="#FEF2F2"];
+  mc -> buffer -> domain -> mixer -> bp -> intiface -> dev;
+  config -> domain [style=dashed];
+  config -> mixer [style=dashed];
+  stop -> mixer [color="#B91C1C"];
+  stop -> bp [color="#B91C1C"];
+}

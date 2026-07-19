@@ -1,0 +1,45 @@
+# Releasing Minegasm on Codeberg
+
+Minegasm uses Forgejo Actions. The workflow in `.forgejo/workflows/build.yml` builds and tests both
+NeoForge variants on pushes, pull requests, and manual runs. A matching beta tag additionally creates
+a Codeberg prerelease containing both jars and their SHA-256 checksums.
+
+## One-time Codeberg setup
+
+1. Request access to Codeberg's hosted Actions runners by following the current instructions at
+   <https://codeberg.org/actions/meta>. Hosted access is limited and requires approval.
+2. In the repository, enable **Actions** and **Releases** under **Settings → Units → Overview**.
+3. In **Settings → Actions → General**, allow workflows to write repository contents so the automatic
+   `${{ forge.token }}` can create releases. Pull-request tokens remain read-only.
+
+The workflow uses Codeberg's `codeberg-medium-lazy` hosted runner. The `-lazy` queue is intentionally
+lower priority and may start later when the service is busy. CI does not need access to Intiface or
+physical devices; it runs deterministic automated tests only.
+
+## Preparing a beta
+
+Set `mod_version` in `gradle.properties`; this is the single source of truth used by Gradle, mod
+metadata, jar names, and the release workflow. Use a SemVer prerelease value such as
+`1.0.0-beta.1`, then update `CHANGELOG.md` and run a clean local release-candidate build:
+
+```powershell
+.\gradlew.bat clean chiseledBuild --rerun-tasks --warning-mode all
+```
+
+Test the exact jars from both `versions/*/build/libs/` directories in their corresponding Minecraft
+versions. Commit and push the release preparation, then confirm the normal push workflow succeeds on
+Codeberg before creating a release tag.
+
+## Publishing
+
+Create and push a tag that exactly matches the project version with a leading `v`:
+
+```powershell
+git tag -s v1.0.0-beta.1 -m "Minegasm 1.0.0-beta.1"
+git push origin main
+git push origin v1.0.0-beta.1
+```
+
+The workflow rejects a tag whose version differs from the built jar. Tags containing `-beta.` create
+a Codeberg prerelease and upload the two version-labelled jars plus `SHA256SUMS`. Stable releases are
+intentionally not automatic until the beta pipeline has been proven.

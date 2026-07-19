@@ -1,0 +1,47 @@
+# Build output
+.gradle/
+build/
+out/
+run/
+versions/*/build/
+versions/*/run/
+
+# Stonecraft/Loom per-version development runtime
+versions/*/.cache/
+versions/*/config/
+versions/*/defaultconfigs/
+versions/*/logs/
+versions/*/mods/
+versions/*/crash-reports/
+versions/*/saves/
+versions/*/screenshots/
+versions/*/resourcepacks/
+versions/*/shaderpacks/
+versions/*/options.txt
+versions/*/servers.dat
+versions/*/usercache.json
+versions/*/usernamecache.json
+
+# Local compile/test harness (JDK-only, no Gradle)
+.localbuild/out/
+.localbuild/libs/
+.localbuild/testclient/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.classpath
+*.project
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / local config
+*.log
+/minegasm.json
+/minegasm.json.corrupt
+/minegasm.json.before-legacy-import*
+/minegasm-client.toml

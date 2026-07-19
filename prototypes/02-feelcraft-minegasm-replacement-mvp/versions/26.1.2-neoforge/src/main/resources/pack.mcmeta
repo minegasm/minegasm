@@ -1,0 +1,6 @@
+{
+  "pack": {
+    "description": "Feelcraft Haptics resources",
+    "pack_format": ${packVersion}
+  }
+}

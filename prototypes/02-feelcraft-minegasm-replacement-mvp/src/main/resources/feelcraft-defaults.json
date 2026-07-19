@@ -1,0 +1,42 @@
+{
+  "enabled": true,
+  "buttplugUri": "ws://127.0.0.1:12345/buttplug",
+  "minegasmCompatibility": true,
+  "mode": "NORMAL",
+  "globalIntensity": 0.75,
+  "textureMultiplier": 0.65,
+  "customIntensity": {
+    "attackIntensity": 0.60,
+    "hurtIntensity": 1.00,
+    "mineIntensity": 0.80,
+    "xpChangeIntensity": 1.00,
+    "harvestIntensity": 0.20,
+    "vitalityIntensity": 0.10
+  },
+  "caps": {
+    "maxVibrateLevel": 0.80,
+    "maxRotateLevel": 0.35,
+    "maxOscillateLevel": 0.50,
+    "maxLinearAmplitude": 0.22,
+    "allowConstrict": false,
+    "allowTemperature": false
+  },
+  "minegasmPresetReference": {
+    "NORMAL": { "attack": 0.60, "hurt": 0.00, "mine": 0.80, "xpChange": 1.00, "harvest": 0.00, "vitality": 0.00 },
+    "MASOCHIST": { "attack": 0.00, "hurt": 1.00, "mine": 0.00, "xpChange": 0.00, "harvest": 0.00, "vitality": 0.10 },
+    "HEDONIST": { "attack": 0.60, "hurt": 0.10, "mine": 0.80, "xpChange": 1.00, "harvest": 0.20, "vitality": 0.10 },
+    "CUSTOM": "uses customIntensity values"
+  },
+  "events": {
+    "attack": true,
+    "hurt": true,
+    "mine": true,
+    "xpChange": true,
+    "harvest": true,
+    "vitality": true,
+    "blockBreakPop": true,
+    "lowHealth": true,
+    "footsteps": false,
+    "ambient": false
+  }
+}

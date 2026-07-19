@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "buttplugUri": "ws://127.0.0.1:12345",
+  "preset": "balanced",
+  "globalIntensity": 0.75,
+  "maxVibrateLevel": 0.80,
+  "maxRotateLevel": 0.35,
+  "maxOscillateLevel": 0.50,
+  "maxLinearAmplitude": 0.22,
+  "allowConstrict": false,
+  "allowTemperature": false,
+  "events": {
+    "playerHurt": true,
+    "mining": true,
+    "blockBreak": true,
+    "lowHealth": true,
+    "footsteps": false,
+    "ambient": false
+  }
+}

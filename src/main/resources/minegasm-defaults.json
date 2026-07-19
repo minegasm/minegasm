@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "recipePack": "balanced",
+    "compatibilityMode": "NORMAL"
+  },
+  "global": {
+    "enabled": false,
+    "intensity": 0.75,
+    "variation": 0.5,
+    "fatigueProtection": true,
+    "stopOnPause": true,
+    "stopOnWorldUnload": true,
+    "panicKey": "UNKNOWN_UNASSIGNED"
+  },
+  "buttplug": {
+    "serverUrl": "ws://127.0.0.1:12345",
+    "autoConnect": false,
+    "autoScan": false,
+    "allowRemoteServer": false,
+    "reconnect": { "enabled": true, "maxDelaySeconds": 30 },
+    "client": "buttplug4j"
+  },
+  "events": {
+    "attack": { "enabled": true, "multiplier": 0.8 },
+    "hurt": { "enabled": true, "multiplier": 1.0 },
+    "mining": { "enabled": true, "multiplier": 0.55 },
+    "blockBreak": { "enabled": true, "multiplier": 0.75 },
+    "place": { "enabled": true, "multiplier": 0.35 },
+    "harvest": { "enabled": true, "multiplier": 0.45 },
+    "fishingBite": { "enabled": true, "multiplier": 0.7 },
+    "xp": { "enabled": true, "multiplier": 0.5 },
+    "advancement": { "enabled": true, "multiplier": 0.75 },
+    "vitality": { "enabled": true, "multiplier": 0.4 },
+    "explosion": { "enabled": true, "multiplier": 1.0 }
+  },
+  "outputPolicy": {
+    "Vibrate": { "enabled": true, "experimental": false, "permanentlyUnsupported": false },
+    "Position": { "enabled": false, "experimental": true, "permanentlyUnsupported": false },
+    "HwPositionWithDuration": { "enabled": false, "experimental": true, "permanentlyUnsupported": false },
+    "Oscillate": { "enabled": false, "experimental": false, "permanentlyUnsupported": false },
+    "Rotate": { "enabled": false, "experimental": false, "permanentlyUnsupported": false },
+    "Constrict": { "enabled": false, "experimental": true, "permanentlyUnsupported": false },
+    "Temperature": { "enabled": false, "experimental": false, "permanentlyUnsupported": false },
+    "Led": { "enabled": false, "experimental": false, "permanentlyUnsupported": false },
+    "Spray": { "enabled": false, "experimental": false, "permanentlyUnsupported": true }
+  },
+  "devices": {},
+  "positionCalibrations": {},
+  "accumulation": {
+    "capacity": 100.0,
+    "decayPerSecond": 1.5,
+    "outputCurve": "smoothstep",
+    "contributions": {
+      "attack": 5.0, "hurt": 10.0, "blockBreak": 0.25, "oreBreak": 1.0,
+      "place": 0.5, "xpPerFive": 1.0, "advancement": 1.0, "harvest": 0.5
+    }
+  },
+  "customIntensity": {
+    "attack": 0.6, "hurt": 0.0, "mine": 0.8, "place": 0.2, "xpChange": 1.0,
+    "fishing": 0.5, "harvest": 0.0, "vitality": 0.0, "advancement": 1.0
+  }
+}

@@ -1,0 +1,16 @@
+digraph G {
+  graph [rankdir=TB, bgcolor="white", margin=0.1, nodesep=0.3, ranksep=0.4, fontname="DejaVu Sans"];
+  node [shape=box, style="rounded,filled", fillcolor="#F8FAFC", color="#475569", fontname="DejaVu Sans", fontsize=10, margin="0.12,0.08"];
+  edge [color="#64748B", arrowsize=0.7, fontname="DejaVu Sans", fontsize=8];
+  a [label="During client tick\nrecord discrete observations only"];
+  b [label="End of client tick\ndrain bounded buffer + sample state"];
+  c [label="Aggregate\nmerge damage, latest mining, suppress duplicates"];
+  d [label="Resolve semantic scenes\nshort impacts + continuous state changes"];
+  e [label="Enqueue to haptic worker\nnon-blocking, bounded"];
+  f [label="10-20 ms worker cadence\nmonotonic time, priority and expiry"];
+  g [label="Render per connected feature\nVibrate / Position / other policy"];
+  h [label="Send OutputCmd\nrespect DeviceMessageTimingGap"];
+  i [label="StopCmd bypass path", fillcolor="#FEF2F2"];
+  a -> b -> c -> d -> e -> f -> g -> h;
+  i -> h [color="#B91C1C"];
+}

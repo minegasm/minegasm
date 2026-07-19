@@ -1,0 +1,16 @@
+digraph G {
+  graph [rankdir=LR, bgcolor="white", margin=0.1, nodesep=0.35, ranksep=0.55, fontname="DejaVu Sans"];
+  node [shape=record, style="rounded,filled", fillcolor="#F5F7FA", color="#4B5563", fontname="DejaVu Sans", fontsize=9];
+  edge [color="#6B7280", arrowsize=0.7];
+  event [label="{RawGameEvent|kind\lgameTick\lobservedAtNs\lpayload\l}"];
+  intent [label="{HapticIntent|eventKey\lstrength\lurgency\lmaterial\ldirection\l}"];
+  scene [label="{HapticScene|sceneId\lpriority\llifetime\llayers[]\l}"];
+  layer [label="{HapticLayer|role\lprimitive\lroute\lcoupling\lexpiry\l}"];
+  device [label="{HapticDevice|deviceIndex\ltimingGapMs\lfeatures[]\l}"];
+  feature [label="{HapticFeature|featureIndex\ldescription\loutputs map\linputs map\l}"];
+  command [label="{ScheduledOutput|device + feature\lcommand\lpriority\lcoalesceKey\lexpiresAtNs\l}"];
+  event -> intent -> scene -> layer;
+  layer -> command [label="render"];
+  device -> feature;
+  feature -> command [label="capability match"];
+}

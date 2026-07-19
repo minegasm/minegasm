@@ -1,0 +1,70 @@
+{
+  "note": "Illustrative individual Buttplug v4 WebSocket frames. The wire format is an array of messages; verify against the pinned spec/client library.",
+  "requestServerInfo": [
+    {
+      "RequestServerInfo": {
+        "Id": 1,
+        "ClientName": "Minegasm Next",
+        "ProtocolVersionMajor": 4,
+        "ProtocolVersionMinor": 0
+      }
+    }
+  ],
+  "requestDeviceList": [
+    {
+      "RequestDeviceList": {
+        "Id": 2
+      }
+    }
+  ],
+  "startScanning": [
+    {
+      "StartScanning": {
+        "Id": 3
+      }
+    }
+  ],
+  "vibrateFeature": [
+    {
+      "OutputCmd": {
+        "Id": 10,
+        "DeviceIndex": 0,
+        "FeatureIndex": 1,
+        "Command": {
+          "Vibrate": {
+            "Value": 12
+          }
+        }
+      }
+    }
+  ],
+  "movePositionOverDuration": [
+    {
+      "OutputCmd": {
+        "Id": 11,
+        "DeviceIndex": 1,
+        "FeatureIndex": 0,
+        "Command": {
+          "HwPositionWithDuration": {
+            "Value": 62,
+            "Duration": 120
+          }
+        }
+      }
+    }
+  ],
+  "stopAll": [
+    {
+      "StopCmd": {
+        "Id": 20
+      }
+    }
+  ],
+  "disconnect": [
+    {
+      "Disconnect": {
+        "Id": 21
+      }
+    }
+  ]
+}

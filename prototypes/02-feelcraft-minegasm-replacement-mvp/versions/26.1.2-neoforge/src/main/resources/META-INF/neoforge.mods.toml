@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="MIT"
+issueTrackerURL="https://example.invalid/feelcraft/issues"
+
+[[mods]]
+modId="${id}"
+version="${version}"
+displayName="${name}"
+displayURL="https://example.invalid/feelcraft"
+authors="Minegasm contributors"
+description="${description} This MVP connects to a local Buttplug/Intiface server and converts selected Minecraft client events into haptic scenes."
+
+[[dependencies.${id}]]
+modId="neoforge"
+type="required"
+versionRange="[${neoforgeVersion},)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.${id}]]
+modId="minecraft"
+type="required"
+versionRange="[${minecraftVersion},)"
+ordering="NONE"
+side="CLIENT"

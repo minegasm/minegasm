@@ -1,0 +1,85 @@
+name: Build and release
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: codeberg-medium-lazy
+    container:
+      image: eclipse-temurin:25-jdk
+    steps:
+      - name: Install workflow tools
+        run: apt-get update && apt-get install -y --no-install-recommends git curl jq
+
+      - name: Check out source
+        env:
+          FORGE_URL: ${{ forge.server_url }}
+          REPOSITORY: ${{ forge.repository }}
+          COMMIT_SHA: ${{ forge.sha }}
+        run: |
+          git clone --no-checkout "$FORGE_URL/$REPOSITORY.git" .
+          git checkout --detach "$COMMIT_SHA"
+
+      - name: Build and test every variant
+        run: |
+          chmod +x gradlew
+          ./gradlew chiseledBuild --no-daemon --stacktrace --warning-mode all
+
+      - name: Verify and stage artifacts
+        env:
+          REF_TYPE: ${{ forge.ref_type }}
+          TAG_NAME: ${{ forge.ref_name }}
+        run: |
+          mkdir -p dist
+          cp versions/26.1.2-neoforge/build/libs/minegasm-*.jar dist/
+          cp versions/26.2-neoforge/build/libs/minegasm-*.jar dist/
+          test "$(find dist -maxdepth 1 -name '*.jar' -type f | wc -l)" -eq 2
+
+          for artifact in dist/*.jar; do
+            jar tf "$artifact" | grep -q '^META-INF/LICENSE-minegasm$'
+            jar tf "$artifact" | grep -q '^META-INF/jarjar/metadata.json$'
+            test "$(jar tf "$artifact" | grep -c '^META-INF/jars/.*\.jar$')" -eq 12
+          done
+
+          version="$(basename versions/26.2-neoforge/build/libs/minegasm-*.jar | sed -E 's/^minegasm-([^+]+)\+.*$/\1/')"
+          if [ "$REF_TYPE" = tag ] && [ "$TAG_NAME" != "v$version" ]; then
+            echo "Tag $TAG_NAME does not match project version $version" >&2
+            exit 1
+          fi
+
+          cd dist
+          sha256sum *.jar > SHA256SUMS
+
+      - name: Publish Codeberg beta release
+        if: forge.ref_type == 'tag' && contains(forge.ref_name, '-beta.')
+        env:
+          FORGE_URL: ${{ forge.server_url }}
+          REPOSITORY: ${{ forge.repository }}
+          TAG_NAME: ${{ forge.ref_name }}
+          RELEASE_TOKEN: ${{ forge.token }}
+        run: |
+          api="$FORGE_URL/api/v1/repos/$REPOSITORY"
+          payload="$(jq -n \
+            --arg tag "$TAG_NAME" \
+            --arg name "$TAG_NAME" \
+            '{tag_name:$tag,name:$name,body:"Automated Minegasm beta build. See the changelog and testing documentation for details.",draft:false,prerelease:true}')"
+          release="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: token $RELEASE_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data "$payload" "$api/releases")"
+          release_id="$(printf '%s' "$release" | jq -er '.id')"
+
+          for artifact in dist/*.jar dist/SHA256SUMS; do
+            name="$(basename "$artifact")"
+            encoded="$(printf '%s' "$name" | jq -sRr @uri)"
+            curl --fail-with-body --silent --show-error \
+              -H "Authorization: token $RELEASE_TOKEN" \
+              -F "attachment=@$artifact" \
+              "$api/releases/$release_id/assets?name=$encoded" >/dev/null
+          done
