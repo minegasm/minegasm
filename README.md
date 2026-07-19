@@ -60,7 +60,7 @@ and hardware.
 | Buttplug v4 provider + fake server (native fallback) | `net.minegasm.buttplug` | ✅ compiled + unit-tested |
 | buttplug4j provider (default backend) | `net.minegasm.buttplug.b4j` | ✅ compiled vs buttplug4j 4.0.278 (needs Intiface + hardware to run) |
 | Client glue | `net.minegasm.client` | ✅ compiled |
-| Minecraft observation, UI, bootstrap | `net.minegasm.neoforge` | ⚠️ needs Gradle+NeoForge toolchain |
+| Minecraft observation, UI, bootstrap | `net.minegasm.neoforge` | ✅ compiled, manually exercised in-game (see `docs/STATUS.md`) |
 
 ## Building
 

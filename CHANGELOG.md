@@ -33,6 +33,8 @@ engine, targeting NeoForge 26.2 and 26.1.2 on Java 25.
 - Forgejo Actions workflow (`codeberg-medium-lazy`) that builds and tests both variants on every
   push and pull request, and publishes a Codeberg prerelease with both jars and a `SHA256SUMS`
   file for tags matching the built version and containing `-beta.`.
+- GitHub Actions workflow on the GitHub mirror that builds and tests both variants on every push,
+  pull request, and manual run; build/test verification only, no release publishing.
 
 ### Known limitations
 
