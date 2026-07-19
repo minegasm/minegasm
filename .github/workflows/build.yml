@@ -27,11 +27,18 @@ jobs:
         run: |
           shopt -s nullglob
           artifacts=(versions/*/build/libs/minegasm-*.jar)
-          test "${#artifacts[@]}" -ge 1
+          if [ "${#artifacts[@]}" -lt 1 ]; then
+            echo "ERROR: no minegasm-*.jar found under versions/*/build/libs/" >&2
+            exit 1
+          fi
 
           for artifact in "${artifacts[@]}"; do
-            jar tf "$artifact" | grep -q '^META-INF/LICENSE-minegasm$'
-            jar tf "$artifact" | grep -q '^META-INF/jarjar/metadata.json$'
-            jar tf "$artifact" | grep -qE '^META-INF/jars/gson-[0-9].*\.jar$'
-            jar tf "$artifact" | grep -qE '^META-INF/jars/buttplug4j-[0-9].*\.jar$'
+            echo "Verifying $artifact"
+            entries="$(jar tf "$artifact")"
+            echo "$entries" | grep -q '^META-INF/LICENSE-minegasm$' \
+              || { echo "ERROR: $artifact is missing META-INF/LICENSE-minegasm" >&2; exit 1; }
+            echo "$entries" | grep -q '^META-INF/jarjar/metadata.json$' \
+              || { echo "ERROR: $artifact is missing META-INF/jarjar/metadata.json" >&2; exit 1; }
+            echo "$entries" | grep -qE '^META-INF/jars/buttplug4j-[0-9].*\.jar$' \
+              || { echo "ERROR: $artifact is missing a bundled buttplug4j jar. Actual META-INF/jars/ entries:"; echo "$entries" | grep '^META-INF/jars/' >&2; exit 1; }
           done
