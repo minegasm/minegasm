@@ -43,9 +43,12 @@ jobs:
               || { echo "ERROR: $artifact is missing a bundled buttplug4j jar. Actual META-INF/jars/ entries:"; echo "$entries" | grep '^META-INF/jars/' >&2; exit 1; }
           done
 
+          mkdir -p dist
+          cp "${artifacts[@]}" dist/
+
       - name: Upload built jars
         uses: actions/upload-artifact@v7
         with:
-          name: minegasm-jars
-          path: versions/*/build/libs/minegasm-*.jar
+          name: minegasm-jars-${{ github.run_id }}
+          path: dist/
           if-no-files-found: error
