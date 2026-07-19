@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
@@ -42,3 +42,10 @@ jobs:
             echo "$entries" | grep -qE '^META-INF/jars/buttplug4j-[0-9].*\.jar$' \
               || { echo "ERROR: $artifact is missing a bundled buttplug4j jar. Actual META-INF/jars/ entries:"; echo "$entries" | grep '^META-INF/jars/' >&2; exit 1; }
           done
+
+      - name: Upload built jars
+        uses: actions/upload-artifact@v7
+        with:
+          name: minegasm-jars
+          path: versions/*/build/libs/minegasm-*.jar
+          if-no-files-found: error
