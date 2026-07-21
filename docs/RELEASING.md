@@ -32,10 +32,11 @@ Codeberg before creating a release tag.
 
 ## Publishing
 
-Create and push a tag that exactly matches the project version with a leading `v`:
+Create and push a tag that exactly matches the project version with a leading `v`. Use an
+annotated tag with a `build(release): <version>` message, matching the existing tag history:
 
 ```powershell
-git tag -s v1.0.0-beta.1 -m "Minegasm 1.0.0-beta.1"
+git tag -a v1.0.0-beta.1 -m "build(release): 1.0.0-beta.1"
 git push origin main
 git push origin v1.0.0-beta.1
 ```
