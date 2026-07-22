@@ -2,6 +2,8 @@ modLoader="javafml"
 loaderVersion="[1,)"
 license="AGPL-3.0-only"
 issueTrackerURL="https://codeberg.org/minegasm/minegasm/issues"
+logoFile="assets/minegasm/icon.png"
+logoBlur=false
 
 [[mods]]
 modId="${id}"

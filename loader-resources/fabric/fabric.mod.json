@@ -12,6 +12,7 @@
     "issues": "https://codeberg.org/minegasm/minegasm/issues"
   },
   "license": "AGPL-3.0-only",
+  "icon": "assets/minegasm/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
