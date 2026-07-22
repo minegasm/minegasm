@@ -8,6 +8,14 @@ version = providers.gradleProperty("mod_version").get()
 repositories {
     mavenCentral()
     maven("https://maven.neoforged.net/releases/")
+    // ModMenu (Fabric-only config-screen entry), from Modrinth's maven. Content-filtered to the
+    // maven.modrinth group so this repo is never queried for other artifacts — otherwise a transient
+    // 5xx here would disable the repo and break unrelated dynamic-version resolutions (e.g. Forge's
+    // dev.architectury:mixin-patched). Modrinth is used rather than ModMenu's own Terraformers maven,
+    // which has proven flaky (502s); both serve the same distributed jar.
+    maven("https://api.modrinth.com/maven") {
+        content { includeGroup("maven.modrinth") }
+    }
 }
 
 modSettings {
@@ -53,6 +61,26 @@ dependencies {
     include("org.eclipse.jetty:jetty-http:9.4.58.v20250814")
     include("org.eclipse.jetty:jetty-io:9.4.58.v20250814")
     include("org.eclipse.jetty:jetty-util:9.4.58.v20250814")
+
+    // ModMenu (Fabric only) gives the config screen a mods-list entry (net.minegasm.fabric.
+    // ModMenuIntegration, wired via the `modmenu` entrypoint in fabric.mod.json). Compile-only: that
+    // entrypoint is invoked only when ModMenu is installed, so the mod neither bundles nor requires it
+    // at runtime. ModMenu is published per Minecraft line, so the version tracks the variant; the
+    // ModMenuApi/ConfigScreenFactory surface used here is identical across 18.0.0 and 20.0.0, so the
+    // shared source needs no version guard. Kept as an explicit map (not a deps-file property) so the
+    // wiring is self-contained and cannot silently no-op.
+    val modmenuVersion = when (project.name) {
+        "26.2-fabric" -> "20.0.0"
+        "26.1.2-fabric" -> "18.0.0"
+        else -> null
+    }
+    if (modmenuVersion != null) {
+        // Plain `compileOnly` — the config this stonecraft/Loom setup remaps for Fabric mod deps (it
+        // does not expose Loom's usual `mod*` leaf configs). ModMenu ends up on the compile classpath
+        // only: NOT bundled (only `include` bundles), NOT on the runtime classpath, and adds no
+        // `depends` entry to fabric.mod.json — so ModMenu stays optional for end users.
+        compileOnly("maven.modrinth:modmenu:$modmenuVersion")
+    }
 
     testImplementation(platform("org.junit:junit-bom:5.12.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")

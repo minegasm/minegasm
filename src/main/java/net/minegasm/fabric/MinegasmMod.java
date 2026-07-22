@@ -56,13 +56,19 @@ import java.util.Map;
  * event bus); see {@code package-info} for provenance. Fabric client commands run against
  * {@link FabricClientCommandSource}, not vanilla {@code CommandSourceStack} — its feedback methods
  * take a plain {@code Component} rather than vanilla's {@code Supplier<Component>} + broadcast flag.
- * There is no mods-list config screen extension point in core Fabric (that is the third-party
- * ModMenu convention, not taken on here); {@code key.minegasm.config} opens the screen directly.
+ * Core Fabric has no mods-list config-screen extension point; {@code key.minegasm.config} opens the
+ * screen directly. The optional {@link ModMenuIntegration} adds a mods-list entry too, but only when
+ * the third-party ModMenu is installed (compile-only dependency).
  ^/
 public final class MinegasmMod implements ClientModInitializer {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<String, GameEventKind> TRIGGER_EVENTS = triggerEvents();
+
+    // The live client, published for the optional ModMenu integration (a separate `modmenu`
+    // entrypoint ModMenu instantiates on its own, so it cannot reach the instance field). Written
+    // once in the constructor before any screen can be opened; volatile for safe cross-thread reads.
+    private static volatile MinegasmClient activeClient;
 
     private final MinegasmClient client;
     private final MinecraftSampler sampler = new MinecraftSampler();
@@ -82,6 +88,7 @@ public final class MinegasmMod implements ClientModInitializer {
         java.nio.file.Path configFile = FabricLoader.getInstance().getConfigDir().resolve("minegasm.json");
         this.client = new MinegasmClient(configFile, ProviderFactory.create(configFile),
                 net.minegasm.time.SystemClock.INSTANCE);
+        activeClient = this.client;
         this.showFirstRunNotice = client.isFirstRun();
     }
 
@@ -323,6 +330,12 @@ public final class MinegasmMod implements ClientModInitializer {
     /^* Convenience for a config screen or other UI to obtain the client. ^/
     public MinegasmClient client() {
         return client;
+    }
+
+    /^* The live client for the optional ModMenu integration; null only before init (never in practice
+     * by the time the mods list can open a config screen). ^/
+    public static MinegasmClient activeClient() {
+        return activeClient;
     }
 }
 *///?}

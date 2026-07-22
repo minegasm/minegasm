@@ -16,6 +16,9 @@
   "entrypoints": {
     "client": [
       "net.minegasm.fabric.MinegasmMod"
+    ],
+    "modmenu": [
+      "net.minegasm.fabric.ModMenuIntegration"
     ]
   },
   "depends": {

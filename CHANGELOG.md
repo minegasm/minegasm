@@ -21,6 +21,9 @@ All notable changes to Minegasm are documented in this file. The format follows
 - `/minegasm enable` and `/minegasm disable` client commands to toggle master haptic output from
   chat — the same switch as the config screen's enable toggle, disabling also stops active output.
   Available under the `/mg` alias too, and requires no server permissions.
+- **ModMenu** integration on Fabric: when ModMenu is installed, the config screen gets an entry in the
+  mods list (in addition to the `key.minegasm.config` keybinding). ModMenu is an optional, compile-only
+  dependency — never bundled or required at runtime — so the mod is unchanged without it.
 - Automatic acquisition of the **advancement** event: earning an advancement in-game now raises the
   haptic event that was previously reachable only via `/minegasm trigger advancement`. Implemented
   with the vanilla client advancement listener so it works in singleplayer and on unmodified
@@ -40,8 +43,10 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 - **Nearby-explosion** acquisition is still pending; the event remains reachable only via
   `/minegasm trigger explosion`. It is an optional enhancement beyond strict legacy parity, and no
-  client-side signal carrying explosion position and power is available without a mixin. Every other
-  listed trigger fires automatically.
+  client-side signal carrying explosion position and power is available without a mixin. Automatic
+  acquisition is planned for `1.0.0-beta.3` via a **client-only** mixin on the explosion receive path
+  (`docs/adr/ADR-015-explosion-acquisition-deferred-to-beta3.md`). Every other listed trigger fires
+  automatically.
 
 ## [1.0.0-beta.1] - 2026-07-21
 

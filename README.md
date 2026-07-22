@@ -112,9 +112,10 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
    On **Quilt**, install the same **Fabric** jar and the same **Fabric API** mod: Quilt Loader reads
    its `fabric.mod.json` and loads it directly, and the mod uses no loader-specific API beyond Fabric
    API, so it runs as-is. There is no separate Quilt build.
-3. Launch Minecraft with the mod. On NeoForge, open the config screen from the mods list; on Fabric
-   (no mods-list entry point without ModMenu, ADR-012), bind and press **Open Minegasm settings**
-   (Controls → Minegasm) instead.
+3. Launch Minecraft with the mod. On NeoForge, open the config screen from the mods list; on Fabric,
+   bind and press **Open Minegasm settings** (Controls → Minegasm), or install
+   **[ModMenu](https://modrinth.com/mod/modmenu)** to get a mods-list entry there too (optional; the
+   keybinding works without it, ADR-012).
 4. Connect and scan; connected devices appear in the list and all of them receive output (there is
    no per-device selection in the UI yet). Run the device-output test.
 5. Enable haptics and pick a recipe pack + mode. Bind a **panic** key (Controls → Minegasm).

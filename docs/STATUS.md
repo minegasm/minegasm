@@ -74,8 +74,9 @@ The first real Fabric launch surfaced that Fabric API must be installed as a sep
 as a dependency in `fabric.mod.json` but never bundled into the Minegasm jar, unlike `buttplug4j`,
 which is. See `README.md` for the exact required Fabric API versions per Minecraft line.
 
-The config screen has no mods-list entry point on Fabric (no ModMenu integration); it opens via the
-`key.minegasm.config` keybinding instead, which still needs manual confirmation in-game.
+The config screen opens on Fabric via the `key.minegasm.config` keybinding, and — when the optional
+ModMenu is installed — from a mods-list entry via a compile-only ModMenu integration
+(`net.minegasm.fabric.ModMenuIntegration`). Both paths have been confirmed working in-game.
 
 ## Known issues
 
@@ -101,8 +102,9 @@ more static code reading.
 
 The Forgejo Actions workflow is implemented for Codeberg's `codeberg-medium-lazy` runner. It builds
 and tests every active variant and publishes matching beta tags as Codeberg prereleases. **It has
-been run successfully on Codeberg and published the `v1.0.0-beta.1` prerelease** — both the ordinary
-push build and the tagged prerelease path are proven for the two-variant (NeoForge-only) workflow.
+been run successfully on Codeberg and published the `v1.0.0-beta.1` prerelease**; the ordinary push
+build and the tagged prerelease path are both proven there. The current all-six-variant
+(`neoforge`/`fabric`/`forge`) workflow has since also been run green on Codeberg.
 
 The workflow's dependency/licensing check is loader-aware (NeoForge/Forge's `jarjar/metadata.json` vs
 Fabric's `fabric.mod.json` `jars` array; `docs/adr/ADR-012-add-fabric-loader.md`) and covers the Forge
@@ -121,20 +123,19 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 
 ## Remaining beta validation and follow-ups
 
-- Verify the updated (Fabric-aware) Forgejo workflow with a real Codeberg run, once the Fabric loader
-  changes are committed and pushed — the `v1.0.0-beta.1` run predates them.
 - Diagnose the "Test Device Output does nothing" known issue above with runtime evidence (logging
   during a live repro), since static code review ruled out the two leading theories without finding
   the actual cause.
 - Manually exercise both Fabric variants in-game (config screen via keybind, commands, connection,
   panic/output) the same way NeoForge already has been.
-- Decide whether to add optional ModMenu integration for a mods-list config screen entry on Fabric.
 - Advancement acquisition is now automatic via the vanilla client advancement listener
   (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`); it still needs in-game
   confirmation (earn a `task`/`goal`/`challenge` advancement and feel the pulse; confirm joining a
   world does not replay past advancements). Nearby-explosion acquisition remains pending — its
   intent, recipe, settings, and manual `/minegasm trigger explosion` path exist, but gameplay does
   not emit it automatically (no mixin-free client signal carrying explosion position and power).
+  Planned for `1.0.0-beta.3` via a client-only mixin on the explosion receive path
+  (`docs/adr/ADR-015-explosion-acquisition-deferred-to-beta3.md`).
 - Complete and record the gameplay acceptance matrix for both supported Minecraft versions.
 - Manually confirm legacy TOML import in Minecraft with representative legacy configuration files.
 - Confirm multi-device behavior with physical devices if testing so far used Intiface simulators.
@@ -158,7 +159,7 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 | Vibration output | Yes | Yes, simulated devices | Manual physical coverage not recorded |
 | Position and rotation output | Renderer tests | Simulator coverage only | Physical verification pending |
 | Legacy configuration import | Yes | Not applicable | Manual in-game confirmation pending |
-| Forgejo release workflow | Defined | Not applicable | Proven on Codeberg for `v1.0.0-beta.1` (NeoForge-only); Fabric-aware update not yet run there |
+| Forgejo release workflow | Defined | Not applicable | Proven on Codeberg (`v1.0.0-beta.1` prerelease; all-six-variant workflow since run green) |
 
 ## Fast verification commands
 
