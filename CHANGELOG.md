@@ -9,13 +9,26 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 ### Added
 
+- **Fabric loader** support on both Minecraft lines (`26.2`, `26.1.2`), with `buttplug4j` bundled via
+  Fabric's jar-in-jar `jars` manifest entry. Fabric API is a required companion mod and the config
+  screen opens via the `key.minegasm.config` keybinding (no ModMenu integration yet). See
+  `docs/adr/ADR-012-add-fabric-loader.md`.
+- **Forge loader** support on both Minecraft lines (`26.2`, `26.1.2`), unblocked by pinning
+  Architectury Loom `1.17.491`. See `docs/adr/ADR-011-add-forge-loader.md`.
 - Automatic acquisition of the **advancement** event: earning an advancement in-game now raises the
   haptic event that was previously reachable only via `/minegasm trigger advancement`. Implemented
   with the vanilla client advancement listener so it works in singleplayer and on unmodified
   multiplayer servers, without mixins or reflection; the `task`/`goal`/`challenge` frame drives the
   recipe as before (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`).
-- Fabric and Forge loader support on both Minecraft lines, and the loader entrypoints centralized
-  into shared source (`docs/adr/ADR-011`…`ADR-013`), with the CI workflows building all six variants.
+
+### Changed
+
+- Loader entrypoints (`net.minegasm.<loader>.MinegasmMod`) centralized into shared source behind
+  Stonecutter loader guards, one file per loader instead of one copy per Minecraft line; the two
+  vanilla APIs that differ between 26.1.2 and 26.2 go through a `McCompat` shim. Both the Forgejo
+  (Codeberg) and GitHub Actions workflows now build and test all six variants
+  (`26.2`/`26.1.2` × `neoforge`/`fabric`/`forge`). See
+  `docs/adr/ADR-013-centralize-loader-entrypoints.md`.
 
 ### Known limitations
 
@@ -24,7 +37,7 @@ All notable changes to Minegasm are documented in this file. The format follows
   client-side signal carrying explosion position and power is available without a mixin. Every other
   listed trigger fires automatically.
 
-## [1.0.0-beta.1] - 2026-07-19
+## [1.0.0-beta.1] - 2026-07-21
 
 Initial public beta. Full rewrite of RainbowVille's Minegasm on a new client-side, semantic haptic
 engine, targeting NeoForge 26.2 and 26.1.2 on Java 25.
@@ -73,4 +86,5 @@ engine, targeting NeoForge 26.2 and 26.1.2 on Java 25.
 See `docs/STATUS.md` for the full verification breakdown (automated, live Intiface, and
 in-game/physical) and `docs/TESTING.md` for how to reproduce it.
 
+[Unreleased]: https://codeberg.org/minegasm/minegasm/compare/v1.0.0-beta.1...HEAD
 [1.0.0-beta.1]: https://codeberg.org/minegasm/minegasm/releases/tag/v1.0.0-beta.1
