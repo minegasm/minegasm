@@ -65,8 +65,9 @@ stability than those dependencies provide.
 The real Gradle, Stonecutter, and Fabric Loader/API toolchain compiles both supported variants
 against their pinned Minecraft mappings, and `jar`/`build` produce a correctly packaged mod jar for
 each (entrypoint class, bundled buttplug4j dependency via Fabric's jar-in-jar `jars` manifest entry,
-license file). **Neither Fabric variant has been fully manually exercised in Minecraft yet** — unlike
-NeoForge above, verification here is still mostly compile- and package-level.
+license file). Both Fabric variants have now been manually exercised in Minecraft (26.1.2 and 26.2)
+with no new issues observed. (The pre-existing "Test Device Output" quirk under Known issues applies
+to Fabric too.)
 
 The first real Fabric launch surfaced that Fabric API must be installed as a separate companion mod
 (Fabric Loader's "missing dependency" screen otherwise) — expected, not a bug: Fabric API is declared
@@ -82,11 +83,12 @@ The config screen has no mods-list entry point on Fabric (no ModMenu integration
 clicking the button (`MinegasmConfigScreen`) does nothing — no vibration — even though the button
 renders as active (enabled, connected, a device with a Vibrate capability present) and the same
 device demonstrably vibrates correctly from normal gameplay events (hurt, mining, etc.) in the same
-session. Reproduced on both NeoForge and Fabric; reproduces on a fresh session's very first test
-attempt as well as after other activity.
+session. Reproduced on all three loaders (NeoForge, Fabric, Forge); reproduces on a fresh session's
+very first test attempt as well as after other activity. Occurs only occasionally, not every session.
 
 **Workaround:** press **Emergency Stop** then **Resume after emergency** on the config screen once;
-"Test Device Output" then works normally for the rest of the session.
+"Test Device Output" then works normally for the rest of the session. This has cleared the issue in
+every observed case.
 
 **Root cause not confirmed.** Investigated and ruled out: the screen pausing the game (still
 reproduces with `pauseBehavior` set to `Continue`, which never engages the worker's pause gate at
@@ -103,9 +105,9 @@ been run successfully on Codeberg and published the `v1.0.0-beta.1` prerelease**
 push build and the tagged prerelease path are proven for the two-variant (NeoForge-only) workflow.
 
 The workflow's dependency/licensing check is loader-aware (NeoForge/Forge's `jarjar/metadata.json` vs
-Fabric's `fabric.mod.json` `jars` array; `docs/adr/ADR-012-add-fabric-loader.md`) and already covers
-the Forge jar's `mods.toml` + jarjar format. A real Codeberg run across all six variants is still
-pending — verified locally only so far.
+Fabric's `fabric.mod.json` `jars` array; `docs/adr/ADR-012-add-fabric-loader.md`) and covers the Forge
+jar's `mods.toml` + jarjar format. Both the Forgejo (Codeberg) and GitHub Actions workflows now run
+green across all six variants (`26.2`/`26.1.2` × `neoforge`/`fabric`/`forge`).
 
 ## Forge loader (buildable)
 
@@ -114,7 +116,8 @@ lives in shared `src` behind a `//? if forge` guard like the other loaders (ADR-
 a `gg.meza.stonecraft`/Architectury Loom incompatibility (`convertAccessWideners is final`); Loom
 1.17.491 fixes it and is pinned via a `resolutionStrategy.force` in `settings.gradle.kts`. See
 `docs/adr/ADR-011-add-forge-loader.md`. As with every variant, `chiseledBuild` (compile + test + jar)
-passes locally; in-game verification on real hardware is still pending (below).
+passes locally; both Forge variants have also been manually exercised in Minecraft with no new issues
+observed. (The pre-existing "Test Device Output" quirk under Known issues reproduces on Forge too.)
 
 ## Remaining beta validation and follow-ups
 

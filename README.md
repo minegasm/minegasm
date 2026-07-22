@@ -63,8 +63,8 @@ exactly what is verified vs. what needs the Minecraft toolchain and hardware.
 | Client glue | `net.minegasm.client` | ✅ compiled |
 | Minecraft observation, UI (shared) | `net.minegasm.neoforge` | ✅ compiled, manually exercised in-game (see `docs/STATUS.md`) |
 | NeoForge entrypoint | `net.minegasm.neoforge.MinegasmMod` (shared `src`, `//? if neoforge`) | ✅ compiled, manually exercised in-game |
-| Fabric entrypoint | `net.minegasm.fabric.MinegasmMod` (shared `src`, `//? if fabric`) | ✅ compiled, packaged; in-game testing pending |
-| Forge entrypoint | `net.minegasm.forge.MinegasmMod` (shared `src`, `//? if forge`) | ✅ compiled, packaged; in-game testing pending |
+| Fabric entrypoint | `net.minegasm.fabric.MinegasmMod` (shared `src`, `//? if fabric`) | ✅ compiled, packaged, manually exercised in-game |
+| Forge entrypoint | `net.minegasm.forge.MinegasmMod` (shared `src`, `//? if forge`) | ✅ compiled, packaged, manually exercised in-game |
 
 ## Building
 
