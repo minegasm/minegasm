@@ -90,6 +90,51 @@ Intiface.
 
 Record device names privately; publish only generic results.
 
+## Acceptance matrix (fill per variant)
+
+Walk the checklist above on each built variant and record the result in the matrix below. A green
+unit test or Intiface-simulator run does **not** count here — every cell is a real in-game
+observation. Copy a device into `mods/` for the matching Minecraft/loader, then tick each row.
+
+Legend: ⬜ not run · ✅ pass · ⚠️ issue (note it under the table) · — not applicable.
+Columns: NF = NeoForge, Fa = Fabric, Fo = Forge.
+
+| Check | 26.1.2 NF | 26.2 NF | 26.1.2 Fa | 26.2 Fa | 26.1.2 Fo | 26.2 Fo |
+|---|---|---|---|---|---|---|
+| Config screen opens (mods list on NeoForge/Forge; `key.minegasm.config` on Fabric) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Connect → scan → select device | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Test Device Output produces a pulse | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Enable haptics; pick recipe pack + mode | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| `/minegasm enable` / `disable` toggles output (disable stops active output) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| `/minegasm stop` stops immediately; `/minegasm resume` re-enables | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| `/minegasm status\|connect\|disconnect\|reconnect` report in chat, no op permission | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| `/minegasm test`: normal, `unsafe` suffix, over-cap rejection | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| `/mg` alias behaves identically when available | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| hurt — fires once, promptly, sane intensity | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| attack | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| mining texture | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| block break — ore vs plain | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| place | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| harvest | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| fishing bite | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| XP gain (+ level-up) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| advancement — earned in-game fires automatically (task/goal/challenge); no replay on world join | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| vitality | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| explosion — via `/minegasm trigger explosion` (no automatic acquisition yet) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| two devices both react to hurt (not just the first) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| mine 30 s: stays subtle, no backlog; an explosion interrupts | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Stop pause mode → output stops immediately, does not reassert | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Pause and resume → stops while paused, resumes at remaining time | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Continue → no pause-triggered stop; finite scenes still expire | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| pause → Save and Quit → world-exit policy still applied | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| kill Intiface mid-output → engine clears, UI shows disconnected | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| reconnect with a reused device index → no stale command before re-enable | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| panic during heavy event flow → everything stops | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+
+Issues found (row → variant → note):
+
+- _none recorded yet_
+
 ## Tips
 
 - Everything fails toward **stopped** (bounded queues, expiry, watchdog, universal stop) — see
