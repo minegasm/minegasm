@@ -15,15 +15,21 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
+//? if >=26.1.2 {
 import net.minecraft.resources.Identifier;
+//?}
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+//? if >=26.1.2 {
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+//?}
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+//? if >=26.1.2 {
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+//?}
 import net.fabricmc.loader.api.FabricLoader;
 
 import com.mojang.blaze3d.platform.InputConstants;
@@ -76,8 +82,12 @@ public final class MinegasmMod implements ClientModInitializer {
     private KeyMapping panicKey;
     private KeyMapping connectKey;
     private KeyMapping configKey;
+    //? if >=26.1.2 {
     private static final KeyMapping.Category KEY_CATEGORY = new KeyMapping.Category(
             Identifier.fromNamespaceAndPath("minegasm", "controls"));
+    //?} else {
+    /^private static final String KEY_CATEGORY = "key.categories.minegasm";
+    ^///?}
     private static final SystemToast.SystemToastId PANIC_TOAST = new SystemToast.SystemToastId();
     private long gameTick;
     private boolean shortAliasAvailable;
@@ -338,4 +348,34 @@ public final class MinegasmMod implements ClientModInitializer {
         return activeClient;
     }
 }
+
+//? if <26.1.2 {
+/^// Pre-26.1.2 Fabric API compat shims: 1.21.1's fabric-api ships the pre-rename
+// fabric-command-api-v2 (ClientCommandManager, not ClientCommands) and fabric-key-binding-api-v1
+// (KeyBindingHelper.registerKeyBinding, not fabric-key-mapping-api-v1's KeyMappingHelper.
+// registerKeyMapping). These package-private shims keep every call site above unchanged.
+final class ClientCommands {
+    private ClientCommands() {
+    }
+
+    static com.mojang.brigadier.builder.LiteralArgumentBuilder<FabricClientCommandSource> literal(
+            String name) {
+        return net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal(name);
+    }
+
+    static <T> com.mojang.brigadier.builder.RequiredArgumentBuilder<FabricClientCommandSource, T> argument(
+            String name, com.mojang.brigadier.arguments.ArgumentType<T> type) {
+        return net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument(name, type);
+    }
+}
+
+final class KeyMappingHelper {
+    private KeyMappingHelper() {
+    }
+
+    static KeyMapping registerKeyMapping(KeyMapping mapping) {
+        return net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(mapping);
+    }
+}
+^///?}
 *///?}

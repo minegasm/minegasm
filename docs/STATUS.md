@@ -6,10 +6,32 @@ successful simulator or unit test is not presented as broader hardware validatio
 
 ## Automated verification
 
-All six active variants — `26.1.2`/`26.2` × `neoforge`/`fabric`/`forge` — compile and pass the Gradle
-test suite. A full `chiseledBuild` produces one distributable jar per variant (see
+All nine active variants — `26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge` — compile and pass
+the Gradle test suite. A full `chiseledBuild` produces one distributable jar per variant (see
 `docs/adr/ADR-012-add-fabric-loader.md`, `docs/adr/ADR-013-centralize-loader-entrypoints.md`). Forge
-was unblocked by pinning Architectury Loom 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`).
+was unblocked by pinning Architectury Loom 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`); this also
+covers Forge on 1.21.1, which Architectury's own runtime warning otherwise flags as unsupported.
+
+### 1.21.1 (added after the 26.x lines)
+
+1.21.1 sits many Minecraft releases behind 26.1.2/26.2, so — unlike the small, adjacent-version
+`McCompat`-style shims between 26.1.2 and 26.2 — its shared-source compat guards cover real API
+generation changes: `ResourceLocation`/`Identifier`, `KeyMapping`'s string vs. object category, the
+`Screen`/`ObjectSelectionList.Entry` render pipeline (`render(GuiGraphics,...)` vs.
+`extractRenderState`/`extractContent(GuiGraphicsExtractor,...)`), NeoForge's client-stopping event
+(absent pre-26.1.2, so 1.21.1 uses a JVM shutdown hook like Forge), Forge's event-bus-6 static-`BUS`
+API (absent pre-26.1.2, so 1.21.1 registers listeners on `context.getModEventBus()` /
+`MinecraftForge.EVENT_BUS` instead), and Fabric API's pre-rename modules (`ClientCommandManager` not
+`ClientCommands`, `KeyBindingHelper` not `KeyMappingHelper`). All three loaders compile, pass the unit
+suite, and package (including jar-in-jar for the bundled Buttplug client) from a clean build.
+
+**Known gap:** 1.21.1-fabric has no ModMenu mods-list integration — see the note in `README.md`. Every
+other variant's ModMenu integration is unaffected.
+
+**In-game verification so far:** `testPulse` (device output) has been manually confirmed working on all
+three 1.21.1 loaders (NeoForge, Fabric, Forge). The rest of the in-game manual matrix recorded below for
+26.1.2/26.2 (config screens, connection, scanning, commands, panic/resume, legacy import, etc.) has not
+yet been repeated on 1.21.1 — this build environment has no Minecraft client to drive further passes.
 
 The automated suite covers:
 
@@ -156,6 +178,9 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 | NeoForge 26.2 | Build and tests pass | Through provider | Jar loads and has been tested |
 | Fabric 26.1.2 | Build and tests pass | Through provider | Not yet manually tested |
 | Fabric 26.2 | Build and tests pass | Through provider | Not yet manually tested |
+| NeoForge 1.21.1 | Build and tests pass | Through provider | `testPulse` confirmed in-game |
+| Fabric 1.21.1 | Build and tests pass | Through provider | `testPulse` confirmed in-game |
+| Forge 1.21.1 | Build and tests pass | Through provider | `testPulse` confirmed in-game |
 | Vibration output | Yes | Yes, simulated devices | Manual physical coverage not recorded |
 | Position and rotation output | Renderer tests | Simulator coverage only | Physical verification pending |
 | Legacy configuration import | Yes | Not applicable | Manual in-game confirmation pending |

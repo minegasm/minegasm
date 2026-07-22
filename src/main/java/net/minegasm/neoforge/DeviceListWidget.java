@@ -3,7 +3,11 @@ package net.minegasm.neoforge;
 import net.minegasm.device.HapticDevice;
 
 import net.minecraft.client.Minecraft;
+//? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.network.chat.Component;
 
@@ -52,6 +56,7 @@ final class DeviceListWidget extends ObjectSelectionList<DeviceListWidget.Entry>
             return name.copy().append(". ").append(capabilities);
         }
 
+        //? if >=26.1.2 {
         @Override
         public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
                                    boolean hovered, float partialTick) {
@@ -59,5 +64,14 @@ final class DeviceListWidget extends ObjectSelectionList<DeviceListWidget.Entry>
             graphics.text(minecraft.font, name, x, getContentY() + 3, 0xFFFFFFFF);
             graphics.text(minecraft.font, capabilities, x, getContentY() + 14, 0xFFA0A0A0);
         }
+        //?} else {
+        /*@Override
+        public void render(GuiGraphics graphics, int index, int top, int left, int rowWidth,
+                           int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTick) {
+            int x = left + 4;
+            graphics.drawString(minecraft.font, name, x, top + 3, 0xFFFFFFFF);
+            graphics.drawString(minecraft.font, capabilities, x, top + 14, 0xFFA0A0A0);
+        }
+        *///?}
     }
 }

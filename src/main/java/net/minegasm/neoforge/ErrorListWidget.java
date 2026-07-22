@@ -1,7 +1,11 @@
 package net.minegasm.neoforge;
 
 import net.minecraft.client.Minecraft;
+//? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -17,7 +21,11 @@ final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
         centerListVertically = false;
         for (String error : errors) {
             Entry entry = new Entry(minecraft, error, width - 24);
+            //? if >=26.1.2 {
             addEntry(entry, entry.contentHeight());
+            //?} else {
+            /*addEntry(entry); // pre-26.1.2 AbstractSelectionList has no per-entry height override
+            *///?}
         }
         setScrollAmount(Double.MAX_VALUE);
     }
@@ -47,6 +55,7 @@ final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
             return original;
         }
 
+        //? if >=26.1.2 {
         @Override
         public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
                                    boolean hovered, float partialTick) {
@@ -56,5 +65,16 @@ final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
                 graphics.text(minecraft.font, lines.get(i), x, y + i * 10, 0xFFFF7777);
             }
         }
+        //?} else {
+        /*@Override
+        public void render(GuiGraphics graphics, int index, int top, int left, int rowWidth,
+                           int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTick) {
+            int x = left + 4;
+            int y = top + 3;
+            for (int i = 0; i < lines.size(); i++) {
+                graphics.drawString(minecraft.font, lines.get(i), x, y + i * 10, 0xFFFF7777);
+            }
+        }
+        *///?}
     }
 }

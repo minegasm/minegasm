@@ -16,7 +16,11 @@ import net.minecraft.advancements.AdvancementProgress;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
 import net.minecraft.client.multiplayer.ClientAdvancements;
+//? if >=26.1.2 {
 import net.minecraft.resources.Identifier;
+//?} else {
+/*import net.minecraft.resources.ResourceLocation;
+*///?}
 
 /**
  * Client-side detector for the {@link GameEventKind#ADVANCEMENT} event (brief §3.2 parity). Minecraft
@@ -42,7 +46,11 @@ final class AdvancementWatcher implements ClientAdvancements.Listener {
      */
     private static final int SETTLE_TICKS = 60;
 
+    //? if >=26.1.2 {
     private final Set<Identifier> earned = new HashSet<>();
+    //?} else {
+    /*private final Set<ResourceLocation> earned = new HashSet<>();
+    *///?}
     private final Queue<Pending> pending = new ConcurrentLinkedQueue<>();
 
     private ClientAdvancements bound;

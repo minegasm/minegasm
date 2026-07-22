@@ -15,11 +15,16 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
+//? if >=26.1.2 {
 import net.minecraft.resources.Identifier;
+//?}
 
 import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+//? if <26.1.2 {
+/^import net.minecraftforge.common.MinecraftForge;
+^///?}
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -68,8 +73,12 @@ public final class MinegasmMod {
 
     private static KeyMapping panicKey;
     private static KeyMapping connectKey;
+    //? if >=26.1.2 {
     private static final KeyMapping.Category KEY_CATEGORY = new KeyMapping.Category(
             Identifier.fromNamespaceAndPath("minegasm", "controls"));
+    //?} else {
+    /^private static final String KEY_CATEGORY = "key.categories.minegasm";
+    ^///?}
     private static final SystemToast.SystemToastId PANIC_TOAST = new SystemToast.SystemToastId();
     private long gameTick;
     private boolean shortAliasAvailable;
@@ -82,11 +91,19 @@ public final class MinegasmMod {
                 net.minegasm.time.SystemClock.INSTANCE);
         this.showFirstRunNotice = client.isFirstRun();
 
+        //? if >=26.1.2 {
         var modBusGroup = context.getModBusGroup();
         FMLClientSetupEvent.getBus(modBusGroup).addListener(this::onClientSetup);
         RegisterKeyMappingsEvent.BUS.addListener(MinegasmMod::onRegisterKeyMappings);
         TickEvent.ClientTickEvent.Post.BUS.addListener(this::onClientTick);
         RegisterClientCommandsEvent.BUS.addListener(this::onRegisterClientCommands);
+        //?} else {
+        /^var modEventBus = context.getModEventBus();
+        modEventBus.addListener(this::onClientSetup);
+        modEventBus.addListener(MinegasmMod::onRegisterKeyMappings);
+        MinecraftForge.EVENT_BUS.addListener(this::onClientTick);
+        MinecraftForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
+        ^///?}
         Runtime.getRuntime().addShutdownHook(new Thread(client::shutdown, "minegasm-shutdown"));
 
         // In-game config screen from the mods list (brief §11.2).

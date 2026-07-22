@@ -191,7 +191,12 @@ public final class MinecraftSampler {
     private String blockPosKey(Minecraft mc) {
         if (mc.hitResult instanceof BlockHitResult block && mc.level != null) {
             var p = block.getBlockPos();
-            return mc.level.dimension().identifier() + ":" + p.getX() + "," + p.getY() + "," + p.getZ();
+            //? if >=26.1.2 {
+            var dimensionId = mc.level.dimension().identifier();
+            //?} else {
+            /*var dimensionId = mc.level.dimension().location();
+            *///?}
+            return dimensionId + ":" + p.getX() + "," + p.getY() + "," + p.getZ();
         }
         return null;
     }

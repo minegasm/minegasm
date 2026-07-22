@@ -25,6 +25,9 @@ buildscript {
 plugins {
     id("gg.meza.stonecraft") version "1.12.4"
     id("dev.kikugie.stonecutter") version "0.9.6"
+    // Auto-provisions the Java 21 toolchain that 1.21.1 needs (build.gradle.kts) when it isn't already
+    // installed locally — only Java 25 is present on this machine otherwise.
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
 val modVersion = providers.gradleProperty("mod_version").get()
@@ -63,6 +66,7 @@ stonecutter {
         // are registered alongside it for both current Minecraft lines.
         mc("26.2", "neoforge", "fabric", "forge")
         mc("26.1.2", "neoforge", "fabric", "forge")
+        mc("1.21.1", "neoforge", "fabric", "forge")
     }
     create(rootProject)
 }

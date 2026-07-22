@@ -6,12 +6,14 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * Version-only compatibility shim for the two vanilla Minecraft client APIs that moved between the
- * {@code 26.1.2} and {@code 26.2} lines: the screen setter and the toast-manager accessor both
- * migrated onto {@code Minecraft.gui} in 26.2. This touches only vanilla types, so it lives in
- * shared {@code src} behind a Stonecutter version guard and needs no loader guard — every loader
- * entrypoint calls through here instead of carrying its own copy of the guard, which is what let the
- * loader entrypoints move back into shared source as single files (docs/adr/ADR-013).
+ * Version-only compatibility shim for vanilla Minecraft client APIs that moved across the
+ * {@code 1.21.1}, {@code 26.1.2}, and {@code 26.2} lines: the screen setter and the toast-manager
+ * accessor both migrated onto {@code Minecraft.gui} in 26.2, and the toast-manager accessor was
+ * {@code Minecraft.getToasts()} on 1.21.1 before becoming {@code Minecraft.getToastManager()} on
+ * 26.1.2. This touches only vanilla types, so it lives in shared {@code src} behind a Stonecutter
+ * version guard and needs no loader guard — every loader entrypoint calls through here instead of
+ * carrying its own copy of the guard, which is what let the loader entrypoints move back into shared
+ * source as single files (docs/adr/ADR-013).
  */
 public final class McCompat {
 
@@ -32,8 +34,10 @@ public final class McCompat {
                                  Component detail) {
         //? if >=26.2 {
         SystemToast.addOrUpdate(mc.gui.toastManager(), id, title, detail);
-        //?} else {
+        //?} else if >=26.1.2 {
         /*SystemToast.addOrUpdate(mc.getToastManager(), id, title, detail);
+        *///?} else {
+        /*SystemToast.addOrUpdate(mc.getToasts(), id, title, detail);
         *///?}
     }
 

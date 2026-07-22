@@ -3,7 +3,11 @@ package net.minegasm.neoforge;
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.config.LegacyMinegasmImporter;
 
+//? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -39,6 +43,7 @@ public final class LegacyImportScreen extends Screen {
                 .bounds(cx + 2, y, 100, 20).build());
     }
 
+    //? if >=26.1.2 {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
                                    float partialTick) {
@@ -59,6 +64,27 @@ public final class LegacyImportScreen extends Screen {
         graphics.centeredText(font, Component.translatable("minegasm.legacy.unchanged"),
                 width / 2, height - 68, 0xFFA0A0A0);
     }
+    //?} else {
+    /*@Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.drawCenteredString(font, title, width / 2, 18, 0xFFFFFFFF);
+        graphics.drawCenteredString(font, Component.translatable("minegasm.legacy.source"),
+                width / 2, 34, 0xFFA0A0A0);
+        int y = 52;
+        int limit = Math.min(rows.size(), Math.max(0, (height - 116) / 10));
+        for (int i = 0; i < limit; i++) {
+            graphics.drawCenteredString(font, rows.get(i), width / 2, y + i * 10, 0xFFD0D0D0);
+        }
+        if (rows.size() > limit) {
+            graphics.drawCenteredString(font,
+                    Component.translatable("minegasm.legacy.more", rows.size() - limit),
+                    width / 2, y + limit * 10, 0xFFA0A0A0);
+        }
+        graphics.drawCenteredString(font, Component.translatable("minegasm.legacy.unchanged"),
+                width / 2, height - 68, 0xFFA0A0A0);
+    }
+    *///?}
 
     @Override
     public void onClose() {

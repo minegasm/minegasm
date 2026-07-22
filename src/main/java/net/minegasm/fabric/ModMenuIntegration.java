@@ -1,4 +1,4 @@
-//? if fabric {
+//? if fabric && >=26.1.2 {
 /*package net.minegasm.fabric;
 
 import net.minegasm.client.MinegasmClient;
@@ -20,7 +20,10 @@ import com.terraformersmc.modmenu.api.ModMenuApi;
  * {@link net.fabricmc.api.ClientModInitializer} — so the live {@link MinegasmClient} is reached
  * through {@link MinegasmMod#activeClient()} rather than an instance field. The
  * {@code ModMenuApi}/{@code ConfigScreenFactory} surface used here is identical across the ModMenu
- * builds for both supported Minecraft lines (18.0.0 and 20.0.0), so no version guard is needed.
+ * builds for the 26.1.2 and 26.2 lines (18.0.0 and 20.0.0). Excluded below 26.1.2: 1.21.1's only
+ * available ModMenu build (11.0.4) predates mojmap-native publishing, so it needs Loom's mod-jar
+ * remapping, which this project's plain {@code compileOnly} wiring for ModMenu (build.gradle.kts)
+ * does not perform; the config screen stays reachable there via the keybinding only.
  ^/
 public final class ModMenuIntegration implements ModMenuApi {
 

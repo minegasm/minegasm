@@ -69,6 +69,10 @@ dependencies {
     // ModMenuApi/ConfigScreenFactory surface used here is identical across 18.0.0 and 20.0.0, so the
     // shared source needs no version guard. Kept as an explicit map (not a deps-file property) so the
     // wiring is self-contained and cannot silently no-op.
+    // 1.21.1 deliberately has no entry: its only available ModMenu build (11.0.4) predates the
+    // mojmap-native publishing this project's compileOnly remap wiring expects, so ModMenuIntegration
+    // is excluded for that variant (see its //? guard) rather than fought here. The config screen
+    // stays reachable via the key.minegasm.config keybinding on every variant regardless.
     val modmenuVersion = when (project.name) {
         "26.2-fabric" -> "20.0.0"
         "26.1.2-fabric" -> "18.0.0"
@@ -90,6 +94,19 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// NeoForge's userdev "junit" run config auto-registers net.neoforged.fancymodloader:junit-fml's
+// LauncherSessionListener (ServiceLoader, via META-INF/services), which tries to boot a Minecraft
+// transforming classloader before any test runs. That bootstrap works on the 26.x lines but is broken
+// under this project's pinned Architectury Loom for NeoForge 21.1.x (1.21.1): it fails reading its
+// launch-args file regardless of content. The engine/config test suite is pure JVM code with no
+// net.minecraft/net.neoforged imports (see src/test), so it never needed that bootstrap — excluding the
+// jar here removes the auto-registered listener entirely rather than working around its bootstrap.
+if (project.name == "1.21.1-neoforge") {
+    configurations.named("testRuntimeClasspath") {
+        exclude(group = "net.neoforged.fancymodloader", module = "junit-fml")
+    }
+}
+
 // A loader's manifest (fabric.mod.json / neoforge.mods.toml) is identical across that loader's
 // Minecraft lines — version-specific values come from `${...}` tokens resolved per variant — so it
 // lives once in `loader-resources/<loader>` instead of one copy per `versions/<mc>-<loader>`
@@ -99,9 +116,12 @@ sourceSets.named("main") {
     resources.srcDir(rootProject.file("loader-resources/${project.name.substringAfterLast('-')}"))
 }
 
-// Java 25 toolchain for all 26.x variants (brief §4.1, ADR-002). Independent of developer JAVA_HOME.
+// Java 25 for the 26.x lines (brief §4.1, ADR-002); Minecraft 1.21.1 requires Java 21. Independent of
+// developer JAVA_HOME.
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(25))
+    val minecraftVersion = project.name.substringBeforeLast('-')
+    val javaVersion = if (minecraftVersion == "1.21.1") 21 else 25
+    toolchain.languageVersion.set(JavaLanguageVersion.of(javaVersion))
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -117,6 +137,18 @@ tasks.named<Jar>("jar") {
         into("META-INF")
         rename { "LICENSE-minegasm" }
     }
+}
+
+// Loom's remapJar defaults to build/libs/minegasm-<loader>-<version>.jar on the 1.21.1 line instead of
+// reusing the `jar` task's archiveFileName above the way it does on the 26.x lines (root cause not
+// pinned down — likely stonecraft's own naming falling back to a default it doesn't special-case for a
+// Minecraft version it doesn't otherwise recognize). Force it explicitly so every variant's final
+// artifact name matches stonecutter.gradle.kts's `installJars`, which expects this exact pattern.
+tasks.matching { it.name == "remapJar" }.configureEach {
+    val minecraftVersion = project.name.substringBeforeLast('-')
+    val loader = project.name.substringAfterLast('-')
+    (this as org.gradle.jvm.tasks.Jar).archiveFileName.set(
+        "minegasm-${project.version}+mc${minecraftVersion}-${loader}.jar")
 }
 
 tasks.withType<Test>().configureEach {

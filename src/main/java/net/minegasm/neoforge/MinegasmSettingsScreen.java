@@ -7,7 +7,11 @@ import net.minegasm.config.PauseBehavior;
 import net.minegasm.config.RecipePackId;
 import net.minegasm.config.TestOutputLimits;
 
+//? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -227,6 +231,7 @@ public final class MinegasmSettingsScreen extends Screen {
         onClose();
     }
 
+    //? if >=26.1.2 {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
                                    float partialTick) {
@@ -241,6 +246,21 @@ public final class MinegasmSettingsScreen extends Screen {
         graphics.centeredText(font, Component.translatable("minegasm.settings.connection"),
                 right + columnWidth / 2, 34, 0xFFFFFFFF);
     }
+    //?} else {
+    /*@Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+        int totalWidth = Math.min(width - 16, 420);
+        int columnWidth = (totalWidth - 8) / 2;
+        int left = (width - totalWidth) / 2;
+        int right = left + columnWidth + 8;
+        graphics.drawCenteredString(font, title, width / 2, 16, 0xFFFFFFFF);
+        graphics.drawCenteredString(font, Component.translatable("minegasm.settings.gameplay"),
+                left + columnWidth / 2, 34, 0xFFFFFFFF);
+        graphics.drawCenteredString(font, Component.translatable("minegasm.settings.connection"),
+                right + columnWidth / 2, 34, 0xFFFFFFFF);
+    }
+    *///?}
 
     @Override
     public void onClose() {

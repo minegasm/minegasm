@@ -11,7 +11,9 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
+//? if >=26.1.2 {
 import net.minecraft.resources.Identifier;
+//?}
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -23,7 +25,9 @@ import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+//? if >=26.1.2 {
 import net.neoforged.neoforge.client.event.lifecycle.ClientStoppingEvent;
+//?}
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -66,8 +70,12 @@ public final class MinegasmMod {
 
     private static KeyMapping panicKey;
     private static KeyMapping connectKey;
+    //? if >=26.1.2 {
     private static final KeyMapping.Category KEY_CATEGORY = new KeyMapping.Category(
             Identifier.fromNamespaceAndPath("minegasm", "controls"));
+    //?} else {
+    /*private static final String KEY_CATEGORY = "key.categories.minegasm";
+    *///?}
     private static final SystemToast.SystemToastId PANIC_TOAST = new SystemToast.SystemToastId();
     private long gameTick;
     private boolean shortAliasAvailable;
@@ -83,7 +91,11 @@ public final class MinegasmMod {
         modBus.addListener(this::onClientSetup);
         modBus.addListener(MinegasmMod::onRegisterKeyMappings);
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
+        //? if >=26.1.2 {
         NeoForge.EVENT_BUS.addListener(this::onClientStopping);
+        //?} else {
+        /*Runtime.getRuntime().addShutdownHook(new Thread(client::shutdown, "minegasm-shutdown"));
+        *///?}
         NeoForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
 
         // In-game config screen from the mods list (brief §11.2).
@@ -96,7 +108,9 @@ public final class MinegasmMod {
     }
 
     private static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
+        //? if >=26.1.2 {
         event.registerCategory(KEY_CATEGORY);
+        //?}
         panicKey = new KeyMapping("key.minegasm.panic", InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_UNKNOWN, KEY_CATEGORY);
         connectKey = new KeyMapping("key.minegasm.connect", InputConstants.Type.KEYSYM,
@@ -135,9 +149,11 @@ public final class MinegasmMod {
         client.onClientTickEnd(snapshot);
     }
 
+    //? if >=26.1.2 {
     private void onClientStopping(ClientStoppingEvent event) {
         client.shutdown();
     }
+    //?}
 
     private void onRegisterClientCommands(RegisterClientCommandsEvent event) {
         var dispatcher = event.getDispatcher();

@@ -5,7 +5,11 @@ import net.minegasm.buttplug.ProviderStatus;
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.config.HapticConfig;
 
+//? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;
+*///?}
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -221,6 +225,7 @@ public final class MinegasmConfigScreen extends Screen {
         }
     }
 
+    //? if >=26.1.2 {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
                                    float partialTick) {
@@ -246,6 +251,32 @@ public final class MinegasmConfigScreen extends Screen {
                 rightX, 120, 0xFFFFFFFF);
 
     }
+    //?} else {
+    /*@Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
+
+        ProviderStatus status = client.status();
+        Component state = Component.translatable("minegasm.connection.state",
+                Component.translatable("minegasm.connection.state."
+                        + status.state().name().toLowerCase(Locale.ROOT)));
+        graphics.drawCenteredString(this.font, state, this.width / 2, 31, 0xFFA0A0A0);
+
+        int totalWidth = Math.min(this.width - 16, 420);
+        int columnWidth = (totalWidth - 8) / 2;
+        int rightX = (this.width - totalWidth) / 2 + columnWidth + 8;
+        int rightCenter = rightX + columnWidth / 2;
+        graphics.drawCenteredString(this.font,
+                Component.translatable("minegasm.devices.heading",
+                        client.provider().devices().all().size()),
+                rightCenter, 42, 0xFFFFFFFF);
+        graphics.drawString(this.font,
+                Component.translatable("minegasm.errors.heading", client.errorHistory().size()),
+                rightX, 120, 0xFFFFFFFF);
+
+    }
+    *///?}
 
     @Override
     public void onClose() {
