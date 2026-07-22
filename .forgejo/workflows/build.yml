@@ -46,8 +46,19 @@ jobs:
             entries="$(jar tf "$artifact")"
             echo "$entries" | grep -q '^META-INF/LICENSE-minegasm$' \
               || { echo "ERROR: $artifact is missing META-INF/LICENSE-minegasm" >&2; exit 1; }
-            echo "$entries" | grep -q '^META-INF/jarjar/metadata.json$' \
-              || { echo "ERROR: $artifact is missing META-INF/jarjar/metadata.json" >&2; exit 1; }
+            # Jar-in-jar bundling format differs by loader: Forge/NeoForge (Loom) writes a
+            # jarjar/metadata.json manifest; Fabric records bundled jars in fabric.mod.json's "jars"
+            # array instead. Both still place the actual nested jars under META-INF/jars/.
+            case "$artifact" in
+              *-fabric.jar)
+                unzip -p "$artifact" fabric.mod.json | grep -q '"jars"' \
+                  || { echo "ERROR: $artifact is missing a fabric.mod.json \"jars\" entry" >&2; exit 1; }
+                ;;
+              *)
+                echo "$entries" | grep -q '^META-INF/jarjar/metadata.json$' \
+                  || { echo "ERROR: $artifact is missing META-INF/jarjar/metadata.json" >&2; exit 1; }
+                ;;
+            esac
             echo "$entries" | grep -qE '^META-INF/jars/buttplug4j-[0-9].*\.jar$' \
               || { echo "ERROR: $artifact is missing a bundled buttplug4j jar. Actual META-INF/jars/ entries:"; echo "$entries" | grep '^META-INF/jars/' >&2; exit 1; }
           done

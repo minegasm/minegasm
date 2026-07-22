@@ -6,8 +6,10 @@ successful simulator or unit test is not presented as broader hardware validatio
 
 ## Automated verification
 
-Both `26.1.2-neoforge` and `26.2-neoforge` compile and pass the Gradle test suite. A full
-`chiseledBuild` produces one distributable jar for each version.
+All four active variants — `26.1.2-neoforge`, `26.2-neoforge`, `26.1.2-fabric`, `26.2-fabric` —
+compile and pass the Gradle test suite. A full `chiseledBuild` produces one distributable jar per
+variant (see `docs/adr/ADR-012-add-fabric-loader.md`). Forge is scaffolded but not part of the active
+build (`docs/adr/ADR-011-add-forge-loader.md`).
 
 The automated suite covers:
 
@@ -58,19 +60,71 @@ configurable command alias, pause and world-exit policies, reconnection, and nor
 NeoForge dependencies are currently pinned beta builds. Release notes must not imply greater
 stability than those dependencies provide.
 
+## Minecraft and Fabric verification
+
+The real Gradle, Stonecutter, and Fabric Loader/API toolchain compiles both supported variants
+against their pinned Minecraft mappings, and `jar`/`build` produce a correctly packaged mod jar for
+each (entrypoint class, bundled buttplug4j dependency via Fabric's jar-in-jar `jars` manifest entry,
+license file). **Neither Fabric variant has been fully manually exercised in Minecraft yet** — unlike
+NeoForge above, verification here is still mostly compile- and package-level.
+
+The first real Fabric launch surfaced that Fabric API must be installed as a separate companion mod
+(Fabric Loader's "missing dependency" screen otherwise) — expected, not a bug: Fabric API is declared
+as a dependency in `fabric.mod.json` but never bundled into the Minegasm jar, unlike `buttplug4j`,
+which is. See `README.md` for the exact required Fabric API versions per Minecraft line.
+
+The config screen has no mods-list entry point on Fabric (no ModMenu integration); it opens via the
+`key.minegasm.config` keybinding instead, which still needs manual confirmation in-game.
+
+## Known issues
+
+**Config screen "Test Device Output" button sometimes produces no pulse.** In some in-game sessions,
+clicking the button (`MinegasmConfigScreen`) does nothing — no vibration — even though the button
+renders as active (enabled, connected, a device with a Vibrate capability present) and the same
+device demonstrably vibrates correctly from normal gameplay events (hurt, mining, etc.) in the same
+session. Reproduced on both NeoForge and Fabric; reproduces on a fresh session's very first test
+attempt as well as after other activity.
+
+**Workaround:** press **Emergency Stop** then **Resume after emergency** on the config screen once;
+"Test Device Output" then works normally for the rest of the session.
+
+**Root cause not confirmed.** Investigated and ruled out: the screen pausing the game (still
+reproduces with `pauseBehavior` set to `Continue`, which never engages the worker's pause gate at
+all), and `FatigueGovernor` attenuation (the test pulse's `HapticRole.IMPACT` role is never
+fatigue-attenuated, by design). Diagnosing further needs runtime evidence (e.g. temporary logging in
+`MinegasmClient.testPulse`/`HapticWorker.cycle`/`FeatureScheduler.accept` during a live repro), not
+more static code reading.
+
 ## CI and release automation
 
 The Forgejo Actions workflow is implemented for Codeberg's `codeberg-medium-lazy` runner. It builds
-and tests both variants, checks packaged dependencies and licensing, generates SHA-256 checksums, and
-publishes matching beta tags as Codeberg prereleases.
+and tests every active variant and publishes matching beta tags as Codeberg prereleases. **It has
+been run successfully on Codeberg and published the `v1.0.0-beta.1` prerelease** — both the ordinary
+push build and the tagged prerelease path are proven for the two-variant (NeoForge-only) workflow.
 
-**The workflow has not yet been run successfully on Codeberg.** Hosted-runner access, repository
-permissions, the ordinary push build, and the tagged prerelease path must all be verified before the
-automation is considered proven.
+The workflow's dependency/licensing check is being updated to be loader-aware (NeoForge's
+`jarjar/metadata.json` vs Fabric's `fabric.mod.json` `jars` array) as part of adding Fabric
+(`docs/adr/ADR-012-add-fabric-loader.md`). That change is still local/uncommitted and has **not** yet
+had a real Codeberg run with all four variants — verified locally only so far.
+
+## Forge loader (not yet buildable)
+
+A Forge entrypoint and resources are scaffolded (`versions/26.2-forge/`) but **not registered** in
+`settings.gradle.kts`: enabling the `forge` loader currently breaks Gradle configuration for every
+variant, NeoForge included, via a `gg.meza.stonecraft`/Architectury Loom incompatibility. See
+`docs/adr/ADR-011-add-forge-loader.md` for the reproduction and exact error. Do not advertise Forge
+support until that is resolved and a real build succeeds.
 
 ## Remaining beta validation and follow-ups
 
-- Run the Forgejo workflow on Codeberg, first for an ordinary push and then for the beta tag.
+- Verify the updated (Fabric-aware) Forgejo workflow with a real Codeberg run, once the Fabric loader
+  changes are committed and pushed — the `v1.0.0-beta.1` run predates them.
+- Diagnose the "Test Device Output does nothing" known issue above with runtime evidence (logging
+  during a live repro), since static code review ruled out the two leading theories without finding
+  the actual cause.
+- Manually exercise both Fabric variants in-game (config screen via keybind, commands, connection,
+  panic/output) the same way NeoForge already has been.
+- Decide whether to add optional ModMenu integration for a mods-list config screen entry on Fabric.
 - Add real client-side acquisition hooks for advancement and nearby explosion events. Their intents,
   recipes, settings, and manual `/minegasm trigger` paths exist, but gameplay does not currently emit
   them automatically.
@@ -92,15 +146,17 @@ automation is considered proven.
 | buttplug4j provider | Yes | Yes, simulated devices | Exercised through the mod |
 | NeoForge 26.1.2 | Build and tests pass | Through provider | Jar loads and has been tested |
 | NeoForge 26.2 | Build and tests pass | Through provider | Jar loads and has been tested |
+| Fabric 26.1.2 | Build and tests pass | Through provider | Not yet manually tested |
+| Fabric 26.2 | Build and tests pass | Through provider | Not yet manually tested |
 | Vibration output | Yes | Yes, simulated devices | Manual physical coverage not recorded |
 | Position and rotation output | Renderer tests | Simulator coverage only | Physical verification pending |
 | Legacy configuration import | Yes | Not applicable | Manual in-game confirmation pending |
-| Forgejo release workflow | Defined | Not applicable | Codeberg run pending |
+| Forgejo release workflow | Defined | Not applicable | Proven on Codeberg for `v1.0.0-beta.1` (NeoForge-only); Fabric-aware update not yet run there |
 
 ## Fast verification commands
 
 ```powershell
-.\gradlew.bat :26.1.2-neoforge:test :26.2-neoforge:test
+.\gradlew.bat :26.1.2-neoforge:test :26.2-neoforge:test :26.1.2-fabric:test :26.2-fabric:test
 .\gradlew.bat clean chiseledBuild --rerun-tasks --warning-mode all
 ```
 

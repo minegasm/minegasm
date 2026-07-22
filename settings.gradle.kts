@@ -47,9 +47,13 @@ stonecutter {
         fun mc(version: String, vararg loaders: String) {
             for (loader in loaders) version("$version-$loader", version)
         }
-        // NeoForge only for the MVP; two current lines (brief §4.1, ADR-002).
-        mc("26.2", "neoforge")
-        mc("26.1.2", "neoforge")
+        // NeoForge is the primary target (brief §4.1, ADR-002). Fabric is added alongside it
+        // (docs/adr/ADR-012-add-fabric-loader.md) for the same two current lines. Forge is
+        // scaffolded but NOT registered here: enabling it currently breaks Gradle configuration for
+        // every variant, NeoForge included (docs/adr/ADR-011-add-forge-loader.md). Re-add "forge" to
+        // these mc(...) calls once that is resolved.
+        mc("26.2", "neoforge", "fabric")
+        mc("26.1.2", "neoforge", "fabric")
     }
     create(rootProject)
 }

@@ -1,7 +1,7 @@
 # Minegasm
 
-Client-side, multi-device haptic feedback for **Minecraft Java Edition** (NeoForge, 26.2 and 26.1.x,
-Java 25), driving [Buttplug](https://buttplug.io/) v4 devices through a local
+Client-side, multi-device haptic feedback for **Minecraft Java Edition** (NeoForge and Fabric, 26.2
+and 26.1.x, Java 25), driving [Buttplug](https://buttplug.io/) v4 devices through a local
 [Intiface](https://intiface.com/) server. It is a full-rewrite replacement for the original mod —
 RainbowVille's Minegasm (`com.therainbowville.minegasm`, source in the `minegasm-legacy` repo) —
 covering its user-visible triggers, modes, and config migration on a new semantic haptic engine.
@@ -46,10 +46,11 @@ settings, manual `/minegasm trigger`) but are not yet raised automatically by ga
 listed trigger fires automatically. See `CHANGELOG.md` and `docs/STATUS.md` for details.
 The two pre-brief ideation prototypes (codename *Feelcraft*) are kept under
 [`prototypes/`](prototypes/) for historical reference. The **pure engine**
-(loader- and Minecraft-independent) is implemented and covered by a JUnit suite; the **NeoForge
-observation/UI layer** is written against the 26.x API and is compiled by the Gradle+Stonecraft
-toolchain. See `docs/STATUS.md` for exactly what is verified vs. what needs the Minecraft toolchain
-and hardware.
+(loader- and Minecraft-independent) is implemented and covered by a JUnit suite; the **NeoForge and
+Fabric observation/UI layers** are written against the 26.x API and compiled by the Gradle+Stonecraft
+toolchain (`docs/adr/ADR-012-add-fabric-loader.md`). Forge is scaffolded but not buildable yet
+(`docs/adr/ADR-011-add-forge-loader.md`). See `docs/STATUS.md` for exactly what is verified vs. what
+needs the Minecraft toolchain and hardware.
 
 | Layer | Package | Built & tested here? |
 |---|---|---|
@@ -60,21 +61,24 @@ and hardware.
 | Buttplug v4 provider + fake server (native fallback) | `net.minegasm.buttplug` | ✅ compiled + unit-tested |
 | buttplug4j provider (default backend) | `net.minegasm.buttplug.b4j` | ✅ compiled vs buttplug4j 4.0.278 (needs Intiface + hardware to run) |
 | Client glue | `net.minegasm.client` | ✅ compiled |
-| Minecraft observation, UI, bootstrap | `net.minegasm.neoforge` | ✅ compiled, manually exercised in-game (see `docs/STATUS.md`) |
+| Minecraft observation, UI (shared) | `net.minegasm.neoforge` | ✅ compiled, manually exercised in-game (see `docs/STATUS.md`) |
+| NeoForge entrypoint | `net.minegasm.neoforge.MinegasmMod` (per-version) | ✅ compiled, manually exercised in-game |
+| Fabric entrypoint | `net.minegasm.fabric.MinegasmMod` (per-version) | ✅ compiled, packaged; in-game testing pending |
 
 ## Building
 
-### The mod (Gradle + Stonecraft + NeoForge, Java 25)
+### The mod (Gradle + Stonecraft + NeoForge/Fabric, Java 25)
 
 ```bash
 ./gradlew build                # builds the active Stonecutter variant
-./gradlew chiseledBuild        # builds all variants (26.2-neoforge, 26.1.2-neoforge)
+./gradlew chiseledBuild        # builds all variants (26.2-neoforge, 26.1.2-neoforge, 26.2-fabric, 26.1.2-fabric)
 ```
 
-Artifacts are one jar per variant, e.g. `minegasm-1.0.0+mc26.2-neoforge.jar`. Requires a JDK 25
-toolchain (auto-provisioned by Gradle) and network access to the NeoForge/Fabric/Architectury Maven
-repos on first run. NeoForge builds are pinned in `versions/dependencies/` (currently `-beta`; note
-this in release notes per the brief).
+Artifacts are one jar per variant, e.g. `minegasm-1.0.0+mc26.2-neoforge.jar` or
+`minegasm-1.0.0+mc26.2-fabric.jar`. Requires a JDK 25 toolchain (auto-provisioned by Gradle) and
+network access to the NeoForge/Fabric/Architectury Maven repos on first run. Loader versions are
+pinned in `versions/dependencies/` (NeoForge builds are currently `-beta`; note this in release notes
+per the brief).
 
 ### The pure core only (JDK 25, no Gradle) — fast inner loop
 
@@ -85,8 +89,9 @@ JDK plus Gson and the JUnit console jar (auto-downloaded into `.localbuild/libs`
 pwsh .localbuild/build.ps1 -Test
 ```
 
-This excludes `net.minegasm.neoforge` (which needs the Minecraft classpath). Gradle and CI report
-the current result and test totals.
+This excludes `net.minegasm.neoforge` and the loader entrypoints (`net.minegasm.neoforge.MinegasmMod`,
+`net.minegasm.fabric.MinegasmMod`), which need the Minecraft classpath. Gradle and CI report the
+current result and test totals.
 
 **Testing the real device path** (Intiface, no Minecraft or hardware needed) and the full in-game
 matrix are described in **`docs/TESTING.md`** — including a standalone `intifaceProbe` harness
@@ -97,9 +102,15 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
 ## Using it in-game
 
 1. Install and open **Intiface Central**; start its server (default `ws://127.0.0.1:12345`).
-2. Launch Minecraft with the mod. Open the config screen from the mods list.
-3. Connect, scan, and select a device; run the device-output test.
-4. Enable haptics and pick a recipe pack + mode. Bind a **panic** key (Controls → Minegasm).
+2. On Fabric, also install **[Fabric API](https://modrinth.com/mod/fabric-api/versions)** matching
+   your Minecraft version (`0.155.2+26.2` or `0.155.2+26.1.2`) in the same `mods` folder — it is a
+   required dependency, declared in `fabric.mod.json` but never bundled into the Minegasm jar, the
+   same as with any other Fabric mod that uses it.
+3. Launch Minecraft with the mod. On NeoForge, open the config screen from the mods list; on Fabric
+   (no mods-list entry point without ModMenu, ADR-012), bind and press **Open Minegasm settings**
+   (Controls → Minegasm) instead.
+4. Connect, scan, and select a device; run the device-output test.
+5. Enable haptics and pick a recipe pack + mode. Bind a **panic** key (Controls → Minegasm).
    `/minegasm stop` is the client-side chat-command fallback; `/minegasm resume` clears the panic
    latch. Connection controls are available through `/minegasm status`, `connect`, `disconnect`,
    and `reconnect`. These client-side commands do not require server permissions.

@@ -87,6 +87,7 @@
 
   "key.minegasm.panic": "Panic stop (all output off)",
   "key.minegasm.connect": "Connect to Intiface",
+  "key.minegasm.config": "Open Minegasm settings",
   "key.category.minegasm.controls": "Minegasm",
 
   "minegasm.toast.migrated": "Imported legacy Minegasm config",

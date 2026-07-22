@@ -1,8 +1,10 @@
 # Releasing Minegasm on Codeberg
 
-Minegasm uses Forgejo Actions. The workflow in `.forgejo/workflows/build.yml` builds and tests both
-NeoForge variants on pushes, pull requests, and manual runs. A matching beta tag additionally creates
-a Codeberg prerelease containing both jars and their SHA-256 checksums.
+Minegasm uses Forgejo Actions. The workflow in `.forgejo/workflows/build.yml` builds and tests every
+NeoForge and Fabric variant (`chiseledBuild`) on pushes, pull requests, and manual runs. A matching
+beta tag additionally creates a Codeberg prerelease containing all the built jars and their SHA-256
+checksums. Forge is scaffolded but not part of the active build; see
+`docs/adr/ADR-011-add-forge-loader.md`.
 
 ## One-time Codeberg setup
 
@@ -26,9 +28,9 @@ metadata, jar names, and the release workflow. Use a SemVer prerelease value suc
 .\gradlew.bat clean chiseledBuild --rerun-tasks --warning-mode all
 ```
 
-Test the exact jars from both `versions/*/build/libs/` directories in their corresponding Minecraft
-versions. Commit and push the release preparation, then confirm the normal push workflow succeeds on
-Codeberg before creating a release tag.
+Test the exact jars from every `versions/*/build/libs/` directory in their corresponding Minecraft
+versions and loaders. Commit and push the release preparation, then confirm the normal push workflow
+succeeds on Codeberg before creating a release tag.
 
 ## Publishing
 
@@ -42,5 +44,5 @@ git push origin v1.0.0-beta.1
 ```
 
 The workflow rejects a tag whose version differs from the built jar. Tags containing `-beta.` create
-a Codeberg prerelease and upload the two version-labelled jars plus `SHA256SUMS`. Stable releases are
+a Codeberg prerelease and upload every version-labelled jar plus `SHA256SUMS`. Stable releases are
 intentionally not automatic until the beta pipeline has been proven.
