@@ -36,4 +36,13 @@ public final class McCompat {
         /*SystemToast.addOrUpdate(mc.getToastManager(), id, title, detail);
         *///?}
     }
+
+    /** The screen currently open (or {@code null}), using the line-appropriate accessor. */
+    public static Screen currentScreen(Minecraft mc) {
+        //? if >=26.2 {
+        return mc.gui.screen();
+        //?} else {
+        /*return mc.screen;
+        *///?}
+    }
 }

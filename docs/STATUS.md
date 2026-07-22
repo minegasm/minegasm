@@ -129,9 +129,12 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 - Manually exercise both Fabric variants in-game (config screen via keybind, commands, connection,
   panic/output) the same way NeoForge already has been.
 - Decide whether to add optional ModMenu integration for a mods-list config screen entry on Fabric.
-- Add real client-side acquisition hooks for advancement and nearby explosion events. Their intents,
-  recipes, settings, and manual `/minegasm trigger` paths exist, but gameplay does not currently emit
-  them automatically.
+- Advancement acquisition is now automatic via the vanilla client advancement listener
+  (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`); it still needs in-game
+  confirmation (earn a `task`/`goal`/`challenge` advancement and feel the pulse; confirm joining a
+  world does not replay past advancements). Nearby-explosion acquisition remains pending — its
+  intent, recipe, settings, and manual `/minegasm trigger explosion` path exist, but gameplay does
+  not emit it automatically (no mixin-free client signal carrying explosion position and power).
 - Complete and record the gameplay acceptance matrix for both supported Minecraft versions.
 - Manually confirm legacy TOML import in Minecraft with representative legacy configuration files.
 - Confirm multi-device behavior with physical devices if testing so far used Intiface simulators.

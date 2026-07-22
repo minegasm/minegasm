@@ -35,6 +35,8 @@ public final class MinecraftSampler {
         void record(RawGameEvent event);
     }
 
+    private final AdvancementWatcher advancements = new AdvancementWatcher();
+
     private boolean prevAttackDown;
     private boolean prevMining;
     private String prevMiningTargetKey;
@@ -47,6 +49,9 @@ public final class MinecraftSampler {
      * Returns a snapshot for the continuous-state pipeline.
      */
     public ClientStateSnapshot sample(Minecraft mc, long gameTick, long nowNs, EventSink sink) {
+        // Advancements are not pollable from client state; a listener feeds them in here (ADR-014).
+        advancements.poll(mc, gameTick, nowNs, sink);
+
         LocalPlayer player = mc.player;
         boolean worldReady = player != null && mc.level != null;
         boolean paused = mc.isPaused();

@@ -41,9 +41,10 @@ See `docs/ARCHITECTURE.md` for the layered design and `docs/adr/` for the decisi
 This repository is built to the initial brief, archived in
 [`docs/briefs/0001-initial-implementation-brief/`](docs/briefs/) — the brief and its appendices,
 examples, and assets preserved verbatim (see `docs/briefs/README.md` for the planning-doc convention).
-**Known gap:** advancement and nearby-explosion events are fully implemented (intents, recipes,
-settings, manual `/minegasm trigger`) but are not yet raised automatically by gameplay; every other
-listed trigger fires automatically. See `CHANGELOG.md` and `docs/STATUS.md` for details.
+**Known gap:** the nearby-explosion event is fully implemented (intents, recipes, settings, manual
+`/minegasm trigger`) but is not yet raised automatically by gameplay; every other listed trigger,
+including advancement (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`), now fires
+automatically. See `CHANGELOG.md` and `docs/STATUS.md` for details.
 The two pre-brief ideation prototypes (codename *Feelcraft*) are kept under
 [`prototypes/`](prototypes/) for historical reference. The **pure engine**
 (loader- and Minecraft-independent) is implemented and covered by a JUnit suite; the **NeoForge and

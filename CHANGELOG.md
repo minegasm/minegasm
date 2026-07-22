@@ -5,6 +5,25 @@ All notable changes to Minegasm are documented in this file. The format follows
 [SemVer](https://semver.org/) with `0.x.x` reserved for legacy Minegasm (see
 `docs/adr/ADR-001-rewrite-and-license.md`).
 
+## [Unreleased]
+
+### Added
+
+- Automatic acquisition of the **advancement** event: earning an advancement in-game now raises the
+  haptic event that was previously reachable only via `/minegasm trigger advancement`. Implemented
+  with the vanilla client advancement listener so it works in singleplayer and on unmodified
+  multiplayer servers, without mixins or reflection; the `task`/`goal`/`challenge` frame drives the
+  recipe as before (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`).
+- Fabric and Forge loader support on both Minecraft lines, and the loader entrypoints centralized
+  into shared source (`docs/adr/ADR-011`…`ADR-013`), with the CI workflows building all six variants.
+
+### Known limitations
+
+- **Nearby-explosion** acquisition is still pending; the event remains reachable only via
+  `/minegasm trigger explosion`. It is an optional enhancement beyond strict legacy parity, and no
+  client-side signal carrying explosion position and power is available without a mixin. Every other
+  listed trigger fires automatically.
+
 ## [1.0.0-beta.1] - 2026-07-19
 
 Initial public beta. Full rewrite of RainbowVille's Minegasm on a new client-side, semantic haptic
