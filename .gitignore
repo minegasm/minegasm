@@ -41,6 +41,8 @@ Thumbs.db
 
 # Logs / local config
 *.log
+# Local install targets for `installJars` (per-developer mods folders)
+/mods-install.env
 /minegasm.json
 /minegasm.json.corrupt
 /minegasm.json.before-legacy-import*

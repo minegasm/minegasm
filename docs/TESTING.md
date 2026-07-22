@@ -31,6 +31,24 @@ NeoForge event/screen APIs against the pinned build. Requires network on first r
 versions in `versions/dependencies/` follow the brief's 26.x line; substitute the actual versions you
 target.)
 
+### Install jars into your test instances
+
+To iterate in-game across loaders/versions without copying jars by hand:
+
+```bash
+./gradlew installJars       # runs chiseledBuild, then copies each jar to its instance
+```
+
+One-time setup: copy `mods-install.env.example` to `mods-install.env` (gitignored) and set each
+`<variant>=<mods folder>` line to the `mods` folder of the matching Minecraft instance. Keys are the
+Stonecutter variant names (`26.2-neoforge`, `26.2-fabric`, `26.2-forge`, and the `26.1.2-*` trio);
+values are raw paths (Windows backslashes need no escaping). Leave a line blank to skip that variant.
+
+The task builds every variant, then for each variant with a target it removes any existing
+`minegasm-*.jar` from that folder (so a version bump never leaves two Minegasm jars) and copies in the
+new one. Other mods in the folder are untouched. Use `-x chiseledBuild` to copy already-built jars
+without rebuilding.
+
 ## Level 2 — Intiface, no Minecraft (the important one)
 
 This validates connect → negotiate v4 → scan → device features → output → stop through the exact
