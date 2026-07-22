@@ -249,6 +249,9 @@ public final class MinegasmSettingsScreen extends Screen {
     //?} else {
     /*@Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        //? if <1.21.1 {
+        /^this.renderBackground(graphics); // 1.20.1 Screen.render() paints no backdrop (1.21.1+'s does)
+        ^///?}
         super.render(graphics, mouseX, mouseY, partialTick);
         int totalWidth = Math.min(width - 16, 420);
         int columnWidth = (totalWidth - 8) / 2;

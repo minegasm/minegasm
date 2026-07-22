@@ -1,7 +1,8 @@
 # Minegasm
 
-Client-side, multi-device haptic feedback for **Minecraft Java Edition** (NeoForge, Fabric, and Forge,
-26.2, 26.1.x, and 1.21.1; Java 25 on the 26.x lines, Java 21 on 1.21.1), driving
+Client-side, multi-device haptic feedback for **Minecraft Java Edition** (NeoForge, Fabric, and Forge
+on 26.2, 26.1.x, and 1.21.1; Fabric and Forge on 1.20.1; Java 25 on the 26.x lines, Java 21 on 1.21.1,
+Java 17 on 1.20.1), driving
 [Buttplug](https://buttplug.io/) v4 devices through a local
 [Intiface](https://intiface.com/) server. It is a full-rewrite replacement for the original mod —
 RainbowVille's Minegasm (`com.therainbowville.minegasm`, source in the `minegasm-legacy` repo) —
@@ -70,17 +71,22 @@ exactly what is verified vs. what needs the Minecraft toolchain and hardware.
 
 ## Building
 
-### The mod (Gradle + Stonecraft + NeoForge/Fabric/Forge, Java 25 / Java 21)
+### The mod (Gradle + Stonecraft + NeoForge/Fabric/Forge, Java 25 / Java 21 / Java 17)
 
 ```bash
 ./gradlew build                # builds the active Stonecutter variant
-./gradlew chiseledBuild        # builds all nine variants (26.2/26.1.2/1.21.1 x neoforge/fabric/forge)
+./gradlew chiseledBuild        # builds all eleven variants
 ```
 
+The eleven variants are 26.2/26.1.2/1.21.1 × neoforge/fabric/forge, plus 1.20.1 × fabric/forge.
+NeoForge is not built for 1.20.1: its first release for that line shipped under legacy
+`net.neoforged:forge` coordinates with the old `net.minecraftforge` API (the modern NeoForge surface
+only arrived in 1.20.2+), so plain Forge covers that near-identical target instead.
+
 Artifacts are one jar per variant, e.g. `minegasm-1.0.0+mc26.2-neoforge.jar` or
-`minegasm-1.0.0+mc26.2-fabric.jar`. Requires a JDK toolchain (25 for the 26.x lines, 21 for 1.21.1;
-both auto-provisioned by Gradle) and network access to the NeoForge/Fabric/Forge/Architectury Maven
-repos on first run. Loader versions are pinned in `versions/dependencies/` (NeoForge builds on the
+`minegasm-1.0.0+mc1.20.1-fabric.jar`. Requires a JDK toolchain (25 for the 26.x lines, 21 for 1.21.1,
+17 for 1.20.1; all auto-provisioned by Gradle) and network access to the
+NeoForge/Fabric/Forge/Architectury Maven repos on first run. Loader versions are pinned in `versions/dependencies/` (NeoForge builds on the
 26.x lines are currently `-beta`; note this in release notes per the brief). Forge additionally pins
 Architectury Loom `1.17.491` in `settings.gradle.kts` (see `docs/adr/ADR-011-add-forge-loader.md`) —
 this also unblocks Forge on 1.21.1, which Architectury otherwise warns is unsupported.
@@ -108,7 +114,7 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
 
 1. Install and open **Intiface Central**; start its server (default `ws://127.0.0.1:12345`).
 2. On Fabric, also install **[Fabric API](https://modrinth.com/mod/fabric-api/versions)** matching
-   your Minecraft version (`0.155.2+26.2`, `0.155.2+26.1.2`, or `0.116.14+1.21.1`) in the same `mods`
+   your Minecraft version (`0.155.2+26.2`, `0.155.2+26.1.2`, `0.116.14+1.21.1`, or `0.92.11+1.20.1`) in the same `mods`
    folder — it is a
    required dependency, declared in `fabric.mod.json` but never bundled into the Minegasm jar, the
    same as with any other Fabric mod that uses it.

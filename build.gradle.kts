@@ -73,6 +73,7 @@ dependencies {
         "26.2-fabric" -> "20.0.0"
         "26.1.2-fabric" -> "18.0.0"
         "1.21.1-fabric" -> "11.0.4"
+        "1.20.1-fabric" -> "7.2.2"
         else -> null
     }
     if (modmenuVersion != null) {
@@ -81,11 +82,12 @@ dependencies {
         // optional for end users.
         //
         // The 26.x builds are published mojmap-native and resolve against this project's mappings as-is
-        // via plain `compileOnly`. The only ModMenu build for 1.21.1 (11.0.4) is published against
-        // intermediary mappings, so it must go through Loom's `modCompileOnly`, which remaps the mod jar
-        // from intermediary to the project's mappings at compile time (plain `compileOnly` skips that
-        // remap, leaving intermediary names like `class_437` on the classpath and failing compilation).
-        if (project.name == "1.21.1-fabric") {
+        // via plain `compileOnly`. The older builds for 1.21.1 (11.0.4) and 1.20.1 (7.2.2) are published
+        // against intermediary mappings, so they must go through Loom's `modCompileOnly`, which remaps
+        // the mod jar from intermediary to the project's mappings at compile time (plain `compileOnly`
+        // skips that remap, leaving intermediary names like `class_437` on the classpath and failing
+        // compilation).
+        if (project.name == "1.21.1-fabric" || project.name == "1.20.1-fabric") {
             "modCompileOnly"("maven.modrinth:modmenu:$modmenuVersion")
         } else {
             compileOnly("maven.modrinth:modmenu:$modmenuVersion")
@@ -122,11 +124,15 @@ sourceSets.named("main") {
     resources.srcDir(rootProject.file("loader-resources/${project.name.substringAfterLast('-')}"))
 }
 
-// Java 25 for the 26.x lines (brief §4.1, ADR-002); Minecraft 1.21.1 requires Java 21. Independent of
-// developer JAVA_HOME.
+// Java 25 for the 26.x lines (brief §4.1, ADR-002); Minecraft 1.21.1 requires Java 21 and 1.20.1
+// requires Java 17. Independent of developer JAVA_HOME.
 java {
     val minecraftVersion = project.name.substringBeforeLast('-')
-    val javaVersion = if (minecraftVersion == "1.21.1") 21 else 25
+    val javaVersion = when (minecraftVersion) {
+        "1.20.1" -> 17
+        "1.21.1" -> 21
+        else -> 25
+    }
     toolchain.languageVersion.set(JavaLanguageVersion.of(javaVersion))
 }
 

@@ -178,14 +178,17 @@ public final class ButtplugProvider implements HapticProvider {
         if (!canSendMessages()) {
             return CompletableFuture.completedFuture(null);
         }
-        switch (selection) {
-            case StopSelection.All ignored ->
-                    transport.send(ButtplugCodec.stopAll(nextId.getAndIncrement()));
-            case StopSelection.Device d ->
-                    transport.send(ButtplugCodec.stopDevice(nextId.getAndIncrement(), d.deviceIndex()));
-            case StopSelection.Feature f ->
-                    transport.send(ButtplugCodec.stopFeature(nextId.getAndIncrement(),
-                            f.deviceIndex(), f.featureIndex()));
+        // instanceof chain rather than a switch over the sealed StopSelection: switch type patterns are
+        // a Java 21 feature, and this core also compiles under Java 17 for the 1.20.1 variants.
+        if (selection instanceof StopSelection.All) {
+            transport.send(ButtplugCodec.stopAll(nextId.getAndIncrement()));
+        } else if (selection instanceof StopSelection.Device d) {
+            transport.send(ButtplugCodec.stopDevice(nextId.getAndIncrement(), d.deviceIndex()));
+        } else if (selection instanceof StopSelection.Feature f) {
+            transport.send(ButtplugCodec.stopFeature(nextId.getAndIncrement(),
+                    f.deviceIndex(), f.featureIndex()));
+        } else {
+            throw new IllegalStateException("Unknown StopSelection: " + selection);
         }
         return CompletableFuture.completedFuture(null);
     }
@@ -236,29 +239,32 @@ public final class ButtplugProvider implements HapticProvider {
     }
 
     private void handle(ServerMessage msg) {
-        switch (msg) {
-            case ServerMessage.DeviceList list -> {
-                DeviceRegistrySnapshot snap = registry.accept(list.devices());
-                registryListener.accept(snap);
-                setState(snap.isEmpty() ? ConnectionState.CONNECTED_NO_DEVICES : ConnectionState.READY);
-                complete(list);
+        // instanceof chain rather than a switch over the sealed ServerMessage: switch type patterns are
+        // a Java 21 feature, and this core also compiles under Java 17 for the 1.20.1 variants. The
+        // trailing throw keeps the switch's exhaustiveness — a new ServerMessage subtype fails loudly.
+        if (msg instanceof ServerMessage.DeviceList list) {
+            DeviceRegistrySnapshot snap = registry.accept(list.devices());
+            registryListener.accept(snap);
+            setState(snap.isEmpty() ? ConnectionState.CONNECTED_NO_DEVICES : ConnectionState.READY);
+            complete(list);
+        } else if (msg instanceof ServerMessage.ServerInfo si) {
+            this.negotiatedVersion = si.majorVersion() + "." + si.minorVersion();
+            this.maxPingTimeMs = si.maxPingTimeMs();
+            complete(si);
+        } else if (msg instanceof ServerMessage.Error err) {
+            failPending(err.id(), new ButtplugException(err.errorMessage(), err.errorCode()));
+        } else if (msg instanceof ServerMessage.ScanningFinished sf) {
+            if (status.get().state() == ConnectionState.SCANNING) {
+                setState(devices().isEmpty()
+                        ? ConnectionState.CONNECTED_NO_DEVICES : ConnectionState.READY);
             }
-            case ServerMessage.ServerInfo si -> {
-                this.negotiatedVersion = si.majorVersion() + "." + si.minorVersion();
-                this.maxPingTimeMs = si.maxPingTimeMs();
-                complete(si);
-            }
-            case ServerMessage.Error err -> failPending(err.id(),
-                    new ButtplugException(err.errorMessage(), err.errorCode()));
-            case ServerMessage.ScanningFinished sf -> {
-                if (status.get().state() == ConnectionState.SCANNING) {
-                    setState(devices().isEmpty()
-                            ? ConnectionState.CONNECTED_NO_DEVICES : ConnectionState.READY);
-                }
-                complete(sf);
-            }
-            case ServerMessage.Ok ok -> complete(ok);
-            case ServerMessage.Unknown u -> { /* logged once by caller; ignore safely */ }
+            complete(sf);
+        } else if (msg instanceof ServerMessage.Ok ok) {
+            complete(ok);
+        } else if (msg instanceof ServerMessage.Unknown) {
+            /* logged once by caller; ignore safely */
+        } else {
+            throw new IllegalStateException("Unknown ServerMessage: " + msg);
         }
     }
 

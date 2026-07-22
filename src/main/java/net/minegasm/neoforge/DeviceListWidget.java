@@ -20,15 +20,24 @@ import java.util.stream.Collectors;
 final class DeviceListWidget extends ObjectSelectionList<DeviceListWidget.Entry> {
     DeviceListWidget(Minecraft minecraft, int x, int y, int width, int height,
                      List<HapticDevice> devices) {
+        //? if >=1.21.1 {
         super(minecraft, width, height, y, 28);
         setX(x);
+        //?} else {
+        /*super(minecraft, width, height, y, y + height, 28); // 1.20.1 ctor takes explicit y0/y1
+        setLeftPos(x);
+        *///?}
         centerListVertically = false;
         devices.forEach(device -> addEntry(new Entry(minecraft, device)));
     }
 
     @Override
     public int getRowWidth() {
+        //? if >=1.21.1 {
         return getWidth() - 14;
+        //?} else {
+        /*return this.width - 14; // 1.20.1 AbstractSelectionList exposes the width field, not getWidth()
+        *///?}
     }
 
     static final class Entry extends ObjectSelectionList.Entry<Entry> {

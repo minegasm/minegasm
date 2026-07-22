@@ -76,7 +76,12 @@ public final class MinegasmMod {
     //?} else {
     /*private static final String KEY_CATEGORY = "key.categories.minegasm";
     *///?}
+    //? if >=1.21.1 {
     private static final SystemToast.SystemToastId PANIC_TOAST = new SystemToast.SystemToastId();
+    //?} else {
+    /*private static final SystemToast.SystemToastIds PANIC_TOAST =
+            SystemToast.SystemToastIds.PERIODIC_NOTIFICATION;
+    *///?}
     private long gameTick;
     private boolean shortAliasAvailable;
     private boolean showFirstRunNotice;

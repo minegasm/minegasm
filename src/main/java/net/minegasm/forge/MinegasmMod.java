@@ -79,7 +79,12 @@ public final class MinegasmMod {
     //?} else {
     /^private static final String KEY_CATEGORY = "key.categories.minegasm";
     ^///?}
+    //? if >=1.21.1 {
     private static final SystemToast.SystemToastId PANIC_TOAST = new SystemToast.SystemToastId();
+    //?} else {
+    /^private static final SystemToast.SystemToastIds PANIC_TOAST =
+            SystemToast.SystemToastIds.PERIODIC_NOTIFICATION;
+    ^///?}
     private long gameTick;
     private boolean shortAliasAvailable;
     private boolean showFirstRunNotice;
@@ -125,7 +130,16 @@ public final class MinegasmMod {
         event.register(connectKey);
     }
 
+    // 1.20.1 Forge has no ClientTickEvent.Post: TickEvent.ClientTickEvent fires both phases with a
+    // `phase` field, so filter to END there. On 1.21.1+ the dedicated Post event is already end-of-tick.
+    //? if >=1.21.1 {
     private void onClientTick(TickEvent.ClientTickEvent.Post event) {
+    //?} else {
+    /^private void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+    ^///?}
         Minecraft mc = Minecraft.getInstance();
         gameTick++;
 

@@ -67,6 +67,9 @@ public final class LegacyImportScreen extends Screen {
     //?} else {
     /*@Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        //? if <1.21.1 {
+        /^this.renderBackground(graphics); // 1.20.1 Screen.render() paints no backdrop (1.21.1+'s does)
+        ^///?}
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(font, title, width / 2, 18, 0xFFFFFFFF);
         graphics.drawCenteredString(font, Component.translatable("minegasm.legacy.source"),

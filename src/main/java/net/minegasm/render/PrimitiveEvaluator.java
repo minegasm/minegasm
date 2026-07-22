@@ -18,14 +18,24 @@ public final class PrimitiveEvaluator {
             return 0f;
         }
         double ms = elapsedNs / 1_000_000.0;
-        return switch (primitive) {
-            case HapticPrimitive.Impulse i -> impulse(i, ms);
-            case HapticPrimitive.Texture t -> texture(t, ms);
-            case HapticPrimitive.Rumble r -> rumble(r, ms);
-            case HapticPrimitive.Sweep s -> sweep(s, ms);
-            case HapticPrimitive.BeatPattern b -> beat(b, ms);
-            case HapticPrimitive.Hold h -> hold(h, ms);
-        };
+        // instanceof chain rather than a switch over the sealed type: switch type patterns are a
+        // Java 21 feature, and this loader-agnostic core also compiles under Java 17 for the 1.20.1
+        // variants. The trailing throw keeps the exhaustiveness the switch gave — a new HapticPrimitive
+        // subtype fails loudly here instead of silently returning 0.
+        if (primitive instanceof HapticPrimitive.Impulse i) {
+            return impulse(i, ms);
+        } else if (primitive instanceof HapticPrimitive.Texture t) {
+            return texture(t, ms);
+        } else if (primitive instanceof HapticPrimitive.Rumble r) {
+            return rumble(r, ms);
+        } else if (primitive instanceof HapticPrimitive.Sweep s) {
+            return sweep(s, ms);
+        } else if (primitive instanceof HapticPrimitive.BeatPattern b) {
+            return beat(b, ms);
+        } else if (primitive instanceof HapticPrimitive.Hold h) {
+            return hold(h, ms);
+        }
+        throw new IllegalStateException("Unknown HapticPrimitive: " + primitive);
     }
 
     private static float impulse(HapticPrimitive.Impulse i, double ms) {

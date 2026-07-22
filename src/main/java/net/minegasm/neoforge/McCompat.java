@@ -29,7 +29,13 @@ public final class McCompat {
         *///?}
     }
 
-    /** Adds or updates a system toast, using the line-appropriate toast-manager accessor. */
+    /**
+     * Adds or updates a system toast, using the line-appropriate toast-manager accessor. The toast-id
+     * token type also diverged: it is the instantiable {@code SystemToast.SystemToastId} on 1.21.1 and
+     * the 26.x lines, but the {@code SystemToast.SystemToastIds} enum on 1.20.1, so the whole method is
+     * duplicated per era rather than only the accessor line.
+     */
+    //? if >=1.21.1 {
     public static void showToast(Minecraft mc, SystemToast.SystemToastId id, Component title,
                                  Component detail) {
         //? if >=26.2 {
@@ -40,6 +46,12 @@ public final class McCompat {
         /*SystemToast.addOrUpdate(mc.getToasts(), id, title, detail);
         *///?}
     }
+    //?} else {
+    /*public static void showToast(Minecraft mc, SystemToast.SystemToastIds id, Component title,
+                                 Component detail) {
+        SystemToast.addOrUpdate(mc.getToasts(), id, title, detail);
+    }
+    *///?}
 
     /** The screen currently open (or {@code null}), using the line-appropriate accessor. */
     public static Screen currentScreen(Minecraft mc) {

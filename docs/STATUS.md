@@ -6,11 +6,12 @@ successful simulator or unit test is not presented as broader hardware validatio
 
 ## Automated verification
 
-All nine active variants — `26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge` — compile and pass
-the Gradle test suite. A full `chiseledBuild` produces one distributable jar per variant (see
-`docs/adr/ADR-012-add-fabric-loader.md`, `docs/adr/ADR-013-centralize-loader-entrypoints.md`). Forge
-was unblocked by pinning Architectury Loom 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`); this also
-covers Forge on 1.21.1, which Architectury's own runtime warning otherwise flags as unsupported.
+All eleven active variants — `26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge`, plus `1.20.1` ×
+`fabric`/`forge` — compile and pass the Gradle test suite. A full `chiseledBuild` produces one
+distributable jar per variant (see `docs/adr/ADR-012-add-fabric-loader.md`,
+`docs/adr/ADR-013-centralize-loader-entrypoints.md`). Forge was unblocked by pinning Architectury Loom
+1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`); this also covers Forge on 1.21.1, which Architectury's
+own runtime warning otherwise flags as unsupported.
 
 ### 1.21.1 (added after the 26.x lines)
 
@@ -34,6 +35,31 @@ builds use. ModMenu stays compile-only and optional on all variants.
 three 1.21.1 loaders (NeoForge, Fabric, Forge). The rest of the in-game manual matrix recorded below for
 26.1.2/26.2 (config screens, connection, scanning, commands, panic/resume, legacy import, etc.) has not
 yet been repeated on 1.21.1 — this build environment has no Minecraft client to drive further passes.
+
+### 1.20.1 (Fabric and Forge only)
+
+1.20.1 sits further back still, and is built for Fabric and Forge only. NeoForge is deliberately not
+built for it: NeoForge's first 1.20.1 release shipped under legacy `net.neoforged:forge` coordinates
+(not the modern `net.neoforged:neoforge` this tooling resolves) with the old `net.minecraftforge` API —
+the modern NeoForge surface only arrived in 1.20.2+ — so plain Forge covers that near-identical target.
+
+The compat surface is the largest of any line, in two layers. **Java level:** 1.20.1 runs on Java 17,
+but the loader-agnostic core was written against Java 21 idioms — switch *type patterns* over sealed
+types, a Java 21 feature (preview in 17). Those sites (in `PrimitiveEvaluator`, `ButtplugProvider`,
+`Buttplug4jProvider`) were rewritten to `instanceof` chains with a trailing `throw` that preserves the
+switch's compile-time exhaustiveness. The rewrite is unconditional (all variants), not version-guarded:
+it is a Java-version concern, not a Minecraft one, and belongs out of the pure core's otherwise
+zero-guard source. The identical 92-test suite passes on both Java 17 and the modern (Java 25) variants,
+confirming it is behavior-preserving. **Minecraft level:** guards (keyed `>=1.21.1`, a proxy for the
+pre-1.20.2 API state that holds only because no 1.20.2–1.20.6 variant is registered) cover the toast-id
+token (`SystemToast.SystemToastIds` enum vs. the instantiable `SystemToastId`), the pre-1.20.2
+advancement API (`Advancement` with nullable `DisplayInfo` vs. `AdvancementNode`/`AdvancementHolder`),
+the `ObjectSelectionList` constructor (explicit `y0`/`y1` and `setLeftPos`/`width` field vs.
+`setX`/`getWidth`), and Forge's single `ClientTickEvent` with a `phase` field vs. the later
+`ClientTickEvent.Post`. Both loaders compile, pass the unit suite, and package from a clean build.
+ModMenu integration also works on 1.20.1-fabric via `modCompileOnly` (build 7.2.2, intermediary-mapped).
+
+**In-game verification:** none yet on 1.20.1 — no Minecraft client in this build environment.
 
 The automated suite covers:
 
@@ -183,6 +209,8 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 | NeoForge 1.21.1 | Build and tests pass | Through provider | `testPulse` confirmed in-game |
 | Fabric 1.21.1 | Build and tests pass | Through provider | `testPulse` confirmed in-game |
 | Forge 1.21.1 | Build and tests pass | Through provider | `testPulse` confirmed in-game |
+| Fabric 1.20.1 | Build and tests pass | Through provider | Not yet manually tested |
+| Forge 1.20.1 | Build and tests pass | Through provider | Not yet manually tested |
 | Vibration output | Yes | Yes, simulated devices | Manual physical coverage not recorded |
 | Position and rotation output | Renderer tests | Simulator coverage only | Physical verification pending |
 | Legacy configuration import | Yes | Not applicable | Manual in-game confirmation pending |

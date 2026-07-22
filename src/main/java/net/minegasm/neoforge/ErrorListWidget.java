@@ -16,8 +16,13 @@ import java.util.List;
 final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
     ErrorListWidget(Minecraft minecraft, int x, int y, int width, int height,
                     List<String> errors) {
+        //? if >=1.21.1 {
         super(minecraft, width, height, y, 20);
         setX(x);
+        //?} else {
+        /*super(minecraft, width, height, y, y + height, 20); // 1.20.1 ctor takes explicit y0/y1
+        setLeftPos(x);
+        *///?}
         centerListVertically = false;
         for (String error : errors) {
             Entry entry = new Entry(minecraft, error, width - 24);
@@ -32,7 +37,11 @@ final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
 
     @Override
     public int getRowWidth() {
+        //? if >=1.21.1 {
         return getWidth() - 14;
+        //?} else {
+        /*return this.width - 14; // 1.20.1 AbstractSelectionList exposes the width field, not getWidth()
+        *///?}
     }
 
     static final class Entry extends ObjectSelectionList.Entry<Entry> {

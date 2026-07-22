@@ -15,6 +15,13 @@ All notable changes to Minegasm are documented in this file. The format follows
   `docs/adr/ADR-012-add-fabric-loader.md`.
 - **Forge loader** support on both Minecraft lines (`26.2`, `26.1.2`), unblocked by pinning
   Architectury Loom `1.17.491`. See `docs/adr/ADR-011-add-forge-loader.md`.
+- **Older Minecraft lines**: `1.21.1` (NeoForge, Fabric, Forge) and `1.20.1` (Fabric, Forge) build
+  alongside the 26.x lines via Stonecutter version guards over the real API-generation changes
+  (advancement, toast, list-widget, key-mapping, and Forge/Fabric event APIs). 1.20.1 runs on Java 17,
+  which required rewriting the loader-agnostic core's Java 21 switch type patterns to `instanceof`
+  chains — behavior-preserving, verified by the same 92-test suite passing on both Java 17 and Java 25.
+  NeoForge is not built for `1.20.1`: its first release for that line predates the modern NeoForge API,
+  and plain Forge covers the near-identical target. See `docs/STATUS.md`.
 - **Quilt** runs the existing **Fabric** jar as-is — Quilt Loader loads it via `fabric.mod.json` and
   the mod uses no loader-specific API beyond Fabric API, so no separate Quilt build is shipped
   (install the Fabric jar with the normal Fabric API mod).

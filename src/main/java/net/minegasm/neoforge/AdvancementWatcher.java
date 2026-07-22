@@ -10,8 +10,12 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+//? if >=1.21.1 {
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.AdvancementNode;
+//?} else {
+/*import net.minecraft.advancements.Advancement;
+*///?}
 import net.minecraft.advancements.AdvancementProgress;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
@@ -122,6 +126,15 @@ final class AdvancementWatcher implements ClientAdvancements.Listener {
         attachedTick = Long.MIN_VALUE;
     }
 
+    // The vanilla advancement types diverged in 1.20.2: 1.21.1 and the 26.x lines carry the earned
+    // advancement as an AdvancementNode wrapping an AdvancementHolder (id + value), whereas 1.20.1
+    // passes the Advancement directly, with getId()/getDisplay() on it and a nullable DisplayInfo
+    // (getFrame().getName(), which returns the same serialized "task"/"goal"/"challenge" as the newer
+    // getType().getSerializedName()) rather than an Optional AdvancementType. The listener method shapes
+    // below therefore split by era; onAdvancementsCleared() is identical on both and stays unguarded.
+    // The >=1.21.1 guard is a proxy for "has the 1.20.2 advancement rework": it holds only because no
+    // 1.20.2–1.20.6 variant is registered — adding one would need this boundary revisited.
+    //? if >=1.21.1 {
     @Override
     public void onUpdateAdvancementProgress(AdvancementNode node, AdvancementProgress progress) {
         if (!progress.isDone()) {
@@ -141,6 +154,26 @@ final class AdvancementWatcher implements ClientAdvancements.Listener {
         }
         pending.add(new Pending(holder.id().hashCode(), display.get().getType().getSerializedName()));
     }
+    //?} else {
+    /*@Override
+    public void onUpdateAdvancementProgress(Advancement advancement, AdvancementProgress progress) {
+        if (!progress.isDone()) {
+            return;
+        }
+        var display = advancement.getDisplay();
+        if (display == null) {
+            // Recipe-unlock and other display-less advancements are internal; they never pulse.
+            return;
+        }
+        if (!earned.add(advancement.getId())) {
+            return; // already counted this session
+        }
+        if (!primed) {
+            return; // join/reload replay: recorded above, but suppressed
+        }
+        pending.add(new Pending(advancement.getId().hashCode(), display.getFrame().getName()));
+    }
+    *///?}
 
     @Override
     public void onAdvancementsCleared() {
@@ -149,6 +182,7 @@ final class AdvancementWatcher implements ClientAdvancements.Listener {
         needsReprime = true;
     }
 
+    //? if >=1.21.1 {
     @Override
     public void onSelectedTabChanged(AdvancementHolder holder) {
     }
@@ -168,4 +202,25 @@ final class AdvancementWatcher implements ClientAdvancements.Listener {
     @Override
     public void onRemoveAdvancementTask(AdvancementNode node) {
     }
+    //?} else {
+    /*@Override
+    public void onSelectedTabChanged(Advancement advancement) {
+    }
+
+    @Override
+    public void onAddAdvancementRoot(Advancement advancement) {
+    }
+
+    @Override
+    public void onRemoveAdvancementRoot(Advancement advancement) {
+    }
+
+    @Override
+    public void onAddAdvancementTask(Advancement advancement) {
+    }
+
+    @Override
+    public void onRemoveAdvancementTask(Advancement advancement) {
+    }
+    *///?}
 }

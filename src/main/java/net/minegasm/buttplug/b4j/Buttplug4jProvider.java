@@ -189,16 +189,22 @@ public final class Buttplug4jProvider implements HapticProvider {
         }
         return CompletableFuture.runAsync(() -> {
             try {
-                switch (selection) {
-                    case StopSelection.All ignored -> client.stopAllDevices();
-                    case StopSelection.Device d -> findDevice(d.deviceIndex()).ifPresent(this::stopDevice);
-                    case StopSelection.Feature f -> findDevice(f.deviceIndex()).ifPresent(device -> {
+                // instanceof chain rather than a switch over the sealed StopSelection: switch type
+                // patterns are a Java 21 feature, and this core also compiles under Java 17 for 1.20.1.
+                if (selection instanceof StopSelection.All) {
+                    client.stopAllDevices();
+                } else if (selection instanceof StopSelection.Device d) {
+                    findDevice(d.deviceIndex()).ifPresent(this::stopDevice);
+                } else if (selection instanceof StopSelection.Feature f) {
+                    findDevice(f.deviceIndex()).ifPresent(device -> {
                         try {
                             device.sendStopDeviceCmd(f.featureIndex());
                         } catch (Exception ignored) {
                             // best effort
                         }
                     });
+                } else {
+                    throw new IllegalStateException("Unknown StopSelection: " + selection);
                 }
             } catch (Exception e) {
                 setError(e.getMessage());

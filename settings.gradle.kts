@@ -67,6 +67,11 @@ stonecutter {
         mc("26.2", "neoforge", "fabric", "forge")
         mc("26.1.2", "neoforge", "fabric", "forge")
         mc("1.21.1", "neoforge", "fabric", "forge")
+        // 1.20.1: Fabric and Forge only. NeoForge for 1.20.1 shipped as its initial fork under the
+        // legacy net.neoforged:forge:1.20.1-47.1.x coordinates (not the modern net.neoforged:neoforge
+        // this tooling resolves) with the old net.minecraftforge API, so it is deliberately not
+        // registered here — plain Forge covers that near-identical surface.
+        mc("1.20.1", "fabric", "forge")
     }
     create(rootProject)
 }
