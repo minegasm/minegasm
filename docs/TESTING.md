@@ -64,8 +64,9 @@ Intiface.
 ## Level 3 — In-game (full manual matrix, brief §14)
 
 1. Put the built jar in a NeoForge client's `mods/` (the MC/NeoForge version you built for).
-2. Start Intiface; in-game open the config screen (mods list) → connect → scan → select device →
-   **Test** → enable haptics → pick a recipe pack + mode. Bind a **panic** key. Also verify that
+2. Start Intiface; in-game open the config screen (mods list) → connect → scan (connected devices
+   appear in the list; output goes to all of them) → **Test** → enable haptics → pick a recipe pack
+   + mode. Bind a **panic** key. Also verify that
    `/minegasm stop` immediately stops output and `/minegasm resume` allows output again; these are
    client-side commands and must not require operator permission.
 3. Verify `/minegasm status`, `/minegasm connect`, `/minegasm disconnect`, and
@@ -99,17 +100,24 @@ observation. Copy a device into `mods/` for the matching Minecraft/loader, then 
 Legend: ⬜ not run · ✅ pass · ⚠️ issue (note it under the table) · — not applicable.
 Columns: NF = NeoForge, Fa = Fabric, Fo = Forge.
 
+Prefill note: cells marked ✅ below reflect the general in-game exercise already reported for all
+three loaders on both Minecraft lines (config, connection, commands, pause/world-exit, and normal
+gameplay output, with no new issues observed) — see `docs/STATUS.md`. Rows left ⬜ are either brand
+new (advancement auto-acquisition, `enable`/`disable`) or specific scenarios not yet individually
+confirmed; re-confirm the ✅ cells against your own testing and fill the ⬜ ones.
+
 | Check | 26.1.2 NF | 26.2 NF | 26.1.2 Fa | 26.2 Fa | 26.1.2 Fo | 26.2 Fo |
 |---|---|---|---|---|---|---|
-| Config screen opens (mods list on NeoForge/Forge; `key.minegasm.config` on Fabric) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| Connect → scan → select device | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| Test Device Output produces a pulse | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| Enable haptics; pick recipe pack + mode | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Config screen opens (mods list on NeoForge/Forge; `key.minegasm.config` on Fabric) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Connect → scan → connected devices appear in the list (output goes to all of them) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Test Device Output produces a pulse | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| Enable haptics; pick recipe pack + mode | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `/minegasm enable` / `disable` toggles output (disable stops active output) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| `/minegasm stop` stops immediately; `/minegasm resume` re-enables | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| `/minegasm status\|connect\|disconnect\|reconnect` report in chat, no op permission | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| `/minegasm test`: normal, `unsafe` suffix, over-cap rejection | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| `/mg` alias behaves identically when available | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| `/minegasm stop` stops immediately; `/minegasm resume` re-enables | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `/minegasm status\|connect\|disconnect\|reconnect` report their result in chat | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `/minegasm` client commands run without op permission on a multiplayer server | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| `/minegasm test`: normal, `unsafe` suffix, over-cap rejection | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `/mg` alias behaves identically when available | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | hurt — fires once, promptly, sane intensity | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | attack | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | mining texture | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
@@ -121,19 +129,22 @@ Columns: NF = NeoForge, Fa = Fabric, Fo = Forge.
 | advancement — earned in-game fires automatically (task/goal/challenge); no replay on world join | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | vitality | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | explosion — via `/minegasm trigger explosion` (no automatic acquisition yet) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| two devices both react to hurt (not just the first) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| mine 30 s: stays subtle, no backlog; an explosion interrupts | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| Stop pause mode → output stops immediately, does not reassert | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| Pause and resume → stops while paused, resumes at remaining time | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| Continue → no pause-triggered stop; finite scenes still expire | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| pause → Save and Quit → world-exit policy still applied | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| kill Intiface mid-output → engine clears, UI shows disconnected | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| reconnect with a reused device index → no stale command before re-enable | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| panic during heavy event flow → everything stops | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| two devices both react to an event (not just the first) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| mine 30 s: stays subtle, no backlog; stops promptly when you stop mining | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| explosion (`/minegasm trigger explosion`) ducks/interrupts active mining | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Stop pause mode → output stops immediately, does not reassert | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Pause and resume → stops while paused, resumes at remaining time | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Continue → no pause-triggered stop; finite scenes still expire | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| pause → Save and Quit → world-exit policy still applied | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| kill Intiface mid-output → device stops buzzing immediately; UI shows disconnected | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| panic during heavy event flow → everything stops | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Issues found (row → variant → note):
 
-- _none recorded yet_
+- **Test Device Output → all six variants** → intermittent: sometimes produces no pulse even when the
+  button is active and the same device vibrates from gameplay in the same session. Pressing
+  **Emergency Stop** then **Resume after emergency** once clears it for the rest of the session
+  (workaround succeeds in every observed case). See Known issues in `docs/STATUS.md`.
 
 ## Tips
 

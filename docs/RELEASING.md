@@ -29,8 +29,11 @@ metadata, jar names, and the release workflow. Use a SemVer prerelease value suc
 ```
 
 Test the exact jars from every `versions/*/build/libs/` directory in their corresponding Minecraft
-versions and loaders. Commit and push the release preparation, then confirm the normal push workflow
-succeeds on Codeberg before creating a release tag.
+versions and loaders, walking the **acceptance matrix** in `docs/TESTING.md` and filling its cells as
+you go (a green unit test or Intiface-simulator run does not count there). Commit the filled matrix
+as part of the release preparation — the release tag then snapshots it, so a copy per release is not
+needed; `git show v<version>:docs/TESTING.md` recovers any past release's results. Push the release
+preparation, then confirm the normal push workflow succeeds on Codeberg before creating a release tag.
 
 ## Publishing
 
@@ -46,3 +49,11 @@ git push origin v1.0.0-beta.1
 The workflow rejects a tag whose version differs from the built jar. Tags containing `-beta.` create
 a Codeberg prerelease and upload every version-labelled jar plus `SHA256SUMS`. Stable releases are
 intentionally not automatic until the beta pipeline has been proven.
+
+## After a release: reset the acceptance matrix
+
+The tag has snapshotted the filled acceptance matrix, so reset its cells back to `⬜` (and clear the
+"Issues found" list of anything now fixed) in a small `chore: reset acceptance matrix for <next-version>`
+commit. The matrix on `main` then tracks the current cycle in progress, while each release tag holds
+what was verified at that release. Keep the row set current as features change — do not archive stale
+copies of the checklist.
