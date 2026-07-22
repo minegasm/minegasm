@@ -160,6 +160,28 @@ public final class MinegasmClient {
         }
     }
 
+    /**
+     * Turn master haptic output on or off, persisting the change exactly like the config screen's
+     * enable toggle; a disable transition also stops any active output (via {@link #updateConfig}).
+     * Returns {@code true} if the state actually changed, {@code false} if it was already there.
+     */
+    public boolean setHapticsEnabled(boolean enabled) {
+        HapticConfig cfg = config.get().raw();
+        var g = cfg.global();
+        if (g.enabled() == enabled) {
+            return false;
+        }
+        var updated = new HapticConfig(cfg.schemaVersion(), cfg.identity(),
+                new HapticConfig.Global(enabled, g.intensity(), g.variation(),
+                        g.fatigueProtection(), g.pauseBehavior(), g.stopOnWorldUnload(), g.panicKey(),
+                        g.testMaxPercent(), g.testMaxDurationMs(),
+                        g.unsafeTestMaxPercent(), g.unsafeTestMaxDurationMs()),
+                cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity());
+        updateConfig(updated);
+        return true;
+    }
+
     /** Apply a new config atomically: persist, swap the runtime snapshot, and stop if now disabled. */
     public void updateConfig(HapticConfig updated) {
         RuntimeConfig previous = config.get();

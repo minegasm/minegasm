@@ -153,6 +153,10 @@ public final class MinegasmMod {
                             () -> Component.translatable("minegasm.command.resumed"), false);
                     return 1;
                 }))
+                .then(Commands.literal("enable").executes(context ->
+                        hapticsFromCommand(context.getSource(), true)))
+                .then(Commands.literal("disable").executes(context ->
+                        hapticsFromCommand(context.getSource(), false)))
                 .then(Commands.literal("status").executes(context -> {
                     sendStatus(context.getSource());
                     return 1;
@@ -201,6 +205,15 @@ public final class MinegasmMod {
             shortAliasAvailable = false;
             LOGGER.warn("Minegasm did not register the /mg alias because that command root is already in use; /minegasm remains available");
         }
+    }
+
+    private int hapticsFromCommand(CommandSourceStack source, boolean enable) {
+        boolean changed = client.setHapticsEnabled(enable);
+        String key = enable
+                ? (changed ? "minegasm.command.haptics_enabled" : "minegasm.command.haptics_already_enabled")
+                : (changed ? "minegasm.command.haptics_disabled" : "minegasm.command.haptics_already_disabled");
+        source.sendSuccess(() -> Component.translatable(key), false);
+        return 1;
     }
 
     private int testFromCommand(CommandSourceStack source, int strengthPercent, int durationMs,

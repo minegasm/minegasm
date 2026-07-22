@@ -112,11 +112,14 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
 3. Launch Minecraft with the mod. On NeoForge, open the config screen from the mods list; on Fabric
    (no mods-list entry point without ModMenu, ADR-012), bind and press **Open Minegasm settings**
    (Controls → Minegasm) instead.
-4. Connect, scan, and select a device; run the device-output test.
+4. Connect and scan; connected devices appear in the list and all of them receive output (there is
+   no per-device selection in the UI yet). Run the device-output test.
 5. Enable haptics and pick a recipe pack + mode. Bind a **panic** key (Controls → Minegasm).
-   `/minegasm stop` is the client-side chat-command fallback; `/minegasm resume` clears the panic
-   latch. Connection controls are available through `/minegasm status`, `connect`, `disconnect`,
-   and `reconnect`. These client-side commands do not require server permissions.
+   `/minegasm enable` and `/minegasm disable` toggle master haptic output from chat (the same switch
+   as the config screen; disabling also stops any active output). `/minegasm stop` is the client-side
+   panic fallback; `/minegasm resume` clears the panic latch. Connection controls are available
+   through `/minegasm status`, `connect`, `disconnect`, and `reconnect`. These client-side commands do
+   not require server permissions.
    Use `/minegasm test [strength-percent] [duration-ms]` for a bounded direct pulse, or
    `/minegasm trigger <event>` to exercise an event through the normal recipe pipeline.
    Tests above the configured normal limit require an explicit `unsafe` suffix and remain bounded by
