@@ -12,7 +12,7 @@ jobs:
       image: eclipse-temurin:25-jdk
     steps:
       - name: Install workflow tools
-        run: apt-get update && apt-get install -y --no-install-recommends git curl jq
+        run: apt-get update && apt-get install -y --no-install-recommends git curl jq unzip
 
       - name: Check out source
         env:
