@@ -11,8 +11,19 @@ pluginManagement {
     }
 }
 
+// Force Architectury Loom to 1.17.491 (overriding the version the stonecraft plugin resolves
+// transitively). 1.17.487 — the newest at the time of ADR-011 — throws "convertAccessWideners is final
+// and cannot be changed" when any Forge variant is registered, breaking Gradle config for every
+// variant; 1.17.491 fixes it (docs/adr/ADR-013). Remove this force once the stonecraft plugin's own
+// resolved Loom is >= 1.17.491, so it stops silently holding Loom back.
+buildscript {
+    configurations.all {
+        resolutionStrategy.force("dev.architectury:architectury-loom:1.17.491")
+    }
+}
+
 plugins {
-    id("gg.meza.stonecraft") version "1.12.2"
+    id("gg.meza.stonecraft") version "1.12.4"
     id("dev.kikugie.stonecutter") version "0.9.6"
 }
 
@@ -47,13 +58,11 @@ stonecutter {
         fun mc(version: String, vararg loaders: String) {
             for (loader in loaders) version("$version-$loader", version)
         }
-        // NeoForge is the primary target (brief §4.1, ADR-002). Fabric is added alongside it
-        // (docs/adr/ADR-012-add-fabric-loader.md) for the same two current lines. Forge is
-        // scaffolded but NOT registered here: enabling it currently breaks Gradle configuration for
-        // every variant, NeoForge included (docs/adr/ADR-011-add-forge-loader.md). Re-add "forge" to
-        // these mc(...) calls once that is resolved.
-        mc("26.2", "neoforge", "fabric")
-        mc("26.1.2", "neoforge", "fabric")
+        // NeoForge is the primary target (brief §4.1, ADR-002). Fabric (ADR-012) and Forge (ADR-011,
+        // unblocked per ADR-013 by pinning Architectury Loom 1.17.491 in the buildscript block above)
+        // are registered alongside it for both current Minecraft lines.
+        mc("26.2", "neoforge", "fabric", "forge")
+        mc("26.1.2", "neoforge", "fabric", "forge")
     }
     create(rootProject)
 }

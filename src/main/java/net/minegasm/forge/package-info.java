@@ -6,12 +6,12 @@
  * widgets, provider factory) — those reference only vanilla Minecraft and pure-Java types, so
  * duplicating them here would just be sync-by-hand maintenance debt.
  *
- * <p>This package lives under {@code versions/<mc>-forge/src}, not the shared root {@code src}: Forge
- * types (e.g. {@code net.minecraftforge.*}) are only on the classpath for Forge variants, so a Forge
- * entrypoint in the shared tree would break every NeoForge build that also compiles it. Each
- * supported Minecraft line gets its own copy of this file rather than one shared file guarded by
- * Stonecutter conditionals, to avoid nesting a loader condition inside the existing per-Minecraft-
- * version conditionals this class already needs.
+ * <p>The entrypoint lives in the shared root {@code src} behind a whole-file {@code //? if forge}
+ * Stonecutter loader guard (docs/adr/ADR-013): Forge types ({@code net.minecraftforge.*}) are only on
+ * the classpath for Forge variants, so the guard comments the entire class out of every non-Forge
+ * compile. A single copy serves both Minecraft lines — the one vanilla API that differs between them
+ * ({@code Minecraft}'s toast-manager accessor) is funnelled through
+ * {@link net.minegasm.neoforge.McCompat}.
  *
  * <p><strong>Build note:</strong> compiled only by the Gradle + Stonecraft + Forge toolchain (Java
  * 25), not by the standalone JDK core harness in {@code .localbuild}. The event/context API here was

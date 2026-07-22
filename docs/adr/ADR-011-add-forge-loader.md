@@ -1,10 +1,13 @@
 # ADR-011: Add Forge alongside NeoForge; blocked on Architectury Loom
 
-**Status:** in progress — code scaffolded, not yet buildable. **Note (ADR-013):** the NeoForge and
-Fabric entrypoints have since moved back into shared `src` behind Stonecutter `//? if <loader>` guards.
-The Forge entrypoint described here deliberately stays at `versions/26.2-forge/src` — Forge is still
-unregistered, so it has no per-line duplication to remove, and shared source would only add
-nested-block-comment escaping. Reconsider when Forge is unblocked.
+**Status:** resolved — Forge is now a registered, buildable variant on both Minecraft lines. **Update
+(ADR-013):** the Architectury Loom incompatibility described below (`convertAccessWideners is final`) is
+fixed in Loom **1.17.491** — one of several releases that postdate the 1.17.487 this ADR tested.
+Pinning that version via a `resolutionStrategy.force` in `settings.gradle.kts`, adding
+`forge_version=26.1.2-64.0.14` to `versions/dependencies/26.1.2.properties`, and re-adding `forge` to
+both `mc(...)` calls unblocks it. The Forge entrypoint was then centralized into shared `src` behind a
+`//? if forge` guard alongside the other loaders (ADR-013), not kept per-version. The historical
+analysis below is preserved as written.
 
 **Context.** ADR-002 scoped the MVP to NeoForge only, with the loader boundary (`net.minegasm.neoforge`
 holds all Minecraft/loader-specific code; everything else is loader-independent) deliberately left open

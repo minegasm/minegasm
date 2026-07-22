@@ -1,7 +1,7 @@
 # Minegasm
 
-Client-side, multi-device haptic feedback for **Minecraft Java Edition** (NeoForge and Fabric, 26.2
-and 26.1.x, Java 25), driving [Buttplug](https://buttplug.io/) v4 devices through a local
+Client-side, multi-device haptic feedback for **Minecraft Java Edition** (NeoForge, Fabric, and Forge,
+26.2 and 26.1.x, Java 25), driving [Buttplug](https://buttplug.io/) v4 devices through a local
 [Intiface](https://intiface.com/) server. It is a full-rewrite replacement for the original mod —
 RainbowVille's Minegasm (`com.therainbowville.minegasm`, source in the `minegasm-legacy` repo) —
 covering its user-visible triggers, modes, and config migration on a new semantic haptic engine.
@@ -48,9 +48,9 @@ The two pre-brief ideation prototypes (codename *Feelcraft*) are kept under
 [`prototypes/`](prototypes/) for historical reference. The **pure engine**
 (loader- and Minecraft-independent) is implemented and covered by a JUnit suite; the **NeoForge and
 Fabric observation/UI layers** are written against the 26.x API and compiled by the Gradle+Stonecraft
-toolchain (`docs/adr/ADR-012-add-fabric-loader.md`). Forge is scaffolded but not buildable yet
-(`docs/adr/ADR-011-add-forge-loader.md`). See `docs/STATUS.md` for exactly what is verified vs. what
-needs the Minecraft toolchain and hardware.
+toolchain (`docs/adr/ADR-012-add-fabric-loader.md`). Forge builds on both Minecraft lines too, unblocked
+by pinning Architectury Loom 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`). See `docs/STATUS.md` for
+exactly what is verified vs. what needs the Minecraft toolchain and hardware.
 
 | Layer | Package | Built & tested here? |
 |---|---|---|
@@ -62,23 +62,25 @@ needs the Minecraft toolchain and hardware.
 | buttplug4j provider (default backend) | `net.minegasm.buttplug.b4j` | ✅ compiled vs buttplug4j 4.0.278 (needs Intiface + hardware to run) |
 | Client glue | `net.minegasm.client` | ✅ compiled |
 | Minecraft observation, UI (shared) | `net.minegasm.neoforge` | ✅ compiled, manually exercised in-game (see `docs/STATUS.md`) |
-| NeoForge entrypoint | `net.minegasm.neoforge.MinegasmMod` (per-version) | ✅ compiled, manually exercised in-game |
-| Fabric entrypoint | `net.minegasm.fabric.MinegasmMod` (per-version) | ✅ compiled, packaged; in-game testing pending |
+| NeoForge entrypoint | `net.minegasm.neoforge.MinegasmMod` (shared `src`, `//? if neoforge`) | ✅ compiled, manually exercised in-game |
+| Fabric entrypoint | `net.minegasm.fabric.MinegasmMod` (shared `src`, `//? if fabric`) | ✅ compiled, packaged; in-game testing pending |
+| Forge entrypoint | `net.minegasm.forge.MinegasmMod` (shared `src`, `//? if forge`) | ✅ compiled, packaged; in-game testing pending |
 
 ## Building
 
-### The mod (Gradle + Stonecraft + NeoForge/Fabric, Java 25)
+### The mod (Gradle + Stonecraft + NeoForge/Fabric/Forge, Java 25)
 
 ```bash
 ./gradlew build                # builds the active Stonecutter variant
-./gradlew chiseledBuild        # builds all variants (26.2-neoforge, 26.1.2-neoforge, 26.2-fabric, 26.1.2-fabric)
+./gradlew chiseledBuild        # builds all six variants (26.2/26.1.2 x neoforge/fabric/forge)
 ```
 
 Artifacts are one jar per variant, e.g. `minegasm-1.0.0+mc26.2-neoforge.jar` or
 `minegasm-1.0.0+mc26.2-fabric.jar`. Requires a JDK 25 toolchain (auto-provisioned by Gradle) and
-network access to the NeoForge/Fabric/Architectury Maven repos on first run. Loader versions are
+network access to the NeoForge/Fabric/Forge/Architectury Maven repos on first run. Loader versions are
 pinned in `versions/dependencies/` (NeoForge builds are currently `-beta`; note this in release notes
-per the brief).
+per the brief). Forge additionally pins Architectury Loom `1.17.491` in `settings.gradle.kts` (see
+`docs/adr/ADR-011-add-forge-loader.md`).
 
 ### The pure core only (JDK 25, no Gradle) — fast inner loop
 
@@ -90,8 +92,8 @@ pwsh .localbuild/build.ps1 -Test
 ```
 
 This excludes `net.minegasm.neoforge` and the loader entrypoints (`net.minegasm.neoforge.MinegasmMod`,
-`net.minegasm.fabric.MinegasmMod`), which need the Minecraft classpath. Gradle and CI report the
-current result and test totals.
+`net.minegasm.fabric.MinegasmMod`, `net.minegasm.forge.MinegasmMod`), which need the Minecraft
+classpath. Gradle and CI report the current result and test totals.
 
 **Testing the real device path** (Intiface, no Minecraft or hardware needed) and the full in-game
 matrix are described in **`docs/TESTING.md`** — including a standalone `intifaceProbe` harness

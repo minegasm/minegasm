@@ -1,10 +1,10 @@
 # Releasing Minegasm on Codeberg
 
 Minegasm uses Forgejo Actions. The workflow in `.forgejo/workflows/build.yml` builds and tests every
-NeoForge and Fabric variant (`chiseledBuild`) on pushes, pull requests, and manual runs. A matching
-beta tag additionally creates a Codeberg prerelease containing all the built jars and their SHA-256
-checksums. Forge is scaffolded but not part of the active build; see
-`docs/adr/ADR-011-add-forge-loader.md`.
+NeoForge, Fabric, and Forge variant (`chiseledBuild`) on pushes, pull requests, and manual runs. A
+matching beta tag additionally creates a Codeberg prerelease containing all the built jars and their
+SHA-256 checksums. Forge builds on both Minecraft lines (unblocked per
+`docs/adr/ADR-011-add-forge-loader.md`).
 
 ## One-time Codeberg setup
 

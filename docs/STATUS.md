@@ -6,10 +6,10 @@ successful simulator or unit test is not presented as broader hardware validatio
 
 ## Automated verification
 
-All four active variants — `26.1.2-neoforge`, `26.2-neoforge`, `26.1.2-fabric`, `26.2-fabric` —
-compile and pass the Gradle test suite. A full `chiseledBuild` produces one distributable jar per
-variant (see `docs/adr/ADR-012-add-fabric-loader.md`). Forge is scaffolded but not part of the active
-build (`docs/adr/ADR-011-add-forge-loader.md`).
+All six active variants — `26.1.2`/`26.2` × `neoforge`/`fabric`/`forge` — compile and pass the Gradle
+test suite. A full `chiseledBuild` produces one distributable jar per variant (see
+`docs/adr/ADR-012-add-fabric-loader.md`, `docs/adr/ADR-013-centralize-loader-entrypoints.md`). Forge
+was unblocked by pinning Architectury Loom 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`).
 
 The automated suite covers:
 
@@ -102,18 +102,19 @@ and tests every active variant and publishes matching beta tags as Codeberg prer
 been run successfully on Codeberg and published the `v1.0.0-beta.1` prerelease** — both the ordinary
 push build and the tagged prerelease path are proven for the two-variant (NeoForge-only) workflow.
 
-The workflow's dependency/licensing check is being updated to be loader-aware (NeoForge's
-`jarjar/metadata.json` vs Fabric's `fabric.mod.json` `jars` array) as part of adding Fabric
-(`docs/adr/ADR-012-add-fabric-loader.md`). That change is still local/uncommitted and has **not** yet
-had a real Codeberg run with all four variants — verified locally only so far.
+The workflow's dependency/licensing check is loader-aware (NeoForge/Forge's `jarjar/metadata.json` vs
+Fabric's `fabric.mod.json` `jars` array; `docs/adr/ADR-012-add-fabric-loader.md`) and already covers
+the Forge jar's `mods.toml` + jarjar format. A real Codeberg run across all six variants is still
+pending — verified locally only so far.
 
-## Forge loader (not yet buildable)
+## Forge loader (buildable)
 
-A Forge entrypoint and resources are scaffolded (`versions/26.2-forge/`) but **not registered** in
-`settings.gradle.kts`: enabling the `forge` loader currently breaks Gradle configuration for every
-variant, NeoForge included, via a `gg.meza.stonecraft`/Architectury Loom incompatibility. See
-`docs/adr/ADR-011-add-forge-loader.md` for the reproduction and exact error. Do not advertise Forge
-support until that is resolved and a real build succeeds.
+Forge is a registered variant on both Minecraft lines (`26.2-forge`, `26.1.2-forge`); its entrypoint
+lives in shared `src` behind a `//? if forge` guard like the other loaders (ADR-013). It was blocked by
+a `gg.meza.stonecraft`/Architectury Loom incompatibility (`convertAccessWideners is final`); Loom
+1.17.491 fixes it and is pinned via a `resolutionStrategy.force` in `settings.gradle.kts`. See
+`docs/adr/ADR-011-add-forge-loader.md`. As with every variant, `chiseledBuild` (compile + test + jar)
+passes locally; in-game verification on real hardware is still pending (below).
 
 ## Remaining beta validation and follow-ups
 

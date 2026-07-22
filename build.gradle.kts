@@ -56,6 +56,10 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.12.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    // Forge's test executor does not auto-provision the JUnit Platform launcher the way the Fabric/
+    // NeoForge test tasks do; declare it explicitly so `:*-forge:test` can start. Harmless for the
+    // other loaders, which already resolve it transitively.
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 // A loader's manifest (fabric.mod.json / neoforge.mods.toml) is identical across that loader's
@@ -89,6 +93,16 @@ tasks.named<Jar>("jar") {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+}
+
+// The stonecraft plugin's `generatePackMCMetaJson` (registered only on the Forge variant) writes the
+// generated pack.mcmeta into `build/resources/main`, which is on the test source set's compile
+// classpath, but the plugin doesn't declare that task relationship. Gradle's strict task-output
+// validation then fails `compileTestJava`. Wire it explicitly, empty-safe so the non-Forge variants
+// (which have no such task) are unaffected. (Latent until Architectury Loom 1.17.491 made pack.mcmeta
+// generation actually run for the 26.x lines.)
+tasks.matching { it.name == "compileTestJava" }.configureEach {
+    dependsOn(tasks.matching { it.name == "generatePackMCMetaJson" })
 }
 
 // Standalone Intiface connectivity + safe-test-pulse harness (no Minecraft). Example:
