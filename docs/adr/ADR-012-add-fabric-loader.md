@@ -1,6 +1,10 @@
 # ADR-012: Add Fabric alongside NeoForge
 
-**Status:** accepted.
+**Status:** accepted. **Superseded in part by ADR-013:** the "Restructuring forced by a second loader"
+section below moves the loader entrypoints into per-version `versions/<mc>-<loader>/src` trees (one copy
+per Minecraft line). ADR-013 returns them to a single shared-source copy per loader behind Stonecutter
+`//? if <loader>` guards, once the plugin's loader constants were found. The rest of this ADR (Fabric
+registration, entrypoint API shape, no mods-list config screen) still stands.
 
 **Context.** ADR-002 scoped the MVP to NeoForge only, leaving the loader boundary
 (`net.minegasm.neoforge` holds Minecraft/loader-specific code; everything else is loader-independent)

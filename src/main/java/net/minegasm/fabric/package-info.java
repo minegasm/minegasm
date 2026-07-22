@@ -11,9 +11,11 @@
  * dedicated {@code key.minegasm.config} keybinding opens {@link net.minegasm.neoforge.MinegasmConfigScreen}
  * directly. Optional ModMenu integration is a documented follow-up, not implemented.
  *
- * <p>This package lives under {@code versions/<mc>-fabric/src}, not the shared root {@code src}: like
- * the Forge entrypoint, Fabric API types are only on the classpath for Fabric variants, so this stays
- * out of the tree every other loader compiles.
+ * <p>The entrypoint lives in the shared root {@code src} behind a whole-file {@code //? if fabric}
+ * Stonecutter loader guard (docs/adr/ADR-013): Fabric API types are only on the classpath for Fabric
+ * variants, so the guard comments the entire class out of every non-Fabric compile. A single copy
+ * serves both Minecraft lines — the one vanilla API that differs between them ({@code Minecraft}'s
+ * screen setter and toast-manager accessor) is funnelled through {@link net.minegasm.neoforge.McCompat}.
  *
  * <p><strong>Build note:</strong> compiled only by the Gradle + Stonecraft + Fabric toolchain (Java
  * 25), not by the standalone JDK core harness in {@code .localbuild}. The event/API classes here were

@@ -1,6 +1,10 @@
 # ADR-011: Add Forge alongside NeoForge; blocked on Architectury Loom
 
-**Status:** in progress — code scaffolded, not yet buildable.
+**Status:** in progress — code scaffolded, not yet buildable. **Note (ADR-013):** the NeoForge and
+Fabric entrypoints have since moved back into shared `src` behind Stonecutter `//? if <loader>` guards.
+The Forge entrypoint described here deliberately stays at `versions/26.2-forge/src` — Forge is still
+unregistered, so it has no per-line duplication to remove, and shared source would only add
+nested-block-comment escaping. Reconsider when Forge is unblocked.
 
 **Context.** ADR-002 scoped the MVP to NeoForge only, with the loader boundary (`net.minegasm.neoforge`
 holds all Minecraft/loader-specific code; everything else is loader-independent) deliberately left open

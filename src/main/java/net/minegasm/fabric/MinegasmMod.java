@@ -1,9 +1,11 @@
-package net.minegasm.fabric;
+//? if fabric {
+/*package net.minegasm.fabric;
 
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.core.GameEventKind;
 import net.minegasm.core.RawGameEvent;
 import net.minegasm.config.TestOutputLimits;
+import net.minegasm.neoforge.McCompat;
 import net.minegasm.neoforge.MinecraftSampler;
 import net.minegasm.neoforge.MinegasmConfigScreen;
 import net.minegasm.neoforge.ProviderFactory;
@@ -37,11 +39,18 @@ import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
+/^*
  * Client-only mod entrypoint for the Fabric loader (brief §5.1, ADR-003, ADR-012). Mirrors
  * {@link net.minegasm.neoforge.MinegasmMod} one-for-one: owns the loader-independent
  * {@link MinegasmClient}, drives it from the client tick, and registers key bindings. No device I/O
  * happens on the client thread.
+ *
+ * <p>Lives in the shared root {@code src} behind a whole-file {@code //? if fabric} Stonecutter
+ * loader guard: for any non-Fabric variant the guard comments the entire file out, so its
+ * {@code net.fabricmc.*} imports never reach a NeoForge or Forge compile (docs/adr/ADR-013). The two
+ * vanilla APIs that differ between the 26.1.2 and 26.2 lines (the screen setter and the toast-manager
+ * accessor) are handled by {@link McCompat}, so this single file serves every Minecraft line rather
+ * than one copy per line.
  *
  * <p>Wired to Fabric API's event-object model ({@code Event<T>.register(...)}, not an annotated
  * event bus); see {@code package-info} for provenance. Fabric client commands run against
@@ -49,7 +58,7 @@ import java.util.Map;
  * take a plain {@code Component} rather than vanilla's {@code Supplier<Component>} + broadcast flag.
  * There is no mods-list config screen extension point in core Fabric (that is the third-party
  * ModMenu convention, not taken on here); {@code key.minegasm.config} opens the screen directly.
- */
+ ^/
 public final class MinegasmMod implements ClientModInitializer {
 
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -110,7 +119,7 @@ public final class MinegasmMod implements ClientModInitializer {
             }
         }
         while (configKey.consumeClick()) {
-            mc.gui.setScreen(new MinegasmConfigScreen(null, client));
+            McCompat.setScreen(mc, new MinegasmConfigScreen(null, client));
         }
 
         long nowNs = System.nanoTime();
@@ -293,14 +302,14 @@ public final class MinegasmMod implements ClientModInitializer {
     private void showToast(Minecraft mc, String key, String detailKey) {
         // A concrete toast is added by the UI layer; kept minimal here to limit speculative API use.
         if (mc != null && mc.gui != null) {
-            SystemToast.addOrUpdate(mc.gui.toastManager(), PANIC_TOAST,
-                    Component.translatable(key),
+            McCompat.showToast(mc, PANIC_TOAST, Component.translatable(key),
                     detailKey == null ? Component.empty() : Component.translatable(detailKey));
         }
     }
 
-    /** Convenience for a config screen or other UI to obtain the client. */
+    /^* Convenience for a config screen or other UI to obtain the client. ^/
     public MinegasmClient client() {
         return client;
     }
 }
+*///?}
