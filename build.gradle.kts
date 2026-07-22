@@ -58,6 +58,15 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
 
+// A loader's manifest (fabric.mod.json / neoforge.mods.toml) is identical across that loader's
+// Minecraft lines — version-specific values come from `${...}` tokens resolved per variant — so it
+// lives once in `loader-resources/<loader>` instead of one copy per `versions/<mc>-<loader>`
+// (ADR-013). Adding it only to that loader's variants means no jar carries another loader's manifest.
+// Forge keeps its own copy under `versions/26.2-forge` while unregistered.
+sourceSets.named("main") {
+    resources.srcDir(rootProject.file("loader-resources/${project.name.substringAfterLast('-')}"))
+}
+
 // Java 25 toolchain for all 26.x variants (brief §4.1, ADR-002). Independent of developer JAVA_HOME.
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))

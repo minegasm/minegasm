@@ -54,9 +54,24 @@ one jar produced per variant. The load-bearing case was proven on the NeoForge e
 compiles clean, i.e. the guard kept `net.neoforged.*` off the Fabric classpath) before the Fabric
 entrypoint was migrated.
 
-**Consequences.** ~640 duplicated lines of Java collapse to one copy per loader (net −615 lines).
-Adding a future Minecraft line no longer duplicates the entrypoints; only genuinely
-version-divergent vanilla APIs need a new `McCompat` branch. The cost is that editing an entrypoint now
-requires awareness of Stonecutter comment state — hence the `Reset active project` pre-commit step. The
-loader-manifest resources (`fabric.mod.json`, `neoforge.mods.toml`, `pack.mcmeta`) are still copied per
-version under `versions/<mc>-<loader>/src/main/resources`; deduplicating those is a follow-up.
+**Resources.** The same version-axis duplication existed in the manifests. A loader's manifest is
+byte-identical across its Minecraft lines (`fabric.mod.json`, `neoforge.mods.toml` — version-specific
+values are `${...}` tokens resolved per variant), so each now lives once in a shared per-loader tree,
+`loader-resources/<loader>`, wired into only that loader's variants via a `resources.srcDir(...)` in
+the central `build.gradle.kts` (keyed off `project.name.substringAfterLast('-')`). Because the dir is
+added only to that loader's variants, no jar carries another loader's manifest — verified by unzipping
+all four jars: each contains exactly its own manifest with every token resolved to the correct per-line
+value, and Loom's jar-in-jar `jars` array is still injected into `fabric.mod.json`. The per-version
+`pack.mcmeta` copies were **deleted, not moved**: the `gg.meza.stonecraft` plugin excludes committed
+`pack.mcmeta` from `processResources` and instead generates one from the Minecraft version's pack
+format — but these 26.x lines are not in the plugin's `PackFormats` table, so nothing was generated and
+the committed files never reached any jar (confirmed: the pre-change jars had no `pack.mcmeta` either).
+They were dead weight. If a future plugin release maps 26.x, it will generate `pack.mcmeta`
+automatically. Forge keeps its own manifest + `pack.mcmeta` under `versions/26.2-forge` while
+unregistered.
+
+**Consequences.** ~640 duplicated lines of Java collapse to one copy per loader, and the manifests to
+one copy per loader (net −615 Java lines plus the removed resource copies). Adding a future Minecraft
+line no longer duplicates the entrypoints or the manifests; only genuinely version-divergent vanilla
+APIs need a new `McCompat` branch. The cost is that editing an entrypoint now requires awareness of
+Stonecutter comment state — hence the `Reset active project` pre-commit step.

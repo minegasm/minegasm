@@ -1,6 +1,0 @@
-{
-  "pack": {
-    "description": "Minegasm resources",
-    "pack_format": ${packVersion}
-  }
-}
