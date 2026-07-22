@@ -85,11 +85,6 @@ repos on first run. Loader versions are pinned in `versions/dependencies/` (NeoF
 Architectury Loom `1.17.491` in `settings.gradle.kts` (see `docs/adr/ADR-011-add-forge-loader.md`) —
 this also unblocks Forge on 1.21.1, which Architectury otherwise warns is unsupported.
 
-1.21.1's Fabric build has no ModMenu mods-list integration (its only available ModMenu release predates
-mojmap-native publishing and needs Loom mod-jar remapping this project's `compileOnly` wiring doesn't
-perform); the config screen is still reachable there via the `key.minegasm.config` keybinding, same as
-every other variant.
-
 ### The pure core only (JDK 25, no Gradle) — fast inner loop
 
 The engine has no Minecraft or Gradle dependency, so it can be compiled and unit-tested with just a

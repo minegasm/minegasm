@@ -66,24 +66,30 @@ dependencies {
     // ModMenuIntegration, wired via the `modmenu` entrypoint in fabric.mod.json). Compile-only: that
     // entrypoint is invoked only when ModMenu is installed, so the mod neither bundles nor requires it
     // at runtime. ModMenu is published per Minecraft line, so the version tracks the variant; the
-    // ModMenuApi/ConfigScreenFactory surface used here is identical across 18.0.0 and 20.0.0, so the
-    // shared source needs no version guard. Kept as an explicit map (not a deps-file property) so the
-    // wiring is self-contained and cannot silently no-op.
-    // 1.21.1 deliberately has no entry: its only available ModMenu build (11.0.4) predates the
-    // mojmap-native publishing this project's compileOnly remap wiring expects, so ModMenuIntegration
-    // is excluded for that variant (see its //? guard) rather than fought here. The config screen
-    // stays reachable via the key.minegasm.config keybinding on every variant regardless.
+    // ModMenuApi/ConfigScreenFactory surface used here is identical across 11.0.4, 18.0.0 and 20.0.0,
+    // so the shared source needs no version guard. Kept as an explicit map (not a deps-file property)
+    // so the wiring is self-contained and cannot silently no-op.
     val modmenuVersion = when (project.name) {
         "26.2-fabric" -> "20.0.0"
         "26.1.2-fabric" -> "18.0.0"
+        "1.21.1-fabric" -> "11.0.4"
         else -> null
     }
     if (modmenuVersion != null) {
-        // Plain `compileOnly` — the config this stonecraft/Loom setup remaps for Fabric mod deps (it
-        // does not expose Loom's usual `mod*` leaf configs). ModMenu ends up on the compile classpath
-        // only: NOT bundled (only `include` bundles), NOT on the runtime classpath, and adds no
-        // `depends` entry to fabric.mod.json — so ModMenu stays optional for end users.
-        compileOnly("maven.modrinth:modmenu:$modmenuVersion")
+        // ModMenu ends up on the compile classpath only: NOT bundled (only `include` bundles), NOT on
+        // the runtime classpath, and adds no `depends` entry to fabric.mod.json — so ModMenu stays
+        // optional for end users.
+        //
+        // The 26.x builds are published mojmap-native and resolve against this project's mappings as-is
+        // via plain `compileOnly`. The only ModMenu build for 1.21.1 (11.0.4) is published against
+        // intermediary mappings, so it must go through Loom's `modCompileOnly`, which remaps the mod jar
+        // from intermediary to the project's mappings at compile time (plain `compileOnly` skips that
+        // remap, leaving intermediary names like `class_437` on the classpath and failing compilation).
+        if (project.name == "1.21.1-fabric") {
+            "modCompileOnly"("maven.modrinth:modmenu:$modmenuVersion")
+        } else {
+            compileOnly("maven.modrinth:modmenu:$modmenuVersion")
+        }
     }
 
     testImplementation(platform("org.junit:junit-bom:5.12.2"))

@@ -25,8 +25,10 @@ API (absent pre-26.1.2, so 1.21.1 registers listeners on `context.getModEventBus
 `ClientCommands`, `KeyBindingHelper` not `KeyMappingHelper`). All three loaders compile, pass the unit
 suite, and package (including jar-in-jar for the bundled Buttplug client) from a clean build.
 
-**Known gap:** 1.21.1-fabric has no ModMenu mods-list integration — see the note in `README.md`. Every
-other variant's ModMenu integration is unaffected.
+ModMenu mods-list integration works on every Fabric variant including 1.21.1: its only available ModMenu
+build (11.0.4) ships intermediary-mapped, so its dependency goes through Loom's `modCompileOnly` (which
+remaps the mod jar to the project's mappings) rather than the plain `compileOnly` the mojmap-native 26.x
+builds use. ModMenu stays compile-only and optional on all variants.
 
 **In-game verification so far:** `testPulse` (device output) has been manually confirmed working on all
 three 1.21.1 loaders (NeoForge, Fabric, Forge). The rest of the in-game manual matrix recorded below for
