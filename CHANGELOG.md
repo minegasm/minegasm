@@ -15,6 +15,9 @@ All notable changes to Minegasm are documented in this file. The format follows
   `docs/adr/ADR-012-add-fabric-loader.md`.
 - **Forge loader** support on both Minecraft lines (`26.2`, `26.1.2`), unblocked by pinning
   Architectury Loom `1.17.491`. See `docs/adr/ADR-011-add-forge-loader.md`.
+- **Quilt** runs the existing **Fabric** jar as-is — Quilt Loader loads it via `fabric.mod.json` and
+  the mod uses no loader-specific API beyond Fabric API, so no separate Quilt build is shipped
+  (install the Fabric jar with the normal Fabric API mod).
 - `/minegasm enable` and `/minegasm disable` client commands to toggle master haptic output from
   chat — the same switch as the config screen's enable toggle, disabling also stops active output.
   Available under the `/mg` alias too, and requires no server permissions.

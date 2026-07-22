@@ -109,6 +109,9 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
    your Minecraft version (`0.155.2+26.2` or `0.155.2+26.1.2`) in the same `mods` folder — it is a
    required dependency, declared in `fabric.mod.json` but never bundled into the Minegasm jar, the
    same as with any other Fabric mod that uses it.
+   On **Quilt**, install the same **Fabric** jar and the same **Fabric API** mod: Quilt Loader reads
+   its `fabric.mod.json` and loads it directly, and the mod uses no loader-specific API beyond Fabric
+   API, so it runs as-is. There is no separate Quilt build.
 3. Launch Minecraft with the mod. On NeoForge, open the config screen from the mods list; on Fabric
    (no mods-list entry point without ModMenu, ADR-012), bind and press **Open Minegasm settings**
    (Controls → Minegasm) instead.
