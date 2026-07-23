@@ -21,12 +21,7 @@ jobs:
           - group: 1.19.2
             variants: 1.19.2-fabric 1.19.2-forge
     runs-on: codeberg-medium-lazy
-    container:
-      image: eclipse-temurin:25-jdk
     steps:
-      - name: Install workflow tools
-        run: apt-get update && apt-get install -y --no-install-recommends git curl unzip
-
       - name: Check out source
         env:
           FORGE_URL: ${{ forge.server_url }}
@@ -36,6 +31,14 @@ jobs:
           git clone --no-checkout --filter=blob:none "$FORGE_URL/$REPOSITORY.git" .
           git checkout --detach "$COMMIT_SHA"
 
+      - name: Set up JDK 25
+        run: |
+          curl -fsSL -o /tmp/jdk.tar.gz "https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse"
+          mkdir -p "$HOME/jdk-25"
+          tar -xzf /tmp/jdk.tar.gz -C "$HOME/jdk-25" --strip-components=1
+          echo "JAVA_HOME=$HOME/jdk-25" >> "$GITHUB_ENV"
+          echo "$HOME/jdk-25/bin" >> "$GITHUB_PATH"
+
       - name: Build and test this Minecraft line's variants
         env:
           VARIANTS: ${{ matrix.variants }}
@@ -43,7 +46,7 @@ jobs:
           chmod +x gradlew
           tasks=()
           for v in $VARIANTS; do tasks+=(":$v:build"); done
-          ./gradlew "${tasks[@]}" --no-daemon --stacktrace --warning-mode all
+          ./gradlew "${tasks[@]}" --no-daemon --configure-on-demand --stacktrace --warning-mode all
 
       - name: Verify and stage this group's artifacts
         env:
@@ -83,22 +86,19 @@ jobs:
           done
 
       - name: Upload built jars
-        uses: https://code.forgejo.org/actions/upload-artifact@v4
+        if: forge.ref_type == 'tag'
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v4
         with:
           name: jars-${{ matrix.group }}
           path: dist/*.jar
 
   release:
     needs: build
+    if: forge.ref_type == 'tag'
     runs-on: codeberg-medium-lazy
-    container:
-      image: eclipse-temurin:25-jdk
     steps:
-      - name: Install workflow tools
-        run: apt-get update && apt-get install -y --no-install-recommends curl jq
-
       - name: Download all built jars
-        uses: https://code.forgejo.org/actions/download-artifact@v4
+        uses: https://code.forgejo.org/forgejo/download-artifact@v4
         with:
           pattern: jars-*
           path: dist
