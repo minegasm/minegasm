@@ -6,8 +6,8 @@ successful simulator or unit test is not presented as broader hardware validatio
 
 ## Automated verification
 
-All thirteen active variants (`26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge`, plus `1.20.1`
-and `1.19.2` × `fabric`/`forge`) compile and pass the Gradle test suite. A full `chiseledBuild`
+Every active variant (`26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge`, plus `1.20.1`
+and `1.19.2` × `fabric`/`forge`) compiles and passes the Gradle test suite. A full `chiseledBuild`
 produces one distributable jar per variant (see `docs/adr/ADR-012-add-fabric-loader.md`,
 `docs/adr/ADR-013-centralize-loader-entrypoints.md`). Forge was unblocked by pinning Architectury Loom
 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`); this also covers Forge on 1.21.1, which Architectury's
@@ -37,8 +37,8 @@ remaps the mod jar to the project's mappings) rather than the plain `compileOnly
 builds use. ModMenu stays compile-only and optional on all variants.
 
 **In-game verification so far:** `testPulse` (device output) has been manually confirmed working on all
-three 1.21.1 loaders (NeoForge, Fabric, Forge). The rest of the in-game manual matrix recorded below for
-26.1.2/26.2 (config screens, connection, scanning, commands, panic/resume, legacy import, etc.) has not
+three 1.21.1 loaders (NeoForge, Fabric, Forge). The rest of the in-game preflight checklist, recorded
+below for 26.1.2/26.2 (config screens, connection, scanning, commands, panic/resume, legacy import, etc.), has not
 yet been repeated on 1.21.1: this build environment has no Minecraft client to drive further passes.
 
 ### 1.20.1 (Fabric and Forge, plus NeoForge via the Forge jar)
@@ -66,7 +66,7 @@ types, a Java 21 feature (preview in 17). Those sites (in `PrimitiveEvaluator`, 
 `Buttplug4jProvider`) were rewritten to `instanceof` chains with a trailing `throw` that preserves the
 switch's compile-time exhaustiveness. The rewrite is unconditional (all variants), not version-guarded:
 it is a Java-version concern, not a Minecraft one, and belongs out of the pure core's otherwise
-zero-guard source. The identical 92-test suite passes on both Java 17 and the modern (Java 25) variants,
+zero-guard source. The identical test suite passes on both Java 17 and the modern (Java 25) variants,
 confirming it is behavior-preserving. **Minecraft level:** guards (keyed `>=1.21.1`, a proxy for the
 pre-1.20.2 API state that holds only because no 1.20.2-1.20.6 variant is registered) cover the toast-id
 token (`SystemToast.SystemToastIds` enum vs. the instantiable `SystemToastId`), the pre-1.20.2
@@ -77,8 +77,9 @@ the `ObjectSelectionList` constructor (explicit `y0`/`y1` and `setLeftPos`/`widt
 ModMenu integration also works on 1.20.1-fabric via `modCompileOnly` (build 7.2.2, intermediary-mapped).
 
 **In-game verification:** the 1.20.1 Forge jar has been confirmed loading and running in-game on both
-Forge (47.1.x through 47.4.x) and NeoForge 1.20.1 (47.1.106). The rest of the manual matrix (config
-screens, connection, scanning, commands, panic/resume, legacy import) has not been re-walked on 1.20.1.
+Forge (47.1.x through 47.4.x) and NeoForge 1.20.1 (47.1.106). The rest of the preflight checklist
+(config screens, connection, scanning, commands, panic/resume, legacy import) has not been re-walked
+on 1.20.1.
 
 ### 1.19.2 (Fabric and Forge)
 
@@ -216,16 +217,15 @@ more static code reading.
 
 ## CI and release automation
 
-The Forgejo Actions workflow is implemented for Codeberg's `codeberg-medium-lazy` runner. It builds
-and tests every active variant and publishes matching beta tags as Codeberg prereleases. **It has
-been run successfully on Codeberg and published the `v1.0.0-beta.1` prerelease**; the ordinary push
-build and the tagged prerelease path are both proven there. The current all-six-variant
-(`neoforge`/`fabric`/`forge`) workflow has since also been run green on Codeberg.
+The Forgejo Actions workflow is implemented for Codeberg's `codeberg-medium-lazy` runner. It runs
+`chiseledBuild`, building and testing every active variant, and publishes matching beta tags as
+Codeberg prereleases. **It has been run successfully on Codeberg and published the `v1.0.0-beta.1`
+prerelease**; the ordinary push build and the tagged prerelease path are both proven there.
 
 The workflow's dependency/licensing check is loader-aware (NeoForge/Forge's `jarjar/metadata.json` vs
 Fabric's `fabric.mod.json` `jars` array; `docs/adr/ADR-012-add-fabric-loader.md`) and covers the Forge
-jar's `mods.toml` + jarjar format. Both the Forgejo (Codeberg) and GitHub Actions workflows now run
-green across all six variants (`26.2`/`26.1.2` × `neoforge`/`fabric`/`forge`).
+jar's `mods.toml` + jarjar format. Both the Forgejo (Codeberg) and GitHub Actions workflows run green
+across every registered variant.
 
 ## Forge loader (buildable)
 
@@ -252,7 +252,8 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
   not emit it automatically (no mixin-free client signal carrying explosion position and power).
   Planned for `1.0.0-beta.3` via a client-only mixin on the explosion receive path
   (`docs/adr/ADR-015-explosion-acquisition-deferred-to-beta3.md`).
-- Complete and record the gameplay acceptance matrix for both supported Minecraft versions.
+- Walk the full preflight checklist on the current main release lines and log results; smoke-test the
+  older lines, per the split in `docs/TESTING.md`.
 - Manually confirm legacy TOML import in Minecraft with representative legacy configuration files.
 - Confirm multi-device behavior with physical devices if testing so far used Intiface simulators.
 - Test position/stroker and rotation output on suitable physical hardware; keep these outputs
@@ -292,7 +293,7 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 | Vibration output | Yes | Yes, simulated devices | Manual physical coverage not recorded |
 | Position and rotation output | Renderer tests | Simulator coverage only | Physical verification pending |
 | Legacy configuration import | Yes | Not applicable | Manual in-game confirmation pending |
-| Forgejo release workflow | Defined | Not applicable | Proven on Codeberg (`v1.0.0-beta.1` prerelease; all-six-variant workflow since run green) |
+| Forgejo release workflow | Defined | Not applicable | Proven on Codeberg (`v1.0.0-beta.1` prerelease; full-variant workflow since run green) |
 
 ## Fast verification commands
 
@@ -301,4 +302,4 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 .\gradlew.bat clean chiseledBuild --rerun-tasks --warning-mode all
 ```
 
-See `docs/TESTING.md` for the Intiface probes and full manual acceptance matrix.
+See `docs/TESTING.md` for the Intiface probes and the full in-game preflight checklist.

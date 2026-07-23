@@ -29,10 +29,13 @@ metadata, jar names, and the release workflow. Use a SemVer prerelease value suc
 ```
 
 Test the exact jars from every `versions/*/build/libs/` directory in their corresponding Minecraft
-versions and loaders, walking the **acceptance matrix** in `docs/TESTING.md` and filling its cells as
-you go (a green unit test or Intiface-simulator run does not count there). Commit the filled matrix
-as part of the release preparation: the release tag then snapshots it, so a copy per release is not
-needed; `git show v<version>:docs/TESTING.md` recovers any past release's results. Push the release
+versions and loaders, using the **preflight checklist** in `docs/TESTING.md` (a green unit test or
+Intiface-simulator run does not cover it): the full checklist on the current main lines, a smoke test
+on the older ones, per that document's split. That's the bar for a stable release; a beta can relax
+it further, e.g. skipping a variant you didn't touch, as long as you note what wasn't (re)verified
+under `CHANGELOG.md`'s "Known limitations" for that version. Log anything you find under the
+checklist's "Issues found" section, and commit that as part of the release preparation; `git show
+v<version>:docs/TESTING.md` recovers what was logged at any past release. Push the release
 preparation, then confirm the normal push workflow succeeds on Codeberg before creating a release tag.
 
 ## Publishing
@@ -50,10 +53,9 @@ The workflow rejects a tag whose version differs from the built jar. Tags contai
 a Codeberg prerelease and upload every version-labelled jar plus `SHA256SUMS`. Stable releases are
 intentionally not automatic until the beta pipeline has been proven.
 
-## After a release: reset the acceptance matrix
+## After a release
 
-The tag has snapshotted the filled acceptance matrix, so reset its cells back to `⬜` (and clear the
-"Issues found" list of anything now fixed) in a small `chore: reset acceptance matrix for <next-version>`
-commit. The matrix on `main` then tracks the current cycle in progress, while each release tag holds
-what was verified at that release. Keep the row set current as features change; do not archive stale
-copies of the checklist.
+Prune `docs/TESTING.md`'s "Issues found" list of anything now fixed, and update the checklist itself
+if a release added or changed a user-facing check. There's no matrix state to reset: the release tag
+already has whatever was logged at that point (`git show v<version>:docs/TESTING.md`), and the
+checklist on `main` just keeps tracking the current cycle.

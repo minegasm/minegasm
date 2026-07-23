@@ -74,11 +74,12 @@ exactly what's verified versus what still needs the Minecraft toolchain and hard
 
 ```bash
 ./gradlew build                # builds the active Stonecutter variant
-./gradlew chiseledBuild        # builds all thirteen variants
+./gradlew chiseledBuild        # builds every registered variant
 ```
 
-The thirteen variants are 26.2/26.1.2/1.21.1 × neoforge/fabric/forge, plus 1.20.1 and 1.19.2 ×
-fabric/forge. NeoForge is not *built* for 1.20.1: its first release for that line shipped under legacy
+The registered variants are 26.2/26.1.2/1.21.1 × neoforge/fabric/forge, plus 1.20.1 and 1.19.2 ×
+fabric/forge. **`26.2` and `26.1.2` are the current main release lines**; the rest were added later
+and get lighter test coverage (see `docs/TESTING.md`). NeoForge is not *built* for 1.20.1: its first release for that line shipped under legacy
 `net.neoforged:forge` coordinates (which this tooling can't resolve) with the old `net.minecraftforge`
 API. The modern NeoForge surface only arrived in 1.20.2+. It needs no separate build, though.
 NeoForge 1.20.1 is a near-verbatim Forge fork that loads the **Forge jar** directly (see "Using it
@@ -108,7 +109,7 @@ This excludes `net.minegasm.neoforge` and the loader entrypoints (`net.minegasm.
 classpath. Gradle and CI report the current result and test totals.
 
 **Testing the real device path** (Intiface, no Minecraft or hardware needed) and the full in-game
-matrix are described in **`docs/TESTING.md`**, including a standalone `intifaceProbe` harness
+checklist are described in **`docs/TESTING.md`**, including a standalone `intifaceProbe` harness
 (`./gradlew :26.2-neoforge:intifaceProbe --args="--backend buttplug4j"`). The qualified command runs
 only that variant. An unqualified `./gradlew intifaceProbe` selects every Stonecutter variant and
 runs the probes sequentially, because Intiface may reject simultaneous client connections.

@@ -19,7 +19,7 @@ All notable changes to Minegasm are documented in this file. The format follows
   (Fabric, Forge) build alongside the 26.x lines via Stonecutter version guards over the real
   API-generation changes (advancement, toast, list-widget, key-mapping, and Forge/Fabric event APIs).
   1.20.1 and 1.19.2 run on Java 17, which required rewriting the loader-agnostic core's Java 21 switch
-  type patterns to `instanceof` chains. This is behavior-preserving, verified by the same 92-test suite
+  type patterns to `instanceof` chains. This is behavior-preserving, verified by the same test suite
   passing on both Java 17 and Java 25. No separate NeoForge build is shipped for `1.20.1` (the tooling
   can't resolve its legacy `net.neoforged:forge` coordinates); instead NeoForge 1.20.1 loads the
   **Forge** jar directly. It is a near-verbatim Forge fork registering the `forge` mod, and the 1.20.1

@@ -47,7 +47,7 @@ exist` error). Fixed by moving `MinegasmMod.java` out of shared source into
 `versions/26.2-neoforge/src/.../MinegasmMod.java` and `versions/26.1.2-neoforge/src/.../MinegasmMod.java`,
 one concrete copy per Minecraft line, each written directly against that line's vanilla Minecraft
 API (no `//? if >=26.2` Stonecutter guard needed anymore, since each copy only ever targets one
-version). The other seven classes in `net.minegasm.neoforge` (`MinecraftSampler`, the config/settings
+version). The other classes in `net.minegasm.neoforge` (`MinecraftSampler`, the config/settings
 screens, the list widgets, `ProviderFactory`) reference only vanilla Minecraft and pure-Java types, so
 they stay in shared source and are imported directly by both the Fabric and (scaffolded) Forge
 entrypoints rather than duplicated.
