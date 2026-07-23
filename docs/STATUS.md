@@ -36,12 +36,21 @@ three 1.21.1 loaders (NeoForge, Fabric, Forge). The rest of the in-game manual m
 26.1.2/26.2 (config screens, connection, scanning, commands, panic/resume, legacy import, etc.) has not
 yet been repeated on 1.21.1 — this build environment has no Minecraft client to drive further passes.
 
-### 1.20.1 (Fabric and Forge only)
+### 1.20.1 (Fabric and Forge — plus NeoForge via the Forge jar)
 
-1.20.1 sits further back still, and is built for Fabric and Forge only. NeoForge is deliberately not
-built for it: NeoForge's first 1.20.1 release shipped under legacy `net.neoforged:forge` coordinates
-(not the modern `net.neoforged:neoforge` this tooling resolves) with the old `net.minecraftforge` API —
-the modern NeoForge surface only arrived in 1.20.2+ — so plain Forge covers that near-identical target.
+1.20.1 sits further back still. It is *built* for Fabric and Forge only: NeoForge has no separately
+buildable variant here, because its first 1.20.1 release shipped under legacy `net.neoforged:forge`
+coordinates (not the modern `net.neoforged:neoforge` the stonecraft plugin hardcodes) — that artifact
+simply doesn't exist for 1.20.1, so the tooling cannot resolve it. But NeoForge 1.20.1 doesn't *need* a
+separate build: at 1.20.1 it is a near-verbatim Forge fork (old `net.minecraftforge` API, `mods.toml`)
+that registers the `forge` modId, so it loads the **Forge jar** directly — the same way Quilt runs the
+Fabric jar. Making the one Forge jar load on both took three things, all in the 1.20.1 Forge variant:
+its Forge dependency floor was lowered to `47.1.5` (below NeoForge 1.20.1's oldest `47.1.7`, so every
+NeoForge 1.20.1 build satisfies the mandatory `forge` version range), its `@Mod` class uses the classic
+no-arg constructor + `FMLJavaModLoadingContext.get()` (older Forge/NeoForge instantiate via no-arg; the
+injected-context constructor is a newer 47.x addition), and the config screen registers through
+`ModLoadingContext.get().registerExtensionPoint(...)` (the `FMLJavaModLoadingContext` convenience form
+postdates 47.1.5). Confirmed loading and running in-game on NeoForge 1.20.1 (47.1.106).
 
 The compat surface is the largest of any line, in two layers. **Java level:** 1.20.1 runs on Java 17,
 but the loader-agnostic core was written against Java 21 idioms — switch *type patterns* over sealed
@@ -59,7 +68,9 @@ the `ObjectSelectionList` constructor (explicit `y0`/`y1` and `setLeftPos`/`widt
 `ClientTickEvent.Post`. Both loaders compile, pass the unit suite, and package from a clean build.
 ModMenu integration also works on 1.20.1-fabric via `modCompileOnly` (build 7.2.2, intermediary-mapped).
 
-**In-game verification:** none yet on 1.20.1 — no Minecraft client in this build environment.
+**In-game verification:** the 1.20.1 Forge jar has been confirmed loading and running in-game on both
+Forge (47.1.x through 47.4.x) and NeoForge 1.20.1 (47.1.106). The rest of the manual matrix (config
+screens, connection, scanning, commands, panic/resume, legacy import) has not been re-walked on 1.20.1.
 
 The automated suite covers:
 
@@ -210,7 +221,8 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 | Fabric 1.21.1 | Build and tests pass | Through provider | `testPulse` confirmed in-game |
 | Forge 1.21.1 | Build and tests pass | Through provider | `testPulse` confirmed in-game |
 | Fabric 1.20.1 | Build and tests pass | Through provider | Not yet manually tested |
-| Forge 1.20.1 | Build and tests pass | Through provider | Not yet manually tested |
+| Forge 1.20.1 | Build and tests pass | Through provider | Loads and runs in-game |
+| NeoForge 1.20.1 (Forge jar) | Covered by Forge build | Through provider | Loads and runs in-game (47.1.106) |
 | Vibration output | Yes | Yes, simulated devices | Manual physical coverage not recorded |
 | Position and rotation output | Renderer tests | Simulator coverage only | Physical verification pending |
 | Legacy configuration import | Yes | Not applicable | Manual in-game confirmation pending |

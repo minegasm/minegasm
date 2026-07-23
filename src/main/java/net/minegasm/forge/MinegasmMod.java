@@ -30,6 +30,9 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
+//? if <1.21.1 {
+/^import net.minecraftforge.fml.ModLoadingContext;
+^///?}
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.commands.Commands;
@@ -89,7 +92,16 @@ public final class MinegasmMod {
     private boolean shortAliasAvailable;
     private boolean showFirstRunNotice;
 
+    // 1.20.1 Forge (down to 47.1.5) and NeoForge 1.20.1 instantiate the @Mod class through its no-arg
+    // constructor; the injected-context constructor is a newer 47.x / NeoForge addition (later 47.x
+    // FMLModContainer probes both signatures, 47.1.5 only the no-arg one). Grab the context the classic
+    // way there so a single jar loads across the whole 1.20.1 Forge line and on NeoForge 1.20.1.
+    //? if >=1.21.1 {
     public MinegasmMod(FMLJavaModLoadingContext context) {
+    //?} else {
+    /^public MinegasmMod() {
+        FMLJavaModLoadingContext context = FMLJavaModLoadingContext.get();
+    ^///?}
         // Select the Buttplug backend from config (default buttplug4j; "native" for the JDK provider).
         java.nio.file.Path configFile = FMLPaths.CONFIGDIR.get().resolve("minegasm.json");
         this.client = new MinegasmClient(configFile, ProviderFactory.create(configFile),
@@ -111,10 +123,19 @@ public final class MinegasmMod {
         ^///?}
         Runtime.getRuntime().addShutdownHook(new Thread(client::shutdown, "minegasm-shutdown"));
 
-        // In-game config screen from the mods list (brief §11.2).
+        // In-game config screen from the mods list (brief §11.2). The registerExtensionPoint
+        // convenience moved onto FMLJavaModLoadingContext in a later 47.x; 1.20.1's 47.1.47 (the floor
+        // NeoForge 1.20.1 also satisfies, see versions/dependencies/1.20.1.properties) only has the
+        // classic ModLoadingContext.get() form.
+        //? if >=1.21.1 {
         context.registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                 () -> new ConfigScreenHandler.ConfigScreenFactory(
                         (mc, parent) -> new MinegasmConfigScreen(parent, client)));
+        //?} else {
+        /^ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new ConfigScreenHandler.ConfigScreenFactory(
+                        (mc, parent) -> new MinegasmConfigScreen(parent, client)));
+        ^///?}
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {

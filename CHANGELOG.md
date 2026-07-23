@@ -20,11 +20,15 @@ All notable changes to Minegasm are documented in this file. The format follows
   (advancement, toast, list-widget, key-mapping, and Forge/Fabric event APIs). 1.20.1 runs on Java 17,
   which required rewriting the loader-agnostic core's Java 21 switch type patterns to `instanceof`
   chains — behavior-preserving, verified by the same 92-test suite passing on both Java 17 and Java 25.
-  NeoForge is not built for `1.20.1`: its first release for that line predates the modern NeoForge API,
-  and plain Forge covers the near-identical target. See `docs/STATUS.md`.
+  No separate NeoForge build is shipped for `1.20.1` (the tooling can't resolve its legacy
+  `net.neoforged:forge` coordinates); instead NeoForge 1.20.1 loads the **Forge** jar directly — it is a
+  near-verbatim Forge fork registering the `forge` mod, and the 1.20.1 Forge build is compiled (floor
+  `47.1.5`, classic no-arg constructor, classic config-screen registration) to load across the whole
+  1.20.1 Forge/NeoForge line. See `docs/STATUS.md`.
 - **Quilt** runs the existing **Fabric** jar as-is — Quilt Loader loads it via `fabric.mod.json` and
   the mod uses no loader-specific API beyond Fabric API, so no separate Quilt build is shipped
-  (install the Fabric jar with the normal Fabric API mod).
+  (install the Fabric jar with the normal Fabric API mod). Likewise **NeoForge 1.20.1** runs the
+  existing **Forge** jar (see the older-Minecraft-lines note above).
 - `/minegasm enable` and `/minegasm disable` client commands to toggle master haptic output from
   chat — the same switch as the config screen's enable toggle, disabling also stops active output.
   Available under the `/mg` alias too, and requires no server permissions.

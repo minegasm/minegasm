@@ -79,9 +79,11 @@ exactly what is verified vs. what needs the Minecraft toolchain and hardware.
 ```
 
 The eleven variants are 26.2/26.1.2/1.21.1 × neoforge/fabric/forge, plus 1.20.1 × fabric/forge.
-NeoForge is not built for 1.20.1: its first release for that line shipped under legacy
-`net.neoforged:forge` coordinates with the old `net.minecraftforge` API (the modern NeoForge surface
-only arrived in 1.20.2+), so plain Forge covers that near-identical target instead.
+NeoForge is not *built* for 1.20.1: its first release for that line shipped under legacy
+`net.neoforged:forge` coordinates (which this tooling can't resolve) with the old `net.minecraftforge`
+API — the modern NeoForge surface only arrived in 1.20.2+. It needs no separate build, though: NeoForge
+1.20.1 is a near-verbatim Forge fork that loads the **Forge jar** directly (see "Using it in-game"),
+the same way Quilt runs the Fabric jar.
 
 Artifacts are one jar per variant, e.g. `minegasm-1.0.0+mc26.2-neoforge.jar` or
 `minegasm-1.0.0+mc1.20.1-fabric.jar`. Requires a JDK toolchain (25 for the 26.x lines, 21 for 1.21.1,
@@ -121,6 +123,10 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
    On **Quilt**, install the same **Fabric** jar and the same **Fabric API** mod: Quilt Loader reads
    its `fabric.mod.json` and loads it directly, and the mod uses no loader-specific API beyond Fabric
    API, so it runs as-is. There is no separate Quilt build.
+   On **NeoForge 1.20.1**, install the same **Forge** jar (`…+mc1.20.1-forge.jar`): NeoForge 1.20.1 is a
+   near-verbatim Forge fork that registers the `forge` mod, and the 1.20.1 Forge build is compiled to
+   load across the whole 1.20.1 Forge/NeoForge line, so it runs as-is. There is no separate NeoForge
+   1.20.1 build. (This applies only to 1.20.1; the 26.x/1.21.1 lines have their own NeoForge builds.)
 3. Launch Minecraft with the mod. On NeoForge, open the config screen from the mods list; on Fabric,
    bind and press **Open Minegasm settings** (Controls → Minegasm), or install
    **[ModMenu](https://modrinth.com/mod/modmenu)** to get a mods-list entry there too (optional; the
