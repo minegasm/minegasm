@@ -39,16 +39,6 @@ jobs:
           echo "JAVA_HOME=$HOME/jdk-25" >> "$GITHUB_ENV"
           echo "$HOME/jdk-25/bin" >> "$GITHUB_PATH"
 
-      - name: Cache Gradle dependencies
-        uses: https://code.forgejo.org/actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ matrix.group }}-${{ hashFiles('gradle.properties', 'settings.gradle.kts', 'build.gradle.kts', 'stonecutter.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ matrix.group }}-
-
       - name: Build and test this Minecraft line's variants
         env:
           VARIANTS: ${{ matrix.variants }}
