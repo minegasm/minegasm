@@ -105,8 +105,7 @@ jobs:
 
   release:
     needs: build
-    if: forge.ref_type == 'tag'
-    runs-on: codeberg-medium
+    runs-on: ${{ forge.ref_type == 'tag' && 'codeberg-small' || 'codeberg-small-lazy' }}
     steps:
       - name: Download all built jars
         uses: https://code.forgejo.org/forgejo/download-artifact@v4
@@ -116,6 +115,7 @@ jobs:
           merge-multiple: true
 
       - name: Check tag matches project version
+        id: check-version
         env:
           REF_TYPE: ${{ forge.ref_type }}
           TAG_NAME: ${{ forge.ref_name }}
@@ -133,8 +133,22 @@ jobs:
             exit 1
           fi
 
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
           cd dist
           sha256sum *.jar > SHA256SUMS
+
+      - name: Preview what would be published
+        if: ${{ !(forge.ref_type == 'tag' && contains(forge.ref_name, '-beta.')) }}
+        env:
+          VERSION: ${{ steps.check-version.outputs.version }}
+        run: |
+          echo "Not a beta release tag, so nothing will be published. If this commit were"
+          echo "tagged v$VERSION, the release would be named 'v$VERSION' and would ship these assets:"
+          echo
+          ls -l dist/
+          echo
+          cat dist/SHA256SUMS
 
       - name: Publish Codeberg beta release
         if: forge.ref_type == 'tag' && contains(forge.ref_name, '-beta.')
