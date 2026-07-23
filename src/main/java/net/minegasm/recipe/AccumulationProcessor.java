@@ -7,7 +7,7 @@ import net.minegasm.util.HapticMath;
 /**
  * Accumulation-mode charge processor (brief §11.5). Gameplay events add charge; charge decays over
  * <em>real</em> time (never tick counts) and the output level is a curve of {@code charge/capacity}.
- * The accumulator is bounded — charge never exceeds capacity — and thread-confined to the worker.
+ * The accumulator is bounded (charge never exceeds capacity) and thread-confined to the worker.
  *
  * <p>Legacy Minegasm used a hold-then-step decay; this uses the brief's continuous real-time decay,
  * with the same contribution weights, which is smoother and cannot grow unbounded.

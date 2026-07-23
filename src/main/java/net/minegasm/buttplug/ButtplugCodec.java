@@ -24,11 +24,11 @@ import java.util.Optional;
  * is a JSON array of {@code {"<MessageName>": {...}}} objects; every client request carries an
  * unsigned {@code Id}. This class is the single place protocol shapes live. Field names (including the
  * {@code DeviceFeatures}/{@code Output} array shape) were verified against the buttplug4j 4.0.278
- * message classes — the reference v4 client that Intiface speaks (brief §9.2).
+ * message classes, the reference v4 client that Intiface speaks (brief §9.2).
  *
  * <p>Parsing is defensive: unknown output kinds are preserved as {@link OutputKind#UNKNOWN},
  * malformed ranges are skipped, and unknown messages become {@link ServerMessage.Unknown} rather
- * than throwing — a hostile or future server can never abort ingestion (brief §12.2).
+ * than throwing, so a hostile or future server can never abort ingestion (brief §12.2).
  */
 public final class ButtplugCodec {
 
@@ -241,7 +241,7 @@ public final class ButtplugCodec {
         Map<OutputKind, OutputCapability> outputs = new LinkedHashMap<>();
         for (Map.Entry<String, JsonObject> wrapped : descriptors(outputElement)) {
             // Unknown/future verbs are represented (so the UI can show them as unsupported) but are
-            // never rendered — the mixer's kind preference and SafetyCaps exclude UNKNOWN (brief §9.6).
+            // never rendered: the mixer's kind preference and SafetyCaps exclude UNKNOWN (brief §9.6).
             OutputKind kind = OutputKind.fromWire(wrapped.getKey());
             IntRange value = parseRange(wrapped.getValue(), "Value");
             if (value == null) {

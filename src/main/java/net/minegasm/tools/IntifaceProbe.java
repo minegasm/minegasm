@@ -74,7 +74,7 @@ public final class IntifaceProbe {
             System.out.println("Devices (" + snapshot.all().size() + "), generation "
                     + snapshot.generation() + ":");
             if (snapshot.isEmpty()) {
-                System.out.println("  (none — add a simulated device in Intiface, or connect hardware)");
+                System.out.println("  (none: add a simulated device in Intiface, or connect hardware)");
             }
             for (HapticDevice device : snapshot.all()) {
                 printDevice(device);

@@ -21,7 +21,7 @@ import java.util.Locale;
 
 /**
  * A compact in-game control screen (brief §11.2): master enable, connect/disconnect, scan, a status
- * line, and an always-visible stop. It is intentionally small — the full device/gameplay/calibration
+ * line, and an always-visible stop. It is intentionally small: the full device/gameplay/calibration
  * screens are follow-up work (Epic 6); this covers the MVP-critical controls and never mutates engine
  * state directly, only through {@link MinegasmClient#updateConfig} (brief §5.1). Validate the
  * Screen/Button API against the pinned 26.x build.

@@ -34,7 +34,7 @@ public final class Presets {
         t.put(MinegasmMode.MASOCHIST, preset(MinegasmMode.MASOCHIST,
                 0.00f, 1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.00f));
 
-        // HEDONIST: broad — attack .60, hurt .10, mine .80, place .20, xp 1.0, harvest .20,
+        // HEDONIST: broad: attack .60, hurt .10, mine .80, place .20, xp 1.0, harvest .20,
         // fishing .50, vitality .10, advancement 1.0.
         t.put(MinegasmMode.HEDONIST, preset(MinegasmMode.HEDONIST,
                 0.60f, 0.10f, 0.80f, 0.20f, 1.00f, 0.20f, 0.50f, 0.10f, 1.00f));

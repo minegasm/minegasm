@@ -4,8 +4,8 @@ import java.util.List;
 
 /**
  * The device-independent shape of an effect. A sealed hierarchy so renderers can exhaustively
- * translate meaning into per-output commands (brief Â§5.2, Â§8.2). All durations are milliseconds and
- * are converted to monotonic deadlines by the worker â€” never to tick counts (brief Â§6.1).
+ * translate meaning into per-output commands (brief §5.2, §8.2). All durations are milliseconds and
+ * are converted to monotonic deadlines by the worker, never to tick counts (brief §6.1).
  */
 public sealed interface HapticPrimitive
         permits HapticPrimitive.Impulse,
@@ -21,7 +21,7 @@ public sealed interface HapticPrimitive
     /** Total nominal duration in milliseconds. */
     int durationMs();
 
-    /** Immediate contact/impact: attack, hurt, place, block break (brief Â§8.2). */
+    /** Immediate contact/impact: attack, hurt, place, block break (brief §8.2). */
     record Impulse(float level, int durationMs, int attackMs, int releaseMs)
             implements HapticPrimitive {}
 

@@ -20,7 +20,7 @@ public final class PrimitiveEvaluator {
         double ms = elapsedNs / 1_000_000.0;
         // instanceof chain rather than a switch over the sealed type: switch type patterns are a
         // Java 21 feature, and this loader-agnostic core also compiles under Java 17 for the 1.20.1
-        // variants. The trailing throw keeps the exhaustiveness the switch gave — a new HapticPrimitive
+        // variants. The trailing throw keeps the exhaustiveness the switch gave: a new HapticPrimitive
         // subtype fails loudly here instead of silently returning 0.
         if (primitive instanceof HapticPrimitive.Impulse i) {
             return impulse(i, ms);

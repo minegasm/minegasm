@@ -1,7 +1,7 @@
 package net.minegasm.core;
 
 /**
- * How a layer combines with other active layers on the same endpoint (brief Â§5.2).
+ * How a layer combines with other active layers on the same endpoint (brief §5.2).
  */
 public enum CouplingMode {
     /** Highest level wins on the endpoint. */

@@ -241,7 +241,7 @@ public final class ButtplugProvider implements HapticProvider {
     private void handle(ServerMessage msg) {
         // instanceof chain rather than a switch over the sealed ServerMessage: switch type patterns are
         // a Java 21 feature, and this core also compiles under Java 17 for the 1.20.1 variants. The
-        // trailing throw keeps the switch's exhaustiveness — a new ServerMessage subtype fails loudly.
+        // trailing throw keeps the switch's exhaustiveness: a new ServerMessage subtype fails loudly.
         if (msg instanceof ServerMessage.DeviceList list) {
             DeviceRegistrySnapshot snap = registry.accept(list.devices());
             registryListener.accept(snap);

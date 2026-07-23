@@ -22,13 +22,13 @@ import java.util.Map;
  * it tries to {@code Field.set} a record's final fields and throws
  * {@code IllegalAccessException: Can not set final ... field} (surfacing as an {@code AssertionError}),
  * failing every config load on that line. The rest of the supported lines ship Gson 2.10+, so this gap
- * exists only on 1.19.2 — but building a record via its constructor never <em>sets</em> a final field,
+ * exists only on 1.19.2, but building a record via its constructor never <em>sets</em> a final field,
  * so registering this makes record handling correct on every Gson version. It is a library-version
  * concern, not a Minecraft-version one, so it is registered unconditionally (the pure core stays
  * guard-free) and every variant's test run exercises it.
  *
  * <p>JSON member names are the record component names and components are written in declaration order,
- * matching Gson's own record encoding, and each component delegates to {@code gson.getAdapter(...)} — so
+ * matching Gson's own record encoding, and each component delegates to {@code gson.getAdapter(...)}, so
  * output is byte-identical to the native-record path and existing on-disk configs remain readable.
  */
 final class RecordTypeAdapterFactory implements TypeAdapterFactory {
@@ -152,7 +152,7 @@ final class RecordTypeAdapterFactory implements TypeAdapterFactory {
             if (type == float.class) {
                 return 0f;
             }
-            return 0d; // double.class — the only remaining primitive
+            return 0d; // double.class, the only remaining primitive
         }
     }
 }

@@ -38,7 +38,7 @@ Provider               (net.minegasm.buttplug)
   explicit zero when a gesture ends (`FeatureScheduler.accept`).
 - **Stop wins**: `HapticWorker.requestStop` clears local state *and* sends `StopCmd`, so a delayed
   cycle cannot reassert output.
-- **Bounded everything**: tick buffer (128), scene ingress (64), per-feature pending state — all with
+- **Bounded everything**: tick buffer (128), scene ingress (64), and per-feature pending state all have
   documented overflow policies.
 
 ## Where behaviour lives (data, not code branches)
@@ -50,6 +50,6 @@ Provider               (net.minegasm.buttplug)
 
 ## Extension seams
 
-- `ButtplugTransport` — swap the JDK WebSocket for a client library without touching the engine.
-- `RecipePack` — add packs without changing acquisition or scheduling.
-- `MinecraftSampler` — the only class that changes between Minecraft versions (Stonecutter guards).
+- `ButtplugTransport`: swap the JDK WebSocket for a client library without touching the engine.
+- `RecipePack`: add packs without changing acquisition or scheduling.
+- `MinecraftSampler`: the only class that changes between Minecraft versions (Stonecutter guards).

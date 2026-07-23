@@ -9,7 +9,7 @@ repositories {
     mavenCentral()
     maven("https://maven.neoforged.net/releases/")
     // ModMenu (Fabric-only config-screen entry), from Modrinth's maven. Content-filtered to the
-    // maven.modrinth group so this repo is never queried for other artifacts — otherwise a transient
+    // maven.modrinth group so this repo is never queried for other artifacts; otherwise a transient
     // 5xx here would disable the repo and break unrelated dynamic-version resolutions (e.g. Forge's
     // dev.architectury:mixin-patched). Modrinth is used rather than ModMenu's own Terraformers maven,
     // which has proven flaky (502s); both serve the same distributed jar.
@@ -79,7 +79,7 @@ dependencies {
     }
     if (modmenuVersion != null) {
         // ModMenu ends up on the compile classpath only: NOT bundled (only `include` bundles), NOT on
-        // the runtime classpath, and adds no `depends` entry to fabric.mod.json — so ModMenu stays
+        // the runtime classpath, and adds no `depends` entry to fabric.mod.json, so ModMenu stays
         // optional for end users.
         //
         // The 26.x builds are published mojmap-native and resolve against this project's mappings as-is
@@ -109,7 +109,7 @@ dependencies {
 // transforming classloader before any test runs. That bootstrap works on the 26.x lines but is broken
 // under this project's pinned Architectury Loom for NeoForge 21.1.x (1.21.1): it fails reading its
 // launch-args file regardless of content. The engine/config test suite is pure JVM code with no
-// net.minecraft/net.neoforged imports (see src/test), so it never needed that bootstrap — excluding the
+// net.minecraft/net.neoforged imports (see src/test), so it never needed that bootstrap. Excluding the
 // jar here removes the auto-registered listener entirely rather than working around its bootstrap.
 if (project.name == "1.21.1-neoforge") {
     configurations.named("testRuntimeClasspath") {
@@ -118,7 +118,7 @@ if (project.name == "1.21.1-neoforge") {
 }
 
 // A loader's manifest (fabric.mod.json / neoforge.mods.toml) is identical across that loader's
-// Minecraft lines — version-specific values come from `${...}` tokens resolved per variant — so it
+// Minecraft lines (version-specific values come from `${...}` tokens resolved per variant), so it
 // lives once in `loader-resources/<loader>` instead of one copy per `versions/<mc>-<loader>`
 // (ADR-013). Adding it only to that loader's variants means no jar carries another loader's manifest.
 // Forge keeps its own copy under `versions/26.2-forge` while unregistered.
@@ -156,7 +156,7 @@ tasks.named<Jar>("jar") {
 
 // Loom's remapJar defaults to build/libs/minegasm-<loader>-<version>.jar on the 1.21.1 line instead of
 // reusing the `jar` task's archiveFileName above the way it does on the 26.x lines (root cause not
-// pinned down — likely stonecraft's own naming falling back to a default it doesn't special-case for a
+// pinned down; likely stonecraft's own naming falling back to a default it doesn't special-case for a
 // Minecraft version it doesn't otherwise recognize). Force it explicitly so every variant's final
 // artifact name matches stonecutter.gradle.kts's `installJars`, which expects this exact pattern.
 tasks.matching { it.name == "remapJar" }.configureEach {

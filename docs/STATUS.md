@@ -6,8 +6,8 @@ successful simulator or unit test is not presented as broader hardware validatio
 
 ## Automated verification
 
-All thirteen active variants — `26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge`, plus `1.20.1`
-and `1.19.2` × `fabric`/`forge` — compile and pass the Gradle test suite. A full `chiseledBuild`
+All thirteen active variants (`26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge`, plus `1.20.1`
+and `1.19.2` × `fabric`/`forge`) compile and pass the Gradle test suite. A full `chiseledBuild`
 produces one distributable jar per variant (see `docs/adr/ADR-012-add-fabric-loader.md`,
 `docs/adr/ADR-013-centralize-loader-entrypoints.md`). Forge was unblocked by pinning Architectury Loom
 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`); this also covers Forge on 1.21.1, which Architectury's
@@ -15,16 +15,21 @@ own runtime warning otherwise flags as unsupported.
 
 ### 1.21.1 (added after the 26.x lines)
 
-1.21.1 sits many Minecraft releases behind 26.1.2/26.2, so — unlike the small, adjacent-version
-`McCompat`-style shims between 26.1.2 and 26.2 — its shared-source compat guards cover real API
-generation changes: `ResourceLocation`/`Identifier`, `KeyMapping`'s string vs. object category, the
-`Screen`/`ObjectSelectionList.Entry` render pipeline (`render(GuiGraphics,...)` vs.
-`extractRenderState`/`extractContent(GuiGraphicsExtractor,...)`), NeoForge's client-stopping event
-(absent pre-26.1.2, so 1.21.1 uses a JVM shutdown hook like Forge), Forge's event-bus-6 static-`BUS`
-API (absent pre-26.1.2, so 1.21.1 registers listeners on `context.getModEventBus()` /
-`MinecraftForge.EVENT_BUS` instead), and Fabric API's pre-rename modules (`ClientCommandManager` not
-`ClientCommands`, `KeyBindingHelper` not `KeyMappingHelper`). All three loaders compile, pass the unit
-suite, and package (including jar-in-jar for the bundled Buttplug client) from a clean build.
+1.21.1 sits many Minecraft releases behind 26.1.2/26.2. Unlike the small, adjacent-version
+`McCompat`-style shims between 26.1.2 and 26.2, its shared-source compat guards cover real API
+generation changes:
+
+- `ResourceLocation`/`Identifier`, and `KeyMapping`'s string vs. object category.
+- The `Screen`/`ObjectSelectionList.Entry` render pipeline: `render(GuiGraphics,...)` vs.
+  `extractRenderState`/`extractContent(GuiGraphicsExtractor,...)`.
+- NeoForge's client-stopping event, absent pre-26.1.2, so 1.21.1 uses a JVM shutdown hook like Forge.
+- Forge's event-bus-6 static-`BUS` API, absent pre-26.1.2, so 1.21.1 registers listeners on
+  `context.getModEventBus()` / `MinecraftForge.EVENT_BUS` instead.
+- Fabric API's pre-rename modules: `ClientCommandManager` not `ClientCommands`, `KeyBindingHelper`
+  not `KeyMappingHelper`.
+
+All three loaders compile, pass the unit suite, and package (including jar-in-jar for the bundled
+Buttplug client) from a clean build.
 
 ModMenu mods-list integration works on every Fabric variant including 1.21.1: its only available ModMenu
 build (11.0.4) ships intermediary-mapped, so its dependency goes through Loom's `modCompileOnly` (which
@@ -34,33 +39,36 @@ builds use. ModMenu stays compile-only and optional on all variants.
 **In-game verification so far:** `testPulse` (device output) has been manually confirmed working on all
 three 1.21.1 loaders (NeoForge, Fabric, Forge). The rest of the in-game manual matrix recorded below for
 26.1.2/26.2 (config screens, connection, scanning, commands, panic/resume, legacy import, etc.) has not
-yet been repeated on 1.21.1 — this build environment has no Minecraft client to drive further passes.
+yet been repeated on 1.21.1: this build environment has no Minecraft client to drive further passes.
 
-### 1.20.1 (Fabric and Forge — plus NeoForge via the Forge jar)
+### 1.20.1 (Fabric and Forge, plus NeoForge via the Forge jar)
 
 1.20.1 sits further back still. It is *built* for Fabric and Forge only: NeoForge has no separately
 buildable variant here, because its first 1.20.1 release shipped under legacy `net.neoforged:forge`
-coordinates (not the modern `net.neoforged:neoforge` the stonecraft plugin hardcodes) — that artifact
+coordinates (not the modern `net.neoforged:neoforge` the stonecraft plugin hardcodes). That artifact
 simply doesn't exist for 1.20.1, so the tooling cannot resolve it. But NeoForge 1.20.1 doesn't *need* a
 separate build: at 1.20.1 it is a near-verbatim Forge fork (old `net.minecraftforge` API, `mods.toml`)
-that registers the `forge` modId, so it loads the **Forge jar** directly — the same way Quilt runs the
-Fabric jar. Making the one Forge jar load on both took three things, all in the 1.20.1 Forge variant:
-its Forge dependency floor was lowered to `47.1.5` (below NeoForge 1.20.1's oldest `47.1.7`, so every
-NeoForge 1.20.1 build satisfies the mandatory `forge` version range), its `@Mod` class uses the classic
-no-arg constructor + `FMLJavaModLoadingContext.get()` (older Forge/NeoForge instantiate via no-arg; the
-injected-context constructor is a newer 47.x addition), and the config screen registers through
-`ModLoadingContext.get().registerExtensionPoint(...)` (the `FMLJavaModLoadingContext` convenience form
-postdates 47.1.5). Confirmed loading and running in-game on NeoForge 1.20.1 (47.1.106).
+that registers the `forge` modId, so it loads the **Forge jar** directly, the same way Quilt runs the
+Fabric jar. Making the one Forge jar load on both took three changes, all in the 1.20.1 Forge variant:
+
+- Its Forge dependency floor was lowered to `47.1.5`, below NeoForge 1.20.1's oldest `47.1.7`, so
+  every NeoForge 1.20.1 build satisfies the mandatory `forge` version range.
+- Its `@Mod` class uses the classic no-arg constructor plus `FMLJavaModLoadingContext.get()`: older
+  Forge/NeoForge instantiate via no-arg, and the injected-context constructor is a newer 47.x addition.
+- The config screen registers through `ModLoadingContext.get().registerExtensionPoint(...)`, since the
+  `FMLJavaModLoadingContext` convenience form postdates 47.1.5.
+
+Confirmed loading and running in-game on NeoForge 1.20.1 (47.1.106).
 
 The compat surface is the largest of any line, in two layers. **Java level:** 1.20.1 runs on Java 17,
-but the loader-agnostic core was written against Java 21 idioms — switch *type patterns* over sealed
+but the loader-agnostic core was written against Java 21 idioms: switch *type patterns* over sealed
 types, a Java 21 feature (preview in 17). Those sites (in `PrimitiveEvaluator`, `ButtplugProvider`,
 `Buttplug4jProvider`) were rewritten to `instanceof` chains with a trailing `throw` that preserves the
 switch's compile-time exhaustiveness. The rewrite is unconditional (all variants), not version-guarded:
 it is a Java-version concern, not a Minecraft one, and belongs out of the pure core's otherwise
 zero-guard source. The identical 92-test suite passes on both Java 17 and the modern (Java 25) variants,
 confirming it is behavior-preserving. **Minecraft level:** guards (keyed `>=1.21.1`, a proxy for the
-pre-1.20.2 API state that holds only because no 1.20.2–1.20.6 variant is registered) cover the toast-id
+pre-1.20.2 API state that holds only because no 1.20.2-1.20.6 variant is registered) cover the toast-id
 token (`SystemToast.SystemToastIds` enum vs. the instantiable `SystemToastId`), the pre-1.20.2
 advancement API (`Advancement` with nullable `DisplayInfo` vs. `AdvancementNode`/`AdvancementHolder`),
 the `ObjectSelectionList` constructor (explicit `y0`/`y1` and `setLeftPos`/`width` field vs.
@@ -74,7 +82,7 @@ screens, connection, scanning, commands, panic/resume, legacy import) has not be
 
 ### 1.19.2 (Fabric and Forge)
 
-1.19.2 is the oldest line built here and, like 1.20.1, is *built* for Fabric and Forge only — but for a
+1.19.2 is the oldest line built here and, like 1.20.1, is *built* for Fabric and Forge only, but for a
 different reason: NeoForge did not exist yet (its first release was 1.20.1), so there is nothing to
 build or load a jar on. 1.19.2 runs on Java 17, so it reuses the same core `instanceof` rewrite as
 1.20.1 with no additional Java-level work (Forge 43.5.2, Fabric API 0.77.0+1.19.2, ModMenu 4.1.2 via
@@ -99,20 +107,20 @@ is registered) splits the UI three ways alongside the existing `>=26.1.2` and `>
   exposes no destroy-stage accessor (`getDestroyStage()` arrived in 1.20; the underlying field is
   private and name-obfuscated at runtime, so reflection is not reliable across SRG/intermediary
   mappings), so the fine-grained mining-progress ramp is unavailable on 1.19.2. Mining is still detected
-  and block-break events fire independently — only the continuous progress texture is degraded there.
+  and block-break events fire independently; only the continuous progress texture is degraded there.
 
 One non-Minecraft delta surfaced in-game (the build and unit suite could not have caught it, since both
 run against a newer Gson than 1.19.2 ships): the config is a record graph, and **1.19.2 ships Gson
 2.8.9**, which predates Gson's record support (2.10.0) and fails every config load trying to set a
-record's final fields. A `RecordTypeAdapterFactory` (registered unconditionally on the config `Gson`,
-in the loader-agnostic core — a library-version concern, not a Minecraft one) constructs records through
+record's final fields. A `RecordTypeAdapterFactory` (registered unconditionally on the config `Gson`
+in the loader-agnostic core, a library-version concern rather than a Minecraft one) constructs records through
 their canonical constructor instead, which is correct on every Gson version; the strengthened
 `ConfigStoreTest` round-trip asserts deep equality over the full nested graph to cover it.
 
 The toast id token (`SystemToast.SystemToastIds.PERIODIC_NOTIFICATION`), advancement API,
 `ObjectSelectionList` constructor, string key-mapping category, and Forge `ClientTickEvent` phase field
 are all identical to the existing `<1.21.1` branches, so they carry over unchanged. The Forge entrypoint
-needed no structural change beyond the `feedback(...)` helper — its `<1.21.1` branch (no-arg `@Mod`
+needed no structural change beyond the `feedback(...)` helper: its `<1.21.1` branch (no-arg `@Mod`
 constructor, `ModLoadingContext.get().registerExtensionPoint`, `ConfigScreenHandler.ConfigScreenFactory`)
 already matches Forge 43.5.2. Both loaders compile, pass the unit suite, and package from a clean build.
 
@@ -178,18 +186,18 @@ with no new issues observed. (The pre-existing "Test Device Output" quirk under 
 to Fabric too.)
 
 The first real Fabric launch surfaced that Fabric API must be installed as a separate companion mod
-(Fabric Loader's "missing dependency" screen otherwise) — expected, not a bug: Fabric API is declared
+(Fabric Loader's "missing dependency" screen otherwise), which is expected, not a bug: Fabric API is declared
 as a dependency in `fabric.mod.json` but never bundled into the Minegasm jar, unlike `buttplug4j`,
 which is. See `README.md` for the exact required Fabric API versions per Minecraft line.
 
-The config screen opens on Fabric via the `key.minegasm.config` keybinding, and — when the optional
-ModMenu is installed — from a mods-list entry via a compile-only ModMenu integration
+The config screen opens on Fabric via the `key.minegasm.config` keybinding, and, when the optional
+ModMenu is installed, from a mods-list entry via a compile-only ModMenu integration
 (`net.minegasm.fabric.ModMenuIntegration`). Both paths have been confirmed working in-game.
 
 ## Known issues
 
 **Config screen "Test Device Output" button sometimes produces no pulse.** In some in-game sessions,
-clicking the button (`MinegasmConfigScreen`) does nothing — no vibration — even though the button
+clicking the button (`MinegasmConfigScreen`) produces no vibration, even though the button
 renders as active (enabled, connected, a device with a Vibrate capability present) and the same
 device demonstrably vibrates correctly from normal gameplay events (hurt, mining, etc.) in the same
 session. Reproduced on all three loaders (NeoForge, Fabric, Forge); reproduces on a fresh session's
@@ -239,7 +247,7 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 - Advancement acquisition is now automatic via the vanilla client advancement listener
   (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`); it still needs in-game
   confirmation (earn a `task`/`goal`/`challenge` advancement and feel the pulse; confirm joining a
-  world does not replay past advancements). Nearby-explosion acquisition remains pending — its
+  world does not replay past advancements). Nearby-explosion acquisition remains pending: its
   intent, recipe, settings, and manual `/minegasm trigger explosion` path exist, but gameplay does
   not emit it automatically (no mixin-free client signal carrying explosion position and power).
   Planned for `1.0.0-beta.3` via a client-only mixin on the explosion receive path
@@ -253,7 +261,7 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 - **Config-screen list clipping on the pre-1.20.2 lines (`1.20.1`, `1.19.2`).** Those Minecraft versions'
   `AbstractSelectionList` clips overflowing rows only via its built-in top/bottom "dirt" masks, which are
   sized from a screen-height constructor argument and therefore paint over the embedded device/error
-  lists — so the masks are disabled (`setRenderBackground(false)`/`setRenderTopAndBottom(false)`) and
+  lists, so the masks are disabled (`setRenderBackground(false)`/`setRenderTopAndBottom(false)`) and
   error rows are rendered single-line to avoid overlap (`DeviceListWidget`/`ErrorListWidget`). The
   remaining gap: with the masks off and no scissor on those versions (`GuiComponent.enableScissor`
   arrived in 1.20), a partial error row can peek a few pixels into the gap above the list while

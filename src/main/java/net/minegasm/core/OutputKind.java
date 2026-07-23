@@ -5,7 +5,7 @@ import java.util.Optional;
 /**
  * Buttplug v4 output verbs, normalized into an internal enum. Unknown/future output strings are
  * intentionally represented as {@link #UNKNOWN} so the registry can store and display them without
- * ever routing to them (brief Â§9.6, ADR-008).
+ * ever routing to them (brief §9.6, ADR-008).
  *
  * <p>{@code Spray} is deliberately absent: it is permanently unsupported and must never be routed
  * (brief non-goal). A stray {@code "Spray"} wire string maps to {@link #UNKNOWN}.

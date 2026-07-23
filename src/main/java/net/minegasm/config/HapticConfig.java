@@ -11,7 +11,7 @@ import java.util.Map;
  * deserialise to {@code null} and are normalised to defaults by the compact constructors, so partial
  * or older files load safely. The mutable runtime view is {@link RuntimeConfig}.
  *
- * <p>This type is a pure data holder — no Minecraft or Buttplug types.
+ * <p>This type is a pure data holder: no Minecraft or Buttplug types.
  */
 public record HapticConfig(
         int schemaVersion,

@@ -18,7 +18,7 @@ gradle.projectsEvaluated {
 
 // `installJars`: build every variant (via `chiseledBuild`) and copy each freshly built jar into the
 // local Minecraft instance's `mods` folder, for hands-on testing across loaders/versions. Targets are
-// read from `mods-install.env` (gitignored; copy `mods-install.env.example`) — one `<variant>=<mods
+// read from `mods-install.env` (gitignored; copy `mods-install.env.example`), one `<variant>=<mods
 // folder>` line per instance you test; blank/absent lines are skipped. Everything below is pure path
 // construction resolved at configuration time, so nothing here reaches into subproject state.
 run {

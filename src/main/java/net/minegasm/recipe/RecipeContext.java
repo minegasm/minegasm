@@ -8,9 +8,9 @@ import net.minegasm.util.HapticMath;
  * Everything a {@link RecipePack} needs to turn one intent into a scene.
  *
  * <ul>
- *   <li>{@code modeBase} — the preset's per-event base intensity (0..1), "how much this mode wants
+ *   <li>{@code modeBase}: the preset's per-event base intensity (0..1), "how much this mode wants
  *       this event felt".</li>
- *   <li>{@code userGain} — user scaling: event multiplier × global intensity.</li>
+ *   <li>{@code userGain}: user scaling, event multiplier × global intensity.</li>
  * </ul>
  *
  * A pack computes its amplitude as {@code modeBase × shape(intent) × userGain}, where {@code shape}

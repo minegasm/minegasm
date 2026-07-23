@@ -4,9 +4,9 @@ import java.util.Collections;
 import java.util.Set;
 
 /**
- * A device-independent, normalized description of "something meaningful happened" â€” the aggregator's
+ * A device-independent, normalized description of "something meaningful happened": the aggregator's
  * output and the recipe resolver's input. Strength/urgency are normalized {@code [0, 1]} (brief
- * Â§5.2). Tags carry qualifiers such as {@code "critical"}, {@code "ore"}, or {@code "levelup"}.
+ * §5.2). Tags carry qualifiers such as {@code "critical"}, {@code "ore"}, or {@code "levelup"}.
  */
 public record HapticIntent(
         GameEventKind kind,

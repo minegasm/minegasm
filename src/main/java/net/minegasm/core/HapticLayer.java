@@ -2,7 +2,7 @@ package net.minegasm.core;
 
 /**
  * One renderable layer of a scene: a primitive, its role, its route, coupling, priority, and its
- * real-time offset/expiry relative to the scene (brief Â§5.2). Layers, not scenes, are what the
+ * real-time offset/expiry relative to the scene (brief §5.2). Layers, not scenes, are what the
  * renderer turns into per-feature commands.
  */
 public record HapticLayer(

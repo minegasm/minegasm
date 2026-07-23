@@ -25,7 +25,7 @@ artifact (device model via `getOutput()`/`ButtplugOutput`, per-feature `run*Floa
 surface; we keep our own generation-stamped `DeviceRegistry` so the scheduler's staleness gate still
 applies. The native provider remains valuable as a zero-dependency fallback and a deterministic test
 backend; its `ButtplugCodec` message shapes were validated field-by-field against both the official
-buttplug Rust source (`buttplugio/buttplug`) and buttplug4j 4.0.278 — which caught that `Devices` and
-`DeviceFeatures` are index-keyed objects (not arrays) while `Output` is an array of externally-tagged
+buttplug Rust source (`buttplugio/buttplug`) and buttplug4j 4.0.278. That validation caught that
+`Devices` and `DeviceFeatures` are index-keyed objects (not arrays) while `Output` is an array of externally-tagged
 `{Kind:{Value:[min,max],Duration:[..]}}` descriptors. A live Intiface run remains the final
 confirmation.

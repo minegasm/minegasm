@@ -11,7 +11,7 @@ import java.util.TreeMap;
 /**
  * A device normalized from a Buttplug {@code DeviceList} entry. The {@code registryGeneration}
  * stamps which snapshot this device belongs to; a reused {@code deviceIndex} in a later generation
- * is a different logical device (brief Â§5.3, Â§9.5).
+ * is a different logical device (brief §5.3, §9.5).
  */
 public record HapticDevice(
         int deviceIndex,
@@ -51,7 +51,7 @@ public record HapticDevice(
 
     /**
      * Best-effort stable identity key for saved preferences across reconnects. Never a raw device
-     * index; combines name + a signature of feature output kinds (brief Â§13.3). Matching remains
+     * index; combines name + a signature of feature output kinds (brief §13.3). Matching remains
      * probabilistic and must be surfaced to users.
      */
     public String identityKey() {

@@ -21,8 +21,8 @@ import java.util.Map;
  * Per-feature output scheduling (brief §6.2 structure D, §9.8, §10.5). Converts desired endpoint
  * targets into concrete {@link OutputCommand}s, applying: registry-generation validation, integer
  * range scaling, a normalized deadband so tiny changes are not spammed, the device's advertised
- * timing gap, and — crucially — a planned zero command when a held vibration-like endpoint is no
- * longer targeted (such outputs hold their level until changed, so every gesture needs a stop).
+ * timing gap, and a planned zero command when a held vibration-like endpoint is no longer targeted
+ * (such outputs hold their level until changed, so every gesture needs a stop).
  * Position-like endpoints are released without a zero: see {@link #needsZeroOnRelease}.
  *
  * <p>Confined to the worker thread; not synchronised.
@@ -144,7 +144,7 @@ public final class FeatureScheduler {
      * Which held kinds must be driven to zero when their layer ends. Vibration-like outputs keep
      * stimulating until changed, so a planned zero is mandatory (brief §9.8). Position-like outputs
      * merely hold a location: commanding a raw 0 would slam the device to an end of its physical
-     * range, outside the calibrated window — release must leave them where the envelope ended
+     * range, outside the calibrated window. Release must leave them where the envelope ended
      * (recipes end motion at/near neutral; {@code StopCmd} covers emergencies).
      */
     private static boolean needsZeroOnRelease(OutputKind kind) {

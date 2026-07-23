@@ -12,7 +12,7 @@ pluginManagement {
 }
 
 // Force Architectury Loom to 1.17.491 (overriding the version the stonecraft plugin resolves
-// transitively). 1.17.487 — the newest at the time of ADR-011 — throws "convertAccessWideners is final
+// transitively). 1.17.487 (the newest at the time of ADR-011) throws "convertAccessWideners is final
 // and cannot be changed" when any Forge variant is registered, breaking Gradle config for every
 // variant; 1.17.491 fixes it (docs/adr/ADR-013). Remove this force once the stonecraft plugin's own
 // resolved Loom is >= 1.17.491, so it stops silently holding Loom back.
@@ -26,7 +26,7 @@ plugins {
     id("gg.meza.stonecraft") version "1.12.4"
     id("dev.kikugie.stonecutter") version "0.9.6"
     // Auto-provisions the Java 21 toolchain that 1.21.1 needs (build.gradle.kts) when it isn't already
-    // installed locally — only Java 25 is present on this machine otherwise.
+    // installed locally; only Java 25 is present on this machine otherwise.
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
@@ -70,9 +70,9 @@ stonecutter {
         // 1.20.1: Fabric and Forge only. NeoForge for 1.20.1 shipped as its initial fork under the
         // legacy net.neoforged:forge:1.20.1-47.1.x coordinates (not the modern net.neoforged:neoforge
         // this tooling resolves) with the old net.minecraftforge API, so it is deliberately not
-        // registered here — plain Forge covers that near-identical surface.
+        // registered here; plain Forge covers that near-identical surface.
         mc("1.20.1", "fabric", "forge")
-        // 1.19.2: Fabric and Forge only — NeoForge did not exist yet (its first release was 1.20.1).
+        // 1.19.2: Fabric and Forge only. NeoForge did not exist yet (its first release was 1.20.1).
         // 1.19.2 predates the 1.20 GuiGraphics rework, so its UI render methods take a PoseStack; the
         // shared source carries a third render branch behind a >=1.20.1 guard (see build.gradle.kts and
         // the neoforge UI files). Runs on Java 17, like 1.20.1.

@@ -2,7 +2,7 @@ package net.minegasm.core;
 
 /**
  * Broad material classes for mining/placement texture, derived from block tags/properties rather
- * than a hard-coded block list (brief Â§7.4). Each class carries default texture-shaping parameters
+ * than a hard-coded block list (brief §7.4). Each class carries default texture-shaping parameters
  * (grain/density/roughness in 0..1) that recipes may reference.
  */
 public enum MaterialFeel {

@@ -3,7 +3,7 @@ package net.minegasm.core;
 /**
  * The device-independent semantic categories of gameplay observations. This is the vocabulary the
  * Minecraft observation layer emits and the recipe resolver keys on. It intentionally covers the
- * full Minegasm parity surface (brief Â§3.2) plus a few modern enhancements (mining texture,
+ * full Minegasm parity surface (brief §3.2) plus a few modern enhancements (mining texture,
  * block-break completion, explosion) kept separate so parity stays clean (ADR-009).
  */
 public enum GameEventKind {

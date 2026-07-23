@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Deterministic {@link Clock} for tests. Time only advances when explicitly told to, so timing,
- * expiry, and scheduling behaviour is verified without {@code Thread.sleep} (brief Â§14.1, Â§H).
+ * expiry, and scheduling behaviour is verified without {@code Thread.sleep} (brief §14.1, §H).
  *
  * <p>Thread-safe: the worker and test thread may read/advance concurrently.
  */

@@ -10,7 +10,7 @@ import java.util.Optional;
 /**
  * One feature of a device, exposing zero or more output capabilities (a feature may advertise
  * several output contexts, e.g. a stroker with both {@code Position} and
- * {@code HwPositionWithDuration}) and zero or more inputs (brief Â§5.3, Â§C rule 7).
+ * {@code HwPositionWithDuration}) and zero or more inputs (brief §5.3, §C rule 7).
  */
 public record HapticFeature(
         int featureIndex,

@@ -19,11 +19,11 @@ All notable changes to Minegasm are documented in this file. The format follows
   (Fabric, Forge) build alongside the 26.x lines via Stonecutter version guards over the real
   API-generation changes (advancement, toast, list-widget, key-mapping, and Forge/Fabric event APIs).
   1.20.1 and 1.19.2 run on Java 17, which required rewriting the loader-agnostic core's Java 21 switch
-  type patterns to `instanceof` chains — behavior-preserving, verified by the same 92-test suite passing
-  on both Java 17 and Java 25. No separate NeoForge build is shipped for `1.20.1` (the tooling can't
-  resolve its legacy `net.neoforged:forge` coordinates); instead NeoForge 1.20.1 loads the **Forge** jar
-  directly — it is a near-verbatim Forge fork registering the `forge` mod, and the 1.20.1 Forge build is
-  compiled (floor `47.1.5`, classic no-arg constructor, classic config-screen registration) to load
+  type patterns to `instanceof` chains. This is behavior-preserving, verified by the same 92-test suite
+  passing on both Java 17 and Java 25. No separate NeoForge build is shipped for `1.20.1` (the tooling
+  can't resolve its legacy `net.neoforged:forge` coordinates); instead NeoForge 1.20.1 loads the
+  **Forge** jar directly. It is a near-verbatim Forge fork registering the `forge` mod, and the 1.20.1
+  Forge build is compiled (floor `47.1.5`, classic no-arg constructor, classic config-screen registration) to load
   across the whole 1.20.1 Forge/NeoForge line. `1.19.2` predates NeoForge entirely (its first release
   was 1.20.1), so it is Fabric and Forge only, and it sits before the 1.20 UI rework: its screens and
   list widgets render through a `PoseStack` with the static `GuiComponent` draw helpers (not the 1.20+
@@ -34,16 +34,16 @@ All notable changes to Minegasm are documented in this file. The format follows
   `Gson` in the loader-agnostic core, correct on every Gson version). The one gap: 1.19.2's
   `MultiPlayerGameMode` exposes no destroy-stage accessor, so the fine-grained mining-progress ramp is
   unavailable there (block-break events still fire). See `docs/STATUS.md`.
-- **Quilt** runs the existing **Fabric** jar as-is — Quilt Loader loads it via `fabric.mod.json` and
+- **Quilt** runs the existing **Fabric** jar as-is. Quilt Loader loads it via `fabric.mod.json`, and
   the mod uses no loader-specific API beyond Fabric API, so no separate Quilt build is shipped
   (install the Fabric jar with the normal Fabric API mod). Likewise **NeoForge 1.20.1** runs the
   existing **Forge** jar (see the older-Minecraft-lines note above).
 - `/minegasm enable` and `/minegasm disable` client commands to toggle master haptic output from
-  chat — the same switch as the config screen's enable toggle, disabling also stops active output.
+  chat, the same switch as the config screen's enable toggle; disabling also stops active output.
   Available under the `/mg` alias too, and requires no server permissions.
 - **ModMenu** integration on Fabric: when ModMenu is installed, the config screen gets an entry in the
   mods list (in addition to the `key.minegasm.config` keybinding). ModMenu is an optional, compile-only
-  dependency — never bundled or required at runtime — so the mod is unchanged without it.
+  dependency, never bundled or required at runtime, so the mod is unchanged without it.
 - Automatic acquisition of the **advancement** event: earning an advancement in-game now raises the
   haptic event that was previously reachable only via `/minegasm trigger advancement`. Implemented
   with the vanilla client advancement listener so it works in singleplayer and on unmodified

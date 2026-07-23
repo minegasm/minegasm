@@ -7,7 +7,7 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Capability- and policy-based routing for a layer â€” never brand names (brief Â§5.4). Declares which
+ * Capability- and policy-based routing for a layer, never brand names (brief §5.4). Declares which
  * output kinds are acceptable, whether experimental opt-in is required, optional include/exclude
  * filters, and the delivery spread.
  */

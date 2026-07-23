@@ -29,7 +29,7 @@ import net.minecraft.resources.Identifier;
 /**
  * Client-side detector for the {@link GameEventKind#ADVANCEMENT} event (brief §3.2 parity). Minecraft
  * exposes no pollable "advancement earned" state and no loader event that fires against a remote
- * vanilla server, so this attaches to the vanilla {@link ClientAdvancements.Listener} slot — the one
+ * vanilla server, so this attaches to the vanilla {@link ClientAdvancements.Listener} slot, the one
  * public, mapping-portable hook that works identically on singleplayer and unmodified multiplayer
  * servers (docs/adr/ADR-014). The single listener slot is shared with the vanilla
  * {@link AdvancementsScreen}: this yields it while that screen is open and re-asserts it otherwise.
@@ -133,7 +133,7 @@ final class AdvancementWatcher implements ClientAdvancements.Listener {
     // getType().getSerializedName()) rather than an Optional AdvancementType. The listener method shapes
     // below therefore split by era; onAdvancementsCleared() is identical on both and stays unguarded.
     // The >=1.21.1 guard is a proxy for "has the 1.20.2 advancement rework": it holds only because no
-    // 1.20.2–1.20.6 variant is registered — adding one would need this boundary revisited.
+    // 1.20.2-1.20.6 variant is registered; adding one would need this boundary revisited.
     //? if >=1.21.1 {
     @Override
     public void onUpdateAdvancementProgress(AdvancementNode node, AdvancementProgress progress) {

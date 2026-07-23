@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
  * accessor both migrated onto {@code Minecraft.gui} in 26.2, and the toast-manager accessor was
  * {@code Minecraft.getToasts()} on 1.21.1 before becoming {@code Minecraft.getToastManager()} on
  * 26.1.2. This touches only vanilla types, so it lives in shared {@code src} behind a Stonecutter
- * version guard and needs no loader guard — every loader entrypoint calls through here instead of
+ * version guard and needs no loader guard. Every loader entrypoint calls through here instead of
  * carrying its own copy of the guard, which is what let the loader entrypoints move back into shared
  * source as single files (docs/adr/ADR-013).
  */

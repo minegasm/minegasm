@@ -2,7 +2,7 @@ package net.minegasm.device;
 
 /**
  * An inclusive integer range as advertised by a Buttplug feature (value or duration). Buttplug
- * ranges are inclusive on both ends (brief Â§C rule 4). May be signed (e.g. rotate direction).
+ * ranges are inclusive on both ends (brief §C rule 4). May be signed (e.g. rotate direction).
  */
 public record IntRange(int min, int max) {
 

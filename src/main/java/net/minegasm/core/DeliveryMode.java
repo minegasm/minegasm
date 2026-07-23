@@ -1,7 +1,7 @@
 package net.minegasm.core;
 
 /**
- * How a route spreads a layer across the enabled compatible features (brief Â§5.4).
+ * How a route spreads a layer across the enabled compatible features (brief §5.4).
  */
 public enum DeliveryMode {
     /** Render to every enabled compatible feature. Default for impact/reward vibration. */

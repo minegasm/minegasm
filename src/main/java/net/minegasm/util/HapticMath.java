@@ -5,7 +5,7 @@ import net.minegasm.device.IntRange;
 /**
  * Pure, side-effect-free math for the haptic engine: clamping, response curves, range scaling, and
  * deterministic seeded variation. Every normalization is clamped at an explicit boundary (guideline
- * Â§H "no unchecked normalization values").
+ * §H "no unchecked normalization values").
  */
 public final class HapticMath {
 
@@ -35,7 +35,7 @@ public final class HapticMath {
 
     /**
      * Classic Hermite smoothstep on {@code [0, 1]}. Used for hurt strength shaping so small damage
-     * stays gentle and large damage saturates smoothly (brief Â§7.3).
+     * stays gentle and large damage saturates smoothly (brief §7.3).
      */
     public static float smoothstep(float x) {
         float t = clamp01(x);
@@ -49,7 +49,7 @@ public final class HapticMath {
 
     /**
      * Scale a normalized {@code [0, 1]} value into a device's inclusive integer output range.
-     * The single conversion point between the engine's float world and the wire (brief Â§9.7).
+     * The single conversion point between the engine's float world and the wire (brief §9.7).
      */
     public static int scaleNormalized(float normalized, IntRange range) {
         float value = clamp01(normalized);
@@ -60,7 +60,7 @@ public final class HapticMath {
     /**
      * Scale a signed normalized {@code [-1, 1]} value into an inclusive integer range. Required for
      * signed outputs such as {@code Rotate}; a generic 0..1 intensity must never be fed into a
-     * signed range without an explicit direction decision (brief Â§9.7).
+     * signed range without an explicit direction decision (brief §9.7).
      */
     public static int scaleSigned(float signedNormalized, IntRange range) {
         float value = clamp(signedNormalized, -1f, 1f);
@@ -72,7 +72,7 @@ public final class HapticMath {
 
     /**
      * Deterministic, stable hash for seeded variation. Same inputs always yield the same seed, so a
-     * given event context produces reproducible variation (brief Â§8.4). Uses a 64-bit mix.
+     * given event context produces reproducible variation (brief §8.4). Uses a 64-bit mix.
      */
     public static long variationSeed(Object... parts) {
         long h = 0xcbf29ce484222325L; // FNV offset basis
@@ -108,7 +108,7 @@ public final class HapticMath {
 
     /**
      * Apply bounded multiplicative variation to a level: {@code level * (1 + jitter)}, clamped to
-     * {@code [0, 1]}. Safety caps and priorities are never varied (brief Â§8.4).
+     * {@code [0, 1]}. Safety caps and priorities are never varied (brief §8.4).
      */
     public static float varyLevel(float level, long seed, float fraction) {
         float jitter = seededJitter(seed, 1, fraction);

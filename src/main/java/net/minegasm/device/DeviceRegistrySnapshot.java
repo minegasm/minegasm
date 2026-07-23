@@ -12,7 +12,7 @@ import java.util.TreeMap;
 /**
  * Immutable snapshot of all known devices at a single registry generation. Every accepted
  * {@code DeviceList} produces a new snapshot with an incremented generation; scheduled commands
- * capture the generation and are dropped if it no longer matches (brief Â§5.3, Â§9.5).
+ * capture the generation and are dropped if it no longer matches (brief §5.3, §9.5).
  */
 public record DeviceRegistrySnapshot(long generation, Map<Integer, HapticDevice> devices) {
 
@@ -44,7 +44,7 @@ public record DeviceRegistrySnapshot(long generation, Map<Integer, HapticDevice>
     /**
      * Resolve a {@link FeatureRef} against this snapshot, verifying generation, device presence,
      * feature presence, and that the requested output kind is still advertised. Returns empty if any
-     * check fails â€” the single gate the scheduler consults before every dispatch (brief Â§10.5).
+     * check fails; this is the single gate the scheduler consults before every dispatch (brief §10.5).
      */
     public Optional<HapticFeature> resolve(FeatureRef ref, OutputKind kind) {
         if (ref.registryGeneration() != generation) {

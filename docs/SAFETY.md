@@ -14,10 +14,10 @@ uncertainty (brief §12).
 - **Pause policy** is explicit: `STOP` clears active state; `PAUSE` sends `StopCmd`, freezes scene and
   fatigue deadlines, and resumes only against the same device-registry generation; `CONTINUE` does
   not issue a pause-triggered command. World unload or any safety stop discards preserved pause state.
-- **Panic key** (unbound by default; assign in Controls) — highest priority, disables output and
+- **Panic key** (unbound by default; assign in Controls): highest priority, disables output and
   stops immediately, in-world or in menus.
-- **Watchdog** (`runtime.Watchdog`): polled from the client tick — an observer independent of the
-  worker thread it watches — and forces a stop if the worker's last healthy cycle is stale (>2 s).
+- **Watchdog** (`runtime.Watchdog`): polled from the client tick, an observer independent of the
+  worker thread it watches, and forces a stop if the worker's last healthy cycle is stale (>2 s).
 - **Position endpoints are never zeroed on release**: a raw 0 would slam a stroker to the end of its
   physical range, outside the calibrated window. Only vibration-like outputs (Vibrate, Oscillate,
   Rotate, Constrict) get planned zeroes; position outputs hold where the envelope ended

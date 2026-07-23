@@ -47,7 +47,7 @@ public final class LifecycleController {
         worker.requestStop(StopReason.GAME_INACTIVE);
     }
 
-    /** Panic action — the highest-priority stop, always honoured (brief §12.1). */
+    /** Panic action: the highest-priority stop, always honoured (brief §12.1). */
     public void panic() {
         worker.setOutputEnabled(false);
         worker.requestStop(StopReason.PANIC);

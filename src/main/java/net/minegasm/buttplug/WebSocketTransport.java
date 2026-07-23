@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 /**
  * {@link ButtplugTransport} backed by the JDK {@link WebSocket} (brief §6.5). Reassembles partial
  * text frames, requests one message at a time for backpressure, and never invokes Minecraft or
- * engine code directly — it only forwards raw frames to the provider callback.
+ * engine code directly. It only forwards raw frames to the provider callback.
  */
 public final class WebSocketTransport implements ButtplugTransport, WebSocket.Listener {
 

@@ -4,7 +4,7 @@ import net.minegasm.core.OutputKind;
 
 /**
  * Hard normalized-level caps per output kind (brief §12.1, matching the conservative scaffold
- * defaults). These are absolute ceilings applied after all user scaling — a bug upstream can never
+ * defaults). These are absolute ceilings applied after all user scaling; a bug upstream can never
  * push an output above these. Motion travel is additionally bounded by calibration.
  */
 public final class SafetyCaps {

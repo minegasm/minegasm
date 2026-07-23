@@ -7,8 +7,8 @@ import java.util.Optional;
 /**
  * An immutable raw observation emitted by the Minecraft layer. Carries the game tick for ordering
  * and deduplication and a monotonic timestamp for real-time expiry. The payload is an opaque,
- * read-only map so the observation layer can attach context (block id, damage, xp amount, â€¦)
- * without the core depending on Minecraft types (brief Â§5.2).
+ * read-only map so the observation layer can attach context (block id, damage, xp amount, …)
+ * without the core depending on Minecraft types (brief §5.2).
  */
 public record RawGameEvent(
         GameEventKind kind,

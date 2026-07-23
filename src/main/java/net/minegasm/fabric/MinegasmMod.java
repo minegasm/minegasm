@@ -60,7 +60,7 @@ import java.util.Map;
  *
  * <p>Wired to Fabric API's event-object model ({@code Event<T>.register(...)}, not an annotated
  * event bus); see {@code package-info} for provenance. Fabric client commands run against
- * {@link FabricClientCommandSource}, not vanilla {@code CommandSourceStack} — its feedback methods
+ * {@link FabricClientCommandSource}, not vanilla {@code CommandSourceStack}. Its feedback methods
  * take a plain {@code Component} rather than vanilla's {@code Supplier<Component>} + broadcast flag.
  * Core Fabric has no mods-list config-screen extension point; {@code key.minegasm.config} opens the
  * screen directly. The optional {@link ModMenuIntegration} adds a mods-list entry too, but only when

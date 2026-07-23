@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * Per-device user setting keyed by a best-effort identity string (never a raw device index — brief
+ * Per-device user setting keyed by a best-effort identity string (never a raw device index, brief
  * §13.3). Holds a device-level cap and per-feature settings keyed by feature identity.
  */
 public record DeviceSetting(boolean enabled, double maxLevel, Map<String, FeatureSetting> features) {

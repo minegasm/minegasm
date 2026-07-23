@@ -7,7 +7,7 @@ package net.minegasm.config;
 public enum RecipePackId {
     /** Reproduces legacy Minegasm event enablement, intensities, and durations. */
     CLASSIC,
-    /** Modern, shaped, priority/ducking recipe pack — the preferred default for new users. */
+    /** Modern, shaped, priority/ducking recipe pack, the preferred default for new users. */
     BALANCED;
 
     public static RecipePackId fromString(String s, RecipePackId fallback) {

@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The recipe layer entry point (brief §5.2). Applies the layered configuration order — master
- * enable → per-event enable → mode preset base → user multiplier → global intensity — then delegates
+ * The recipe layer entry point (brief §5.2). Applies the layered configuration order (master
+ * enable → per-event enable → mode preset base → user multiplier → global intensity), then delegates
  * to the selected recipe pack. Accumulation mode is handled specially by an internal
  * {@link AccumulationProcessor} producing a single continuous charge-driven scene.
  *

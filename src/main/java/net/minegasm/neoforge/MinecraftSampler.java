@@ -190,7 +190,7 @@ public final class MinecraftSampler {
         /*// 1.19.2's MultiPlayerGameMode exposes no destroy-stage accessor (getDestroyStage() arrived in
         // 1.20; the underlying destroyProgress field is private and name-obfuscated at runtime, so
         // reflection is not reliable across the SRG/intermediary mappings). Mining is still detected via
-        // isDestroying() and block-break events fire independently — only the fine-grained progress ramp
+        // isDestroying() and block-break events fire independently; only the fine-grained progress ramp
         // is unavailable here, so report no partial progress.
         return 0f;
         *///?}

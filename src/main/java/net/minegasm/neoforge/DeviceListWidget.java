@@ -32,7 +32,7 @@ final class DeviceListWidget extends ObjectSelectionList<DeviceListWidget.Entry>
         // Pre-1.20.2 AbstractSelectionList sizes its top/bottom dirt masks from the ctor's height arg,
         // assuming it is the screen height with y0/y1 the visible band. Embedded here that arg is the
         // list's own height (< y1), so the "bottom" mask paints upward over the entries and hides them.
-        // Disable the masks and the dirt fill — the config screen already draws the backdrop.
+        // Disable the masks and the dirt fill; the config screen already draws the backdrop.
         setRenderBackground(false);
         setRenderTopAndBottom(false);
         *///?}

@@ -1,9 +1,9 @@
 package net.minegasm.core;
 
 /**
- * Priority band constants (brief Â§6.6). Higher wins. {@link #CONTROL} bypasses all queues and
+ * Priority band constants (brief §6.6). Higher wins. {@link #CONTROL} bypasses all queues and
  * timing gaps. Kept as data here so the scheduler and mixer never encode per-event {@code if}
- * chains (guideline Â§H).
+ * chains (guideline §H).
  */
 public final class Priorities {
 

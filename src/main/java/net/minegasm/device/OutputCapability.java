@@ -7,7 +7,7 @@ import java.util.Optional;
 /**
  * A single advertised output capability of a feature: its kind, value range, and optional duration
  * range (present for {@code HwPositionWithDuration}). Normalized directly from the Buttplug
- * {@code DeviceList} (brief Â§5.3).
+ * {@code DeviceList} (brief §5.3).
  */
 public record OutputCapability(
         OutputKind kind,

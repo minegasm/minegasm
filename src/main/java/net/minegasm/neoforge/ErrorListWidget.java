@@ -95,7 +95,7 @@ final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
         /*@Override
         public void render(PoseStack poseStack, int index, int top, int left, int rowWidth,
                            int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTick) {
-            // Single line only — see the >=1.20.1 branch. Pre-1.20 draw helpers are static on GuiComponent.
+            // Single line only, see the >=1.20.1 branch. Pre-1.20 draw helpers are static on GuiComponent.
             if (!lines.isEmpty()) {
                 GuiComponent.drawString(poseStack, minecraft.font, lines.get(0), left + 4, top + 6, 0xFFFF7777);
             }

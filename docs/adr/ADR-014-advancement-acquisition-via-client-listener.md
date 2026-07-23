@@ -3,7 +3,7 @@
 **Status:** accepted.
 
 **Context.** `GameEventKind.ADVANCEMENT` is part of the legacy Minegasm parity surface (brief §3.2)
-and is wired end-to-end — intent mapping (`HapticAggregator`), recipes (Classic and Balanced,
+and is wired end-to-end: intent mapping (`HapticAggregator`), recipes (Classic and Balanced,
 including the `task`/`goal`/`challenge` frame distinction), presets, accumulation, priority/expiry
 timing, and the manual `/minegasm trigger advancement` path all exist. What was missing was
 *acquisition*: nothing raised the event automatically from gameplay. `GameEventKind.EXPLOSION` is in
@@ -38,8 +38,8 @@ Advancements do not fit that model. Verified against the pinned 26.1.2 and 26.2 
 `AdvancementWatcher` that lives in shared `src` with no loader guard (it touches only vanilla
 `net.minecraft.*` types, exactly like `MinecraftSampler`). The `Listener` interface and its
 `AdvancementTree.Listener` supertype are byte-for-byte identical across 26.1.2 and 26.2, so no version
-guard is needed on the watcher itself; the one line that differs between the lines — reading the
-current screen (`mc.screen` in 26.1.2 vs `mc.gui.screen()` in 26.2) — goes through `McCompat`
+guard is needed on the watcher itself; the one line that differs between the lines, reading the
+current screen (`mc.screen` in 26.1.2 vs `mc.gui.screen()` in 26.2), goes through `McCompat`
 alongside the screen-setter and toast-manager shims already there (ADR-013).
 
 Mechanics that make the shared listener behave:
@@ -57,7 +57,7 @@ Mechanics that make the shared listener behave:
   is the correct trade-off for hardware output.
 - **Filtering.** Only advancements with a `DisplayInfo` fire, which excludes recipe-unlock and other
   display-less internal advancements. The `frame` payload is `DisplayInfo.getType().getSerializedName()`
-  (`task`/`goal`/`challenge`) — the exact tag the recipe packs key on — and `dedupe` is the
+  (`task`/`goal`/`challenge`), the exact tag the recipe packs key on, and `dedupe` is the
   advancement id hash so distinct advancements in one tick are not coalesced.
 - **Cadence.** Callbacks queue onto a `ConcurrentLinkedQueue`; `MinecraftSampler.sample` drains it
   each client tick and emits `RawGameEvent`s, so advancement events enter the pipeline on the same

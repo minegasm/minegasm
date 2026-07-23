@@ -22,7 +22,7 @@ public final class Watchdog {
 
     /**
      * Check once; returns true if a stop was triggered. Intended to be polled periodically (the
-     * client tick polls it — an observer independent of the worker thread it watches). Refires at
+     * client tick polls it, an observer independent of the worker thread it watches). Refires at
      * most once per threshold window so a sustained stall does not spam {@code StopCmd}.
      */
     public boolean check() {

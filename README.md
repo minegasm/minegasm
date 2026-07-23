@@ -2,15 +2,14 @@
 
 Client-side, multi-device haptic feedback for **Minecraft Java Edition** (NeoForge, Fabric, and Forge
 on 26.2, 26.1.x, and 1.21.1; Fabric and Forge on 1.20.1 and 1.19.2; Java 25 on the 26.x lines, Java 21
-on 1.21.1, Java 17 on 1.20.1 and 1.19.2), driving
-[Buttplug](https://buttplug.io/) v4 devices through a local
-[Intiface](https://intiface.com/) server. It is a full-rewrite replacement for the original mod —
-RainbowVille's Minegasm (`com.therainbowville.minegasm`, source in the `minegasm-legacy` repo) —
-covering its user-visible triggers, modes, and config migration on a new semantic haptic engine.
+on 1.21.1, Java 17 on 1.20.1 and 1.19.2), driving [Buttplug](https://buttplug.io/) v4 devices through a
+local [Intiface](https://intiface.com/) server. It's a full rewrite of the original mod, RainbowVille's
+Minegasm (`com.therainbowville.minegasm`, source in the `minegasm-legacy` repo), covering its
+user-visible triggers, modes, and config migration on a new semantic haptic engine.
 
 > Mod id: **`minegasm`**, package **`net.minegasm`**, license **AGPL-3.0**. Versions start at
-> **1.0.0** — legacy Minegasm was 0.x.x, so the lines never collide
-> (see `docs/adr/ADR-001-rewrite-and-license.md`).
+> **1.0.0**; legacy Minegasm was 0.x.x, so the two version lines never collide (see
+> `docs/adr/ADR-001-rewrite-and-license.md`).
 
 ## What it does
 
@@ -19,17 +18,17 @@ covering its user-visible triggers, modes, and config migration on a new semanti
 3. Resolves intents into semantic **scenes** via a recipe pack (Classic parity or Balanced modern).
 4. Mixes scenes with priority, expiry, ducking, coalescing, and fatigue protection.
 5. Renders scenes to every enabled compatible Buttplug **feature** and schedules feature-level
-   `OutputCmd`s on a dedicated worker using **monotonic real time** — never tick counts.
+   `OutputCmd`s on a dedicated worker, using **monotonic real time** instead of tick counts.
 6. Applies the configured pause/world-exit policy and always stops on disconnect, shutdown,
    watchdog, or panic.
 
 Pause behavior has three modes: **Stop** stops hardware and discards active scenes; **Pause and
 resume** stops hardware, freezes remaining scene/fatigue time, and safely re-renders on unpause;
-**Continue** leaves active output governed by its normal recipe expiry. A paused scene is discarded
-instead of resumed if the world unloads, the device registry changes, or another safety stop occurs.
+**Continue** leaves active output running under its normal recipe expiry. A paused scene is discarded
+rather than resumed if the world unloads, the device registry changes, or another safety stop occurs.
 
 Devices are reached via the **buttplug4j** client (`4.0.278`, v4 feature-based spec) by default, with a
-dependency-free JDK-WebSocket provider as a fallback/test backend — selectable with the
+dependency-free JDK WebSocket provider as a fallback/test backend, selectable with the
 `buttplug.client` config key (`buttplug4j` | `native`). See `docs/adr/ADR-006-buttplug-v4-external-provider.md`.
 
 Fresh installs automatically connect to local Intiface and start scanning. Haptic feedback remains
@@ -40,20 +39,20 @@ See `docs/ARCHITECTURE.md` for the layered design and `docs/adr/` for the decisi
 
 ## Project status
 
-This repository is built to the initial brief, archived in
-[`docs/briefs/0001-initial-implementation-brief/`](docs/briefs/) — the brief and its appendices,
-examples, and assets preserved verbatim (see `docs/briefs/README.md` for the planning-doc convention).
+This repository is built to the initial brief, archived verbatim in
+[`docs/briefs/0001-initial-implementation-brief/`](docs/briefs/) including its appendices, examples,
+and assets (see `docs/briefs/README.md` for the planning-doc convention).
 **Known gap:** the nearby-explosion event is fully implemented (intents, recipes, settings, manual
-`/minegasm trigger`) but is not yet raised automatically by gameplay; every other listed trigger,
+`/minegasm trigger`) but isn't yet raised automatically by gameplay. Every other listed trigger,
 including advancement (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`), now fires
 automatically. See `CHANGELOG.md` and `docs/STATUS.md` for details.
 The two pre-brief ideation prototypes (codename *Feelcraft*) are kept under
-[`prototypes/`](prototypes/) for historical reference. The **pure engine**
-(loader- and Minecraft-independent) is implemented and covered by a JUnit suite; the **NeoForge and
-Fabric observation/UI layers** are written against the 26.x API and compiled by the Gradle+Stonecraft
+[`prototypes/`](prototypes/) for historical reference. The **pure engine** (loader- and
+Minecraft-independent) is implemented and covered by a JUnit suite; the **NeoForge and Fabric
+observation/UI layers** are written against the 26.x API and compiled by the Gradle+Stonecraft
 toolchain (`docs/adr/ADR-012-add-fabric-loader.md`). Forge builds on both Minecraft lines too, unblocked
 by pinning Architectury Loom 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`). See `docs/STATUS.md` for
-exactly what is verified vs. what needs the Minecraft toolchain and hardware.
+exactly what's verified versus what still needs the Minecraft toolchain and hardware.
 
 | Layer | Package | Built & tested here? |
 |---|---|---|
@@ -81,20 +80,21 @@ exactly what is verified vs. what needs the Minecraft toolchain and hardware.
 The thirteen variants are 26.2/26.1.2/1.21.1 × neoforge/fabric/forge, plus 1.20.1 and 1.19.2 ×
 fabric/forge. NeoForge is not *built* for 1.20.1: its first release for that line shipped under legacy
 `net.neoforged:forge` coordinates (which this tooling can't resolve) with the old `net.minecraftforge`
-API — the modern NeoForge surface only arrived in 1.20.2+. It needs no separate build, though: NeoForge
-1.20.1 is a near-verbatim Forge fork that loads the **Forge jar** directly (see "Using it in-game"),
-the same way Quilt runs the Fabric jar. NeoForge is not built for 1.19.2 either — it did not exist yet
-(NeoForge's first release was 1.20.1), so 1.19.2 is Fabric and Forge only.
+API. The modern NeoForge surface only arrived in 1.20.2+. It needs no separate build, though.
+NeoForge 1.20.1 is a near-verbatim Forge fork that loads the **Forge jar** directly (see "Using it
+in-game"), the same way Quilt runs the Fabric jar. NeoForge is not built for 1.19.2 either; it did not
+exist yet (NeoForge's first release was 1.20.1), so 1.19.2 is Fabric and Forge only.
 
 Artifacts are one jar per variant, e.g. `minegasm-1.0.0+mc26.2-neoforge.jar` or
 `minegasm-1.0.0+mc1.20.1-fabric.jar`. Requires a JDK toolchain (25 for the 26.x lines, 21 for 1.21.1,
 17 for 1.20.1 and 1.19.2; all auto-provisioned by Gradle) and network access to the
-NeoForge/Fabric/Forge/Architectury Maven repos on first run. Loader versions are pinned in `versions/dependencies/` (NeoForge builds on the
-26.x lines are currently `-beta`; note this in release notes per the brief). Forge additionally pins
-Architectury Loom `1.17.491` in `settings.gradle.kts` (see `docs/adr/ADR-011-add-forge-loader.md`) —
-this also unblocks Forge on 1.21.1, which Architectury otherwise warns is unsupported.
+NeoForge/Fabric/Forge/Architectury Maven repos on first run. Loader versions are pinned in
+`versions/dependencies/` (NeoForge builds on the 26.x lines are currently `-beta`; note this in release
+notes per the brief). Forge additionally pins Architectury Loom `1.17.491` in `settings.gradle.kts`
+(see `docs/adr/ADR-011-add-forge-loader.md`), which also unblocks Forge on 1.21.1, which Architectury
+otherwise warns is unsupported.
 
-### The pure core only (JDK 25, no Gradle) — fast inner loop
+### The pure core only (JDK 25, no Gradle): fast inner loop
 
 The engine has no Minecraft or Gradle dependency, so it can be compiled and unit-tested with just a
 JDK plus Gson and the JUnit console jar (auto-downloaded into `.localbuild/libs`):
@@ -108,7 +108,7 @@ This excludes `net.minegasm.neoforge` and the loader entrypoints (`net.minegasm.
 classpath. Gradle and CI report the current result and test totals.
 
 **Testing the real device path** (Intiface, no Minecraft or hardware needed) and the full in-game
-matrix are described in **`docs/TESTING.md`** — including a standalone `intifaceProbe` harness
+matrix are described in **`docs/TESTING.md`**, including a standalone `intifaceProbe` harness
 (`./gradlew :26.2-neoforge:intifaceProbe --args="--backend buttplug4j"`). The qualified command runs
 only that variant. An unqualified `./gradlew intifaceProbe` selects every Stonecutter variant and
 runs the probes sequentially, because Intiface may reject simultaneous client connections.
@@ -118,10 +118,9 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
 1. Install and open **Intiface Central**; start its server (default `ws://127.0.0.1:12345`).
 2. On Fabric, also install **[Fabric API](https://modrinth.com/mod/fabric-api/versions)** matching
    your Minecraft version (`0.155.2+26.2`, `0.155.2+26.1.2`, `0.116.14+1.21.1`, `0.92.11+1.20.1`, or
-   `0.77.0+1.19.2`) in the same `mods`
-   folder — it is a
-   required dependency, declared in `fabric.mod.json` but never bundled into the Minegasm jar, the
-   same as with any other Fabric mod that uses it.
+   `0.77.0+1.19.2`) in the same `mods` folder. It's a required dependency, declared in
+   `fabric.mod.json` but never bundled into the Minegasm jar, the same as with any other Fabric mod
+   that uses it.
    On **Quilt**, install the same **Fabric** jar and the same **Fabric API** mod: Quilt Loader reads
    its `fabric.mod.json` and loads it directly, and the mod uses no loader-specific API beyond Fabric
    API, so it runs as-is. There is no separate Quilt build.
@@ -139,12 +138,12 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
    `/minegasm enable` and `/minegasm disable` toggle master haptic output from chat (the same switch
    as the config screen; disabling also stops any active output). `/minegasm stop` is the client-side
    panic fallback; `/minegasm resume` clears the panic latch. Connection controls are available
-   through `/minegasm status`, `connect`, `disconnect`, and `reconnect`. These client-side commands do
-   not require server permissions.
+   through `/minegasm status`, `connect`, `disconnect`, and `reconnect`. None of these client-side
+   commands require server permissions.
    Use `/minegasm test [strength-percent] [duration-ms]` for a bounded direct pulse, or
    `/minegasm trigger <event>` to exercise an event through the normal recipe pipeline.
-   Tests above the configured normal limit require an explicit `unsafe` suffix and remain bounded by
-   a separately configured unsafe ceiling. Settings provides profiles for both tiers; absolute bounds
+   Tests above the configured normal limit require an explicit `unsafe` suffix and stay bounded by a
+   separately configured unsafe ceiling. Settings provides profiles for both tiers; absolute bounds
    are 100% and 10 minutes.
    `/mg` is a short alias for the entire command tree when no other client or server command already
    owns that root; Minegasm never replaces a conflicting `/mg` command.

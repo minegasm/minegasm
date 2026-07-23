@@ -8,7 +8,7 @@ import java.util.Optional;
 /**
  * Immutable, validated snapshot the engine and renderers read (brief §11.3). Wraps a
  * {@link HapticConfig} and exposes typed accessors so no engine code parses raw config maps. UI
- * changes are applied by building a new snapshot and swapping it atomically — engine state is never
+ * changes are applied by building a new snapshot and swapping it atomically; engine state is never
  * mutated directly (brief §5.1).
  */
 public final class RuntimeConfig {
