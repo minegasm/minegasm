@@ -16,11 +16,9 @@ jobs:
             variants: 26.1.2-neoforge 26.1.2-fabric 26.1.2-forge
           - group: 1.21.1
             variants: 1.21.1-neoforge 1.21.1-fabric 1.21.1-forge
-          - group: 1.20.1
-            variants: 1.20.1-fabric 1.20.1-forge
-          - group: 1.19.2
-            variants: 1.19.2-fabric 1.19.2-forge
-    runs-on: codeberg-medium-lazy
+          - group: 1.19.2-1.20.1
+            variants: 1.19.2-fabric 1.19.2-forge 1.20.1-fabric 1.20.1-forge
+    runs-on: ${{ forge.ref_type == 'tag' && 'codeberg-medium' || 'codeberg-medium-lazy' }}
     steps:
       - name: Check out source
         env:
@@ -108,7 +106,7 @@ jobs:
   release:
     needs: build
     if: forge.ref_type == 'tag'
-    runs-on: codeberg-medium-lazy
+    runs-on: codeberg-medium
     steps:
       - name: Download all built jars
         uses: https://code.forgejo.org/forgejo/download-artifact@v4
