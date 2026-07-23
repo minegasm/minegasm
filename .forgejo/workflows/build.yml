@@ -7,12 +7,25 @@ on:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        include:
+          - group: 26.2
+            variants: 26.2-neoforge 26.2-fabric 26.2-forge
+          - group: 26.1.2
+            variants: 26.1.2-neoforge 26.1.2-fabric 26.1.2-forge
+          - group: 1.21.1
+            variants: 1.21.1-neoforge 1.21.1-fabric 1.21.1-forge
+          - group: 1.20.1
+            variants: 1.20.1-fabric 1.20.1-forge
+          - group: 1.19.2
+            variants: 1.19.2-fabric 1.19.2-forge
     runs-on: codeberg-medium-lazy
     container:
       image: eclipse-temurin:25-jdk
     steps:
       - name: Install workflow tools
-        run: apt-get update && apt-get install -y --no-install-recommends git curl jq unzip
+        run: apt-get update && apt-get install -y --no-install-recommends git curl unzip
 
       - name: Check out source
         env:
@@ -20,24 +33,30 @@ jobs:
           REPOSITORY: ${{ forge.repository }}
           COMMIT_SHA: ${{ forge.sha }}
         run: |
-          git clone --no-checkout "$FORGE_URL/$REPOSITORY.git" .
+          git clone --no-checkout --filter=blob:none "$FORGE_URL/$REPOSITORY.git" .
           git checkout --detach "$COMMIT_SHA"
 
-      - name: Build and test every variant
+      - name: Build and test this Minecraft line's variants
+        env:
+          VARIANTS: ${{ matrix.variants }}
         run: |
           chmod +x gradlew
-          ./gradlew chiseledBuild --no-daemon --stacktrace --warning-mode all
+          tasks=()
+          for v in $VARIANTS; do tasks+=(":$v:build"); done
+          ./gradlew "${tasks[@]}" --no-daemon --stacktrace --warning-mode all
 
-      - name: Verify and stage artifacts
+      - name: Verify and stage this group's artifacts
         env:
-          REF_TYPE: ${{ forge.ref_type }}
-          TAG_NAME: ${{ forge.ref_name }}
+          VARIANTS: ${{ matrix.variants }}
         run: |
           shopt -s nullglob
           mkdir -p dist
           cp versions/*/build/libs/minegasm-*.jar dist/
-          if [ "$(find dist -maxdepth 1 -name '*.jar' -type f | wc -l)" -lt 1 ]; then
-            echo "ERROR: no minegasm-*.jar found under versions/*/build/libs/" >&2
+
+          expected="$(echo "$VARIANTS" | wc -w)"
+          actual="$(find dist -maxdepth 1 -name '*.jar' -type f | wc -l)"
+          if [ "$actual" -lt "$expected" ]; then
+            echo "ERROR: expected $expected jar(s) for group ${{ matrix.group }}, found $actual under versions/*/build/libs/" >&2
             exit 1
           fi
 
@@ -62,6 +81,39 @@ jobs:
             echo "$entries" | grep -qE '^META-INF/jars/buttplug4j-[0-9].*\.jar$' \
               || { echo "ERROR: $artifact is missing a bundled buttplug4j jar. Actual META-INF/jars/ entries:"; echo "$entries" | grep '^META-INF/jars/' >&2; exit 1; }
           done
+
+      - name: Upload built jars
+        uses: https://code.forgejo.org/actions/upload-artifact@v4
+        with:
+          name: jars-${{ matrix.group }}
+          path: dist/*.jar
+
+  release:
+    needs: build
+    runs-on: codeberg-medium-lazy
+    container:
+      image: eclipse-temurin:25-jdk
+    steps:
+      - name: Install workflow tools
+        run: apt-get update && apt-get install -y --no-install-recommends curl jq
+
+      - name: Download all built jars
+        uses: https://code.forgejo.org/actions/download-artifact@v4
+        with:
+          pattern: jars-*
+          path: dist
+          merge-multiple: true
+
+      - name: Check tag matches project version
+        env:
+          REF_TYPE: ${{ forge.ref_type }}
+          TAG_NAME: ${{ forge.ref_name }}
+        run: |
+          count="$(find dist -maxdepth 1 -name '*.jar' -type f | wc -l)"
+          if [ "$count" -lt 1 ]; then
+            echo "ERROR: no jars were collected from the build jobs" >&2
+            exit 1
+          fi
 
           first_jar="$(find dist -maxdepth 1 -name 'minegasm-*.jar' -type f | sort | head -1)"
           version="$(basename "$first_jar" | sed -E 's/^minegasm-([^+]+)\+.*$/\1/')"
