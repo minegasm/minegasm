@@ -7,6 +7,11 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] - 2026-07-23
+
+Adds Fabric and Forge as loaders alongside NeoForge, and extends support back to older Minecraft
+lines (`1.21.1`, `1.20.1`, `1.19.2`), on top of the `26.2`/`26.1.2` NeoForge base from beta.1.
+
 ### Added
 
 - **Fabric loader** support on both Minecraft lines (`26.2`, `26.1.2`), with `buttplug4j` bundled via
@@ -55,8 +60,7 @@ All notable changes to Minegasm are documented in this file. The format follows
 - Loader entrypoints (`net.minegasm.<loader>.MinegasmMod`) centralized into shared source behind
   Stonecutter loader guards, one file per loader instead of one copy per Minecraft line; the two
   vanilla APIs that differ between 26.1.2 and 26.2 go through a `McCompat` shim. Both the Forgejo
-  (Codeberg) and GitHub Actions workflows now build and test all six variants
-  (`26.2`/`26.1.2` × `neoforge`/`fabric`/`forge`). See
+  (Codeberg) and GitHub Actions workflows now build and test every registered variant. See
   `docs/adr/ADR-013-centralize-loader-entrypoints.md`.
 
 ### Known limitations
@@ -67,6 +71,9 @@ All notable changes to Minegasm are documented in this file. The format follows
   acquisition is planned for `1.0.0-beta.3` via a **client-only** mixin on the explosion receive path
   (`docs/adr/ADR-015-explosion-acquisition-deferred-to-beta3.md`). Every other listed trigger fires
   automatically.
+- In-game verification for this release was a relaxed smoke test across a sample of variants rather
+  than the full preflight checklist on every line, per the beta relaxation in `docs/RELEASING.md`; no
+  new issues surfaced.
 
 ## [1.0.0-beta.1] - 2026-07-21
 
@@ -117,5 +124,6 @@ engine, targeting NeoForge 26.2 and 26.1.2 on Java 25.
 See `docs/STATUS.md` for the full verification breakdown (automated, live Intiface, and
 in-game/physical) and `docs/TESTING.md` for how to reproduce it.
 
-[Unreleased]: https://codeberg.org/minegasm/minegasm/compare/v1.0.0-beta.1...HEAD
+[Unreleased]: https://codeberg.org/minegasm/minegasm/compare/v1.0.0-beta.2...HEAD
+[1.0.0-beta.2]: https://codeberg.org/minegasm/minegasm/compare/v1.0.0-beta.1...v1.0.0-beta.2
 [1.0.0-beta.1]: https://codeberg.org/minegasm/minegasm/releases/tag/v1.0.0-beta.1
