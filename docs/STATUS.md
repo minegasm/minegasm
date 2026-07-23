@@ -6,9 +6,9 @@ successful simulator or unit test is not presented as broader hardware validatio
 
 ## Automated verification
 
-All eleven active variants — `26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge`, plus `1.20.1` ×
-`fabric`/`forge` — compile and pass the Gradle test suite. A full `chiseledBuild` produces one
-distributable jar per variant (see `docs/adr/ADR-012-add-fabric-loader.md`,
+All thirteen active variants — `26.1.2`/`26.2`/`1.21.1` × `neoforge`/`fabric`/`forge`, plus `1.20.1`
+and `1.19.2` × `fabric`/`forge` — compile and pass the Gradle test suite. A full `chiseledBuild`
+produces one distributable jar per variant (see `docs/adr/ADR-012-add-fabric-loader.md`,
 `docs/adr/ADR-013-centralize-loader-entrypoints.md`). Forge was unblocked by pinning Architectury Loom
 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`); this also covers Forge on 1.21.1, which Architectury's
 own runtime warning otherwise flags as unsupported.
@@ -71,6 +71,53 @@ ModMenu integration also works on 1.20.1-fabric via `modCompileOnly` (build 7.2.
 **In-game verification:** the 1.20.1 Forge jar has been confirmed loading and running in-game on both
 Forge (47.1.x through 47.4.x) and NeoForge 1.20.1 (47.1.106). The rest of the manual matrix (config
 screens, connection, scanning, commands, panic/resume, legacy import) has not been re-walked on 1.20.1.
+
+### 1.19.2 (Fabric and Forge)
+
+1.19.2 is the oldest line built here and, like 1.20.1, is *built* for Fabric and Forge only — but for a
+different reason: NeoForge did not exist yet (its first release was 1.20.1), so there is nothing to
+build or load a jar on. 1.19.2 runs on Java 17, so it reuses the same core `instanceof` rewrite as
+1.20.1 with no additional Java-level work (Forge 43.5.2, Fabric API 0.77.0+1.19.2, ModMenu 4.1.2 via
+`modCompileOnly`).
+
+Its Minecraft compat surface is the largest of any line because 1.19.2 sits *before* the 1.20 GUI
+rework, so a new guard axis (`>=1.20.1`, a valid "has the 1.20 rework" proxy because no 1.20.0 variant
+is registered) splits the UI three ways alongside the existing `>=26.1.2` and `>=1.21.1` axes:
+
+- **Rendering**: 1.20 replaced the `PoseStack`-threaded immediate draw calls with `GuiGraphics`. On
+  1.19.2 every screen and list-widget render method takes a `PoseStack` and draws through the *static*
+  `GuiComponent.drawString`/`drawCenteredString` helpers (neither `Screen` nor the list `Entry` extends
+  `GuiComponent` at 1.19.2, so the calls are qualified); `renderBackground(PoseStack)` is called
+  explicitly, as on 1.20.1, because pre-1.21.1 `Screen.render()` paints no backdrop.
+- **Buttons**: `Button.builder(...)` arrived in 1.19.4, so 1.19.2 constructs `new Button(x, y, w, h,
+  message, onPress)` directly. A single guarded `button(...)` factory per screen keeps every call site
+  version-agnostic.
+- **Client-command feedback**: `CommandSourceStack.sendSuccess` took a bare `Component` before 1.20 and
+  a `Supplier<Component>` from 1.20 on; a guarded `feedback(...)` helper in the Forge entrypoint bridges
+  the two.
+- **Sampler**: `Entity.onGround()` was `isOnGround()` before 1.20. And 1.19.2's `MultiPlayerGameMode`
+  exposes no destroy-stage accessor (`getDestroyStage()` arrived in 1.20; the underlying field is
+  private and name-obfuscated at runtime, so reflection is not reliable across SRG/intermediary
+  mappings), so the fine-grained mining-progress ramp is unavailable on 1.19.2. Mining is still detected
+  and block-break events fire independently — only the continuous progress texture is degraded there.
+
+One non-Minecraft delta surfaced in-game (the build and unit suite could not have caught it, since both
+run against a newer Gson than 1.19.2 ships): the config is a record graph, and **1.19.2 ships Gson
+2.8.9**, which predates Gson's record support (2.10.0) and fails every config load trying to set a
+record's final fields. A `RecordTypeAdapterFactory` (registered unconditionally on the config `Gson`,
+in the loader-agnostic core — a library-version concern, not a Minecraft one) constructs records through
+their canonical constructor instead, which is correct on every Gson version; the strengthened
+`ConfigStoreTest` round-trip asserts deep equality over the full nested graph to cover it.
+
+The toast id token (`SystemToast.SystemToastIds.PERIODIC_NOTIFICATION`), advancement API,
+`ObjectSelectionList` constructor, string key-mapping category, and Forge `ClientTickEvent` phase field
+are all identical to the existing `<1.21.1` branches, so they carry over unchanged. The Forge entrypoint
+needed no structural change beyond the `feedback(...)` helper — its `<1.21.1` branch (no-arg `@Mod`
+constructor, `ModLoadingContext.get().registerExtensionPoint`, `ConfigScreenHandler.ConfigScreenFactory`)
+already matches Forge 43.5.2. Both loaders compile, pass the unit suite, and package from a clean build.
+
+**In-game verification:** not yet performed for 1.19.2 (this build environment has no Minecraft client);
+only the automated build and test suite have been run.
 
 The automated suite covers:
 
@@ -203,6 +250,15 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 - Test position/stroker and rotation output on suitable physical hardware; keep these outputs
   experimental until their calibration and stop behavior are verified.
 - Per-device routing controls and position calibration UI remain follow-ups.
+- **Config-screen list clipping on the pre-1.20.2 lines (`1.20.1`, `1.19.2`).** Those Minecraft versions'
+  `AbstractSelectionList` clips overflowing rows only via its built-in top/bottom "dirt" masks, which are
+  sized from a screen-height constructor argument and therefore paint over the embedded device/error
+  lists — so the masks are disabled (`setRenderBackground(false)`/`setRenderTopAndBottom(false)`) and
+  error rows are rendered single-line to avoid overlap (`DeviceListWidget`/`ErrorListWidget`). The
+  remaining gap: with the masks off and no scissor on those versions (`GuiComponent.enableScissor`
+  arrived in 1.20), a partial error row can peek a few pixels into the gap above the list while
+  scrolling. Cosmetic only; a proper fix is version-specific scissor clipping (`GuiGraphics.enableScissor`
+  on 1.20.1, a manually-scaled `RenderSystem.enableScissor` on 1.19.2) around the list render.
 - Diagnostics export remains unimplemented.
 - Stable-release automation remains intentionally disabled until the beta workflow has been proven.
 
@@ -223,6 +279,8 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
 | Fabric 1.20.1 | Build and tests pass | Through provider | Not yet manually tested |
 | Forge 1.20.1 | Build and tests pass | Through provider | Loads and runs in-game |
 | NeoForge 1.20.1 (Forge jar) | Covered by Forge build | Through provider | Loads and runs in-game (47.1.106) |
+| Fabric 1.19.2 | Build and tests pass | Through provider | Not yet manually tested |
+| Forge 1.19.2 | Build and tests pass | Through provider | Not yet manually tested |
 | Vibration output | Yes | Yes, simulated devices | Manual physical coverage not recorded |
 | Position and rotation output | Renderer tests | Simulator coverage only | Physical verification pending |
 | Legacy configuration import | Yes | Not applicable | Manual in-game confirmation pending |

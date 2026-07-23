@@ -115,8 +115,14 @@ public final class MinecraftSampler {
         }
         Entity target = hit.getEntity();
         float cooldown = mc.player.getAttackStrengthScale(0f); // 1.0 = fully charged
+        // Entity.onGround() was Entity.isOnGround() before 1.20.
+        //? if >=1.20.1 {
+        boolean onGround = mc.player.onGround();
+        //?} else {
+        /*boolean onGround = mc.player.isOnGround();
+        *///?}
         boolean critical = cooldown > 0.9f && mc.player.fallDistance > 0
-                && !mc.player.onGround() && !mc.player.isInWater();
+                && !onGround && !mc.player.isInWater();
         Map<String, Object> payload = new HashMap<>();
         payload.put("cooldown", cooldown);
         payload.put("critical", critical);
@@ -177,8 +183,17 @@ public final class MinecraftSampler {
 
     private float miningProgress(Minecraft mc) {
         // In both pinned 26.x mappings this is floor(destroyProgress * 10), or -1 at zero.
+        //? if >=1.20.1 {
         int stage = mc.gameMode == null ? -1 : mc.gameMode.getDestroyStage();
         return stage < 0 ? 0f : Math.min(1f, stage / 10f);
+        //?} else {
+        /*// 1.19.2's MultiPlayerGameMode exposes no destroy-stage accessor (getDestroyStage() arrived in
+        // 1.20; the underlying destroyProgress field is private and name-obfuscated at runtime, so
+        // reflection is not reliable across the SRG/intermediary mappings). Mining is still detected via
+        // isDestroying() and block-break events fire independently — only the fine-grained progress ramp
+        // is unavailable here, so report no partial progress.
+        return 0f;
+        *///?}
     }
 
     private BlockState lookedBlock(Minecraft mc) {

@@ -38,6 +38,7 @@ class ConfigStoreTest {
 
         ConfigStore.LoadResult result = store.load();
         assertTrue(result.wasPresent());
+        assertFalse(result.recoveredFromCorruption());
         assertTrue(result.config().global().enabled());
         assertEquals(0.5, result.config().global().intensity(), 1e-9);
         assertEquals(MinegasmMode.MASOCHIST, result.config().identity().mode());
@@ -46,6 +47,24 @@ class ConfigStoreTest {
         assertEquals(1_500, result.config().global().testMaxDurationMs());
         assertEquals(80, result.config().global().unsafeTestMaxPercent());
         assertEquals(30_000, result.config().global().unsafeTestMaxDurationMs());
+        assertEquals(toSave, result.config());
+    }
+
+    @Test
+    void defaultsRoundTripPreservesEveryNestedField(@TempDir Path dir) {
+        // Exercises the record deserialization path end-to-end over the full nested graph (nested
+        // records plus the populated events/outputPolicy Maps of records). This is the assertion that
+        // guards 1.19.2, where Gson 2.8.9 cannot construct records: a factory bug fails deep equality
+        // here instead of silently tripping load()'s corrupt-recovery path and resetting the config.
+        ConfigStore store = new ConfigStore(dir.resolve("config.json"));
+        HapticConfig original = HapticConfig.defaults();
+        store.save(original);
+
+        ConfigStore.LoadResult result = store.load();
+        assertTrue(result.wasPresent());
+        assertFalse(result.recoveredFromCorruption());
+        assertFalse(result.migrated());
+        assertEquals(original, result.config());
     }
 
     @Test

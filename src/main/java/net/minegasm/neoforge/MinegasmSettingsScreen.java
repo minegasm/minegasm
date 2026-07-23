@@ -9,8 +9,11 @@ import net.minegasm.config.TestOutputLimits;
 
 //? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-//?} else {
+//?} elif >=1.20.1 {
 /*import net.minecraft.client.gui.GuiGraphics;
+*///?} else {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiComponent;
 *///?}
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
@@ -77,25 +80,25 @@ public final class MinegasmSettingsScreen extends Screen {
         addRenderableWidget(new PercentSlider(left, 72, columnWidth, h,
                 "minegasm.settings.variation", variation, value -> variation = value));
 
-        addRenderableWidget(Button.builder(packLabel(), b -> {
+        addRenderableWidget(button(packLabel(), b -> {
             recipePack = recipePack == RecipePackId.BALANCED
                     ? RecipePackId.CLASSIC : RecipePackId.BALANCED;
             b.setMessage(packLabel());
-        }).bounds(left, 96, columnWidth, h).build());
+        }, left, 96, columnWidth, h));
 
-        addRenderableWidget(Button.builder(modeLabel(), b -> {
+        addRenderableWidget(button(modeLabel(), b -> {
             MinegasmMode[] values = MinegasmMode.values();
             mode = values[(mode.ordinal() + 1) % values.length];
             b.setMessage(modeLabel());
-        }).bounds(left, 120, columnWidth, h).build());
+        }, left, 120, columnWidth, h));
 
         addRenderableWidget(toggle(left, 144, columnWidth, "minegasm.settings.fatigue",
                 () -> fatigue, value -> fatigue = value));
-        addRenderableWidget(Button.builder(pauseBehaviorLabel(), b -> {
+        addRenderableWidget(button(pauseBehaviorLabel(), b -> {
             PauseBehavior[] values = PauseBehavior.values();
             pauseBehavior = values[(pauseBehavior.ordinal() + 1) % values.length];
             b.setMessage(pauseBehaviorLabel());
-        }).bounds(left, 168, columnWidth, h).build());
+        }, left, 168, columnWidth, h));
         addRenderableWidget(toggle(left, 192, columnWidth, "minegasm.settings.stop_unload",
                 () -> stopOnWorldUnload, value -> stopOnWorldUnload = value));
 
@@ -111,30 +114,39 @@ public final class MinegasmSettingsScreen extends Screen {
                 () -> autoScan, value -> autoScan = value));
         addRenderableWidget(toggle(right, 120, columnWidth, "minegasm.settings.allow_remote",
                 () -> allowRemote, value -> allowRemote = value));
-        addRenderableWidget(Button.builder(normalTestLimitLabel(), b -> {
+        addRenderableWidget(button(normalTestLimitLabel(), b -> {
             cycleNormalTestLimit();
             b.setMessage(normalTestLimitLabel());
-        }).bounds(right, 144, columnWidth, h).build());
-        addRenderableWidget(Button.builder(unsafeTestLimitLabel(), b -> {
+        }, right, 144, columnWidth, h));
+        addRenderableWidget(button(unsafeTestLimitLabel(), b -> {
             cycleUnsafeTestLimit();
             b.setMessage(unsafeTestLimitLabel());
-        }).bounds(right, 168, columnWidth, h).build());
+        }, right, 168, columnWidth, h));
 
-        addRenderableWidget(Button.builder(Component.translatable("minegasm.settings.save"),
-                b -> save()).bounds(right, height - 24, (columnWidth - 4) / 2, h).build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), b -> onClose())
-                .bounds(right + (columnWidth - 4) / 2 + 4, height - 24,
-                        (columnWidth - 4) / 2, h).build());
+        addRenderableWidget(button(Component.translatable("minegasm.settings.save"),
+                b -> save(), right, height - 24, (columnWidth - 4) / 2, h));
+        addRenderableWidget(button(Component.translatable("gui.cancel"), b -> onClose(),
+                right + (columnWidth - 4) / 2 + 4, height - 24, (columnWidth - 4) / 2, h));
     }
 
     private Button toggle(int x, int y, int width, String key,
                           java.util.function.BooleanSupplier getter,
                           java.util.function.Consumer<Boolean> setter) {
-        return Button.builder(toggleLabel(key, getter.getAsBoolean()), b -> {
+        return button(toggleLabel(key, getter.getAsBoolean()), b -> {
             boolean value = !getter.getAsBoolean();
             setter.accept(value);
             b.setMessage(toggleLabel(key, value));
-        }).bounds(x, y, width, 20).build();
+        }, x, y, width, 20);
+    }
+
+    // Button.builder(...) was added in 1.19.4; 1.19.2 constructs Button directly. One guarded factory
+    // keeps every call site version-agnostic (message, action, then bounds as x/y/width/height).
+    private Button button(Component message, Button.OnPress onPress, int x, int y, int width, int height) {
+        //? if >=1.20.1 {
+        return Button.builder(message, onPress).bounds(x, y, width, height).build();
+        //?} else {
+        /*return new Button(x, y, width, height, message, onPress);
+        *///?}
     }
 
     private Component toggleLabel(String key, boolean value) {
@@ -246,7 +258,7 @@ public final class MinegasmSettingsScreen extends Screen {
         graphics.centeredText(font, Component.translatable("minegasm.settings.connection"),
                 right + columnWidth / 2, 34, 0xFFFFFFFF);
     }
-    //?} else {
+    //?} elif >=1.20.1 {
     /*@Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         //? if <1.21.1 {
@@ -261,6 +273,22 @@ public final class MinegasmSettingsScreen extends Screen {
         graphics.drawCenteredString(font, Component.translatable("minegasm.settings.gameplay"),
                 left + columnWidth / 2, 34, 0xFFFFFFFF);
         graphics.drawCenteredString(font, Component.translatable("minegasm.settings.connection"),
+                right + columnWidth / 2, 34, 0xFFFFFFFF);
+    }
+    *///?} else {
+    /*@Override
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(poseStack); // pre-1.20 Screen.render() paints no backdrop either
+        super.render(poseStack, mouseX, mouseY, partialTick);
+        int totalWidth = Math.min(width - 16, 420);
+        int columnWidth = (totalWidth - 8) / 2;
+        int left = (width - totalWidth) / 2;
+        int right = left + columnWidth + 8;
+        // Pre-1.20 draw helpers are static on GuiComponent and take a PoseStack first.
+        GuiComponent.drawCenteredString(poseStack, font, title, width / 2, 16, 0xFFFFFFFF);
+        GuiComponent.drawCenteredString(poseStack, font, Component.translatable("minegasm.settings.gameplay"),
+                left + columnWidth / 2, 34, 0xFFFFFFFF);
+        GuiComponent.drawCenteredString(poseStack, font, Component.translatable("minegasm.settings.connection"),
                 right + columnWidth / 2, 34, 0xFFFFFFFF);
     }
     *///?}

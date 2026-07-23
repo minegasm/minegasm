@@ -3,8 +3,11 @@ package net.minegasm.neoforge;
 import net.minecraft.client.Minecraft;
 //? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-//?} else {
+//?} elif >=1.20.1 {
 /*import net.minecraft.client.gui.GuiGraphics;
+*///?} else {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiComponent;
 *///?}
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.network.chat.Component;
@@ -22,6 +25,10 @@ final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
         //?} else {
         /*super(minecraft, width, height, y, y + height, 20); // 1.20.1 ctor takes explicit y0/y1
         setLeftPos(x);
+        // See DeviceListWidget: disable the pre-1.20.2 dirt masks (their bottom mask, sized from the
+        // list-height ctor arg, paints over the entries) and the dirt fill; the screen draws the backdrop.
+        setRenderBackground(false);
+        setRenderTopAndBottom(false);
         *///?}
         centerListVertically = false;
         for (String error : errors) {
@@ -74,14 +81,23 @@ final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
                 graphics.text(minecraft.font, lines.get(i), x, y + i * 10, 0xFFFF7777);
             }
         }
-        //?} else {
+        //?} elif >=1.20.1 {
         /*@Override
         public void render(GuiGraphics graphics, int index, int top, int left, int rowWidth,
                            int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTick) {
-            int x = left + 4;
-            int y = top + 3;
-            for (int i = 0; i < lines.size(); i++) {
-                graphics.drawString(minecraft.font, lines.get(i), x, y + i * 10, 0xFFFF7777);
+            // Fixed-height rows (pre-1.20.2 lists take no per-entry height): render one line so a wrapped
+            // multi-line error can't overlap the next row. The 26.x path shows the full wrapped text.
+            if (!lines.isEmpty()) {
+                graphics.drawString(minecraft.font, lines.get(0), left + 4, top + 6, 0xFFFF7777);
+            }
+        }
+        *///?} else {
+        /*@Override
+        public void render(PoseStack poseStack, int index, int top, int left, int rowWidth,
+                           int rowHeight, int mouseX, int mouseY, boolean hovered, float partialTick) {
+            // Single line only — see the >=1.20.1 branch. Pre-1.20 draw helpers are static on GuiComponent.
+            if (!lines.isEmpty()) {
+                GuiComponent.drawString(poseStack, minecraft.font, lines.get(0), left + 4, top + 6, 0xFFFF7777);
             }
         }
         *///?}

@@ -2,7 +2,11 @@ modLoader="javafml"
 loaderVersion="[1,)"
 license="AGPL-3.0-only"
 issueTrackerURL="https://codeberg.org/minegasm/minegasm/issues"
-logoFile="assets/minegasm/icon.png"
+# Bare filename at the jar root (icon.png ships there from src/main/resources for every loader). Forge
+# loads the mods-list logo via getRootResource(), which on 1.19.2 (Forge 43.x) rejects any path with a
+# '/' ("Root resources can only be filenames"); a root filename is the form that loads on every Forge
+# version. The pathed "assets/..." form only works from the 1.20.1 line up.
+logoFile="icon.png"
 logoBlur=false
 
 [[mods]]

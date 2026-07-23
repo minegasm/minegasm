@@ -22,6 +22,10 @@ public final class ConfigStore {
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .disableHtmlEscaping()
+            // The config is a record graph. Minecraft 1.19.2 ships Gson 2.8.9, which cannot deserialize
+            // records (it fails setting their final fields); this factory constructs them through their
+            // canonical constructor instead, correct on every Gson version (see RecordTypeAdapterFactory).
+            .registerTypeAdapterFactory(RecordTypeAdapterFactory.INSTANCE)
             .create();
 
     private final Path file;

@@ -74,6 +74,7 @@ dependencies {
         "26.1.2-fabric" -> "18.0.0"
         "1.21.1-fabric" -> "11.0.4"
         "1.20.1-fabric" -> "7.2.2"
+        "1.19.2-fabric" -> "4.1.2"
         else -> null
     }
     if (modmenuVersion != null) {
@@ -87,7 +88,8 @@ dependencies {
         // the mod jar from intermediary to the project's mappings at compile time (plain `compileOnly`
         // skips that remap, leaving intermediary names like `class_437` on the classpath and failing
         // compilation).
-        if (project.name == "1.21.1-fabric" || project.name == "1.20.1-fabric") {
+        if (project.name == "1.21.1-fabric" || project.name == "1.20.1-fabric"
+                || project.name == "1.19.2-fabric") {
             "modCompileOnly"("maven.modrinth:modmenu:$modmenuVersion")
         } else {
             compileOnly("maven.modrinth:modmenu:$modmenuVersion")
@@ -129,6 +131,7 @@ sourceSets.named("main") {
 java {
     val minecraftVersion = project.name.substringBeforeLast('-')
     val javaVersion = when (minecraftVersion) {
+        "1.19.2" -> 17
         "1.20.1" -> 17
         "1.21.1" -> 21
         else -> 25

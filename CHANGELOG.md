@@ -15,16 +15,25 @@ All notable changes to Minegasm are documented in this file. The format follows
   `docs/adr/ADR-012-add-fabric-loader.md`.
 - **Forge loader** support on both Minecraft lines (`26.2`, `26.1.2`), unblocked by pinning
   Architectury Loom `1.17.491`. See `docs/adr/ADR-011-add-forge-loader.md`.
-- **Older Minecraft lines**: `1.21.1` (NeoForge, Fabric, Forge) and `1.20.1` (Fabric, Forge) build
-  alongside the 26.x lines via Stonecutter version guards over the real API-generation changes
-  (advancement, toast, list-widget, key-mapping, and Forge/Fabric event APIs). 1.20.1 runs on Java 17,
-  which required rewriting the loader-agnostic core's Java 21 switch type patterns to `instanceof`
-  chains — behavior-preserving, verified by the same 92-test suite passing on both Java 17 and Java 25.
-  No separate NeoForge build is shipped for `1.20.1` (the tooling can't resolve its legacy
-  `net.neoforged:forge` coordinates); instead NeoForge 1.20.1 loads the **Forge** jar directly — it is a
-  near-verbatim Forge fork registering the `forge` mod, and the 1.20.1 Forge build is compiled (floor
-  `47.1.5`, classic no-arg constructor, classic config-screen registration) to load across the whole
-  1.20.1 Forge/NeoForge line. See `docs/STATUS.md`.
+- **Older Minecraft lines**: `1.21.1` (NeoForge, Fabric, Forge), `1.20.1` (Fabric, Forge), and `1.19.2`
+  (Fabric, Forge) build alongside the 26.x lines via Stonecutter version guards over the real
+  API-generation changes (advancement, toast, list-widget, key-mapping, and Forge/Fabric event APIs).
+  1.20.1 and 1.19.2 run on Java 17, which required rewriting the loader-agnostic core's Java 21 switch
+  type patterns to `instanceof` chains — behavior-preserving, verified by the same 92-test suite passing
+  on both Java 17 and Java 25. No separate NeoForge build is shipped for `1.20.1` (the tooling can't
+  resolve its legacy `net.neoforged:forge` coordinates); instead NeoForge 1.20.1 loads the **Forge** jar
+  directly — it is a near-verbatim Forge fork registering the `forge` mod, and the 1.20.1 Forge build is
+  compiled (floor `47.1.5`, classic no-arg constructor, classic config-screen registration) to load
+  across the whole 1.20.1 Forge/NeoForge line. `1.19.2` predates NeoForge entirely (its first release
+  was 1.20.1), so it is Fabric and Forge only, and it sits before the 1.20 UI rework: its screens and
+  list widgets render through a `PoseStack` with the static `GuiComponent` draw helpers (not the 1.20+
+  `GuiGraphics`), `Button` is constructed directly (`Button.builder` arrived in 1.19.4), the client
+  command feedback takes a bare `Component` (not the 1.20+ `Supplier<Component>`), and `Entity.onGround`
+  is still `isOnGround`. 1.19.2 also ships Gson 2.8.9, which predates Gson's record support, so the
+  config record graph is (de)serialized through a `RecordTypeAdapterFactory` (registered on the config
+  `Gson` in the loader-agnostic core, correct on every Gson version). The one gap: 1.19.2's
+  `MultiPlayerGameMode` exposes no destroy-stage accessor, so the fine-grained mining-progress ramp is
+  unavailable there (block-break events still fire). See `docs/STATUS.md`.
 - **Quilt** runs the existing **Fabric** jar as-is — Quilt Loader loads it via `fabric.mod.json` and
   the mod uses no loader-specific API beyond Fabric API, so no separate Quilt build is shipped
   (install the Fabric jar with the normal Fabric API mod). Likewise **NeoForge 1.20.1** runs the

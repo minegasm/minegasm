@@ -72,6 +72,11 @@ stonecutter {
         // this tooling resolves) with the old net.minecraftforge API, so it is deliberately not
         // registered here — plain Forge covers that near-identical surface.
         mc("1.20.1", "fabric", "forge")
+        // 1.19.2: Fabric and Forge only — NeoForge did not exist yet (its first release was 1.20.1).
+        // 1.19.2 predates the 1.20 GuiGraphics rework, so its UI render methods take a PoseStack; the
+        // shared source carries a third render branch behind a >=1.20.1 guard (see build.gradle.kts and
+        // the neoforge UI files). Runs on Java 17, like 1.20.1.
+        mc("1.19.2", "fabric", "forge")
     }
     create(rootProject)
 }

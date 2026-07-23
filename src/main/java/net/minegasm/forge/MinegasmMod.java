@@ -195,14 +195,14 @@ public final class MinegasmMod {
                 .then(Commands.literal("stop").executes(context -> {
                     client.panic();
                     showToast(Minecraft.getInstance(), "minegasm.toast.panic");
-                    context.getSource().sendSuccess(
-                            () -> Component.translatable("minegasm.command.stopped"), false);
+                    feedback(context.getSource(),
+                            () -> Component.translatable("minegasm.command.stopped"));
                     return 1;
                 }))
                 .then(Commands.literal("resume").executes(context -> {
                     client.clearPanic();
-                    context.getSource().sendSuccess(
-                            () -> Component.translatable("minegasm.command.resumed"), false);
+                    feedback(context.getSource(),
+                            () -> Component.translatable("minegasm.command.resumed"));
                     return 1;
                 }))
                 .then(Commands.literal("enable").executes(context ->
@@ -219,8 +219,8 @@ public final class MinegasmMod {
                 }))
                 .then(Commands.literal("disconnect").executes(context -> {
                     client.disconnect();
-                    context.getSource().sendSuccess(
-                            () -> Component.translatable("minegasm.command.disconnected"), false);
+                    feedback(context.getSource(),
+                            () -> Component.translatable("minegasm.command.disconnected"));
                     return 1;
                 }))
                 .then(Commands.literal("reconnect").executes(context -> {
@@ -264,7 +264,7 @@ public final class MinegasmMod {
         String key = enable
                 ? (changed ? "minegasm.command.haptics_enabled" : "minegasm.command.haptics_already_enabled")
                 : (changed ? "minegasm.command.haptics_disabled" : "minegasm.command.haptics_already_disabled");
-        source.sendSuccess(() -> Component.translatable(key), false);
+        feedback(source, () -> Component.translatable(key));
         return 1;
     }
 
@@ -296,8 +296,8 @@ public final class MinegasmMod {
             source.sendFailure(Component.translatable("minegasm.command.test_no_features"));
             return 0;
         }
-        source.sendSuccess(() -> Component.translatable("minegasm.command.test_sent",
-                targeted, strengthPercent, durationMs), false);
+        feedback(source, () -> Component.translatable("minegasm.command.test_sent",
+                targeted, strengthPercent, durationMs));
         return targeted;
     }
 
@@ -313,7 +313,7 @@ public final class MinegasmMod {
             return 0;
         }
         client.recordEvent(RawGameEvent.of(kind, gameTick, System.nanoTime()));
-        source.sendSuccess(() -> Component.translatable("minegasm.command.triggered", kind.key()), false);
+        feedback(source, () -> Component.translatable("minegasm.command.triggered", kind.key()));
         return 1;
     }
 
@@ -330,14 +330,14 @@ public final class MinegasmMod {
 
     private void sendStatus(CommandSourceStack source) {
         var status = client.status();
-        source.sendSuccess(() -> Component.translatable("minegasm.command.status",
+        feedback(source, () -> Component.translatable("minegasm.command.status",
                 Component.translatable("minegasm.connection.state."
                         + status.state().name().toLowerCase(Locale.ROOT)),
                 status.deviceCount(),
                 Component.translatable("minegasm.adapter."
-                        + client.config().raw().buttplug().client().toLowerCase(Locale.ROOT))), false);
+                        + client.config().raw().buttplug().client().toLowerCase(Locale.ROOT))));
         if (!shortAliasAvailable) {
-            source.sendSuccess(() -> Component.translatable("minegasm.command.alias_unavailable"), false);
+            feedback(source, () -> Component.translatable("minegasm.command.alias_unavailable"));
         }
     }
 
@@ -346,7 +346,7 @@ public final class MinegasmMod {
         if (state == net.minegasm.buttplug.ConnectionState.CONNECTING
                 || state == net.minegasm.buttplug.ConnectionState.NEGOTIATING
                 || state == net.minegasm.buttplug.ConnectionState.STOPPING) {
-            source.sendSuccess(() -> Component.translatable("minegasm.command.connection_busy"), false);
+            feedback(source, () -> Component.translatable("minegasm.command.connection_busy"));
             return;
         }
         if (!reconnect && client.isConnected()) {
@@ -356,8 +356,8 @@ public final class MinegasmMod {
         if (reconnect && client.isConnected()) {
             client.disconnect();
         }
-        source.sendSuccess(() -> Component.translatable(
-                reconnect ? "minegasm.command.reconnecting" : "minegasm.command.connecting"), false);
+        feedback(source, () -> Component.translatable(
+                reconnect ? "minegasm.command.reconnecting" : "minegasm.command.connecting"));
         client.connect().whenComplete((status, failure) -> Minecraft.getInstance().execute(() -> {
             if (failure == null) {
                 sendStatus(source);
@@ -371,6 +371,17 @@ public final class MinegasmMod {
                 source.sendFailure(Component.translatable("minegasm.command.connect_failed", message));
             }
         }));
+    }
+
+    // CommandSourceStack.sendSuccess took a bare Component before 1.20; from 1.20 it takes a
+    // Supplier<Component> (evaluated only when feedback is actually shown). One guarded helper keeps
+    // the command handlers version-agnostic.
+    private static void feedback(CommandSourceStack source, java.util.function.Supplier<Component> message) {
+        //? if >=1.20.1 {
+        source.sendSuccess(message, false);
+        //?} else {
+        /^source.sendSuccess(message.get(), false);
+        ^///?}
     }
 
     private void showToast(Minecraft mc, String key) {

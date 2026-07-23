@@ -7,8 +7,11 @@ import net.minegasm.config.HapticConfig;
 
 //? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-//?} else {
+//?} elif >=1.20.1 {
 /*import net.minecraft.client.gui.GuiGraphics;
+*///?} else {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiComponent;
 *///?}
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -58,23 +61,23 @@ public final class MinegasmConfigScreen extends Screen {
                 columnWidth, 64, devices));
         addRenderableWidget(new ErrorListWidget(this.minecraft, rightX, 132,
                 columnWidth, Math.max(28, this.height - 144), errors));
-        Button clearErrors = addRenderableWidget(Button.builder(
+        Button clearErrors = addRenderableWidget(button(
                 Component.translatable("minegasm.errors.clear"), b -> {
                     client.clearErrorHistory();
                     rebuildWidgets();
-                }).bounds(rightX + columnWidth - 44, 117, 44, 14).build());
+                }, rightX + columnWidth - 44, 117, 44, 14));
         clearErrors.active = !errors.isEmpty();
 
-        addRenderableWidget(Button.builder(
+        addRenderableWidget(button(
                 Component.translatable(enabled ? "minegasm.output.on" : "minegasm.output.off"),
-                b -> toggleEnabled()).bounds(leftX, y, columnWidth, h).build());
+                b -> toggleEnabled(), leftX, y, columnWidth, h));
         y += gap;
 
         String adapter = client.config().raw().buttplug().client();
-        addRenderableWidget(Button.builder(Component.translatable(
+        addRenderableWidget(button(Component.translatable(
                         adapterRestartRequired ? "minegasm.adapter.next_short" : "minegasm.adapter.short",
                         Component.translatable("minegasm.adapter." + adapter.toLowerCase(Locale.ROOT))),
-                b -> toggleAdapter()).bounds(leftX, y, columnWidth, h).build());
+                b -> toggleAdapter(), leftX, y, columnWidth, h));
         y += gap;
 
         ProviderStatus status = client.status();
@@ -84,49 +87,49 @@ public final class MinegasmConfigScreen extends Screen {
         boolean busy = state == ConnectionState.CONNECTING || state == ConnectionState.NEGOTIATING
                 || state == ConnectionState.STOPPING;
 
-        Button connection = addRenderableWidget(Button.builder(Component.translatable(connected
+        Button connection = addRenderableWidget(button(Component.translatable(connected
                         ? "minegasm.connection.disconnect" : "minegasm.connection.connect"),
-                b -> toggleConnection()).bounds(leftX, y, columnWidth, h).build());
+                b -> toggleConnection(), leftX, y, columnWidth, h));
         connection.active = !busy;
         y += gap;
 
         boolean scanning = state == ConnectionState.SCANNING;
-        Button scan = addRenderableWidget(Button.builder(
+        Button scan = addRenderableWidget(button(
                 Component.translatable(scanning
                         ? "minegasm.connection.stop_scan" : "minegasm.connection.scan"),
-                b -> toggleScanning()).bounds(leftX, y, half, h).build());
+                b -> toggleScanning(), leftX, y, half, h));
         scan.active = connected && !busy;
 
-        Button refresh = addRenderableWidget(Button.builder(
+        Button refresh = addRenderableWidget(button(
                 Component.translatable("minegasm.devices.refresh"),
-                b -> refreshDevices()).bounds(leftX + half + 4, y, half, h).build());
+                b -> refreshDevices(), leftX + half + 4, y, half, h));
         refresh.active = connected && !busy;
         y += gap;
 
         boolean panic = !client.runtime().worker().isOutputEnabled();
-        Button test = addRenderableWidget(Button.builder(
+        Button test = addRenderableWidget(button(
                 Component.translatable("minegasm.devices.test_output"),
-                b -> client.testPulse(0.25f)).bounds(leftX, y, half, h).build());
+                b -> client.testPulse(0.25f), leftX, y, half, h));
         test.active = enabled && connected && deviceCount > 0 && !panic;
 
-        addRenderableWidget(Button.builder(
+        addRenderableWidget(button(
                 Component.translatable(panic
                         ? "minegasm.safety.resume" : "minegasm.safety.stop"),
-                b -> togglePanic()).bounds(leftX + half + 4, y, half, h).build());
+                b -> togglePanic(), leftX + half + 4, y, half, h));
         y += gap;
 
-        addRenderableWidget(Button.builder(Component.translatable("minegasm.settings.button"),
-                b -> openSettings()).bounds(leftX, y, columnWidth, h).build());
+        addRenderableWidget(button(Component.translatable("minegasm.settings.button"),
+                b -> openSettings(), leftX, y, columnWidth, h));
         y += gap;
 
         if (client.hasLegacyConfig()) {
-            addRenderableWidget(Button.builder(Component.translatable("minegasm.legacy.button"),
-                    b -> openLegacyImport()).bounds(leftX, y, columnWidth, h).build());
+            addRenderableWidget(button(Component.translatable("minegasm.legacy.button"),
+                    b -> openLegacyImport(), leftX, y, columnWidth, h));
         }
 
-        addRenderableWidget(Button.builder(
+        addRenderableWidget(button(
                 Component.translatable("gui.done"),
-                b -> onClose()).bounds(leftX, this.height - 24, columnWidth, h).build());
+                b -> onClose(), leftX, this.height - 24, columnWidth, h));
 
         observedRegistryGeneration = client.provider().devices().generation();
         observedConnectionState = state;
@@ -225,6 +228,16 @@ public final class MinegasmConfigScreen extends Screen {
         }
     }
 
+    // Button.builder(...) was added in 1.19.4; 1.19.2 constructs Button directly. One guarded factory
+    // keeps every call site version-agnostic (message, action, then bounds as x/y/width/height).
+    private Button button(Component message, Button.OnPress onPress, int x, int y, int width, int height) {
+        //? if >=1.20.1 {
+        return Button.builder(message, onPress).bounds(x, y, width, height).build();
+        //?} else {
+        /*return new Button(x, y, width, height, message, onPress);
+        *///?}
+    }
+
     //? if >=26.1.2 {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
@@ -251,7 +264,7 @@ public final class MinegasmConfigScreen extends Screen {
                 rightX, 120, 0xFFFFFFFF);
 
     }
-    //?} else {
+    //?} elif >=1.20.1 {
     /*@Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         //? if <1.21.1 {
@@ -275,6 +288,33 @@ public final class MinegasmConfigScreen extends Screen {
                         client.provider().devices().all().size()),
                 rightCenter, 42, 0xFFFFFFFF);
         graphics.drawString(this.font,
+                Component.translatable("minegasm.errors.heading", client.errorHistory().size()),
+                rightX, 120, 0xFFFFFFFF);
+
+    }
+    *///?} else {
+    /*@Override
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(poseStack); // pre-1.20 Screen.render() paints no backdrop either
+        super.render(poseStack, mouseX, mouseY, partialTick);
+        // Pre-1.20 draw helpers are static on GuiComponent and take a PoseStack first.
+        GuiComponent.drawCenteredString(poseStack, this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
+
+        ProviderStatus status = client.status();
+        Component state = Component.translatable("minegasm.connection.state",
+                Component.translatable("minegasm.connection.state."
+                        + status.state().name().toLowerCase(Locale.ROOT)));
+        GuiComponent.drawCenteredString(poseStack, this.font, state, this.width / 2, 31, 0xFFA0A0A0);
+
+        int totalWidth = Math.min(this.width - 16, 420);
+        int columnWidth = (totalWidth - 8) / 2;
+        int rightX = (this.width - totalWidth) / 2 + columnWidth + 8;
+        int rightCenter = rightX + columnWidth / 2;
+        GuiComponent.drawCenteredString(poseStack, this.font,
+                Component.translatable("minegasm.devices.heading",
+                        client.provider().devices().all().size()),
+                rightCenter, 42, 0xFFFFFFFF);
+        GuiComponent.drawString(poseStack, this.font,
                 Component.translatable("minegasm.errors.heading", client.errorHistory().size()),
                 rightX, 120, 0xFFFFFFFF);
 
