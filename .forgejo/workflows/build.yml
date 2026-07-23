@@ -46,7 +46,21 @@ jobs:
           chmod +x gradlew
           tasks=()
           for v in $VARIANTS; do tasks+=(":$v:build"); done
-          ./gradlew "${tasks[@]}" --no-daemon --configure-on-demand --stacktrace --warning-mode all
+
+          max_attempts=3
+          for attempt in $(seq 1 "$max_attempts"); do
+            ./gradlew "${tasks[@]}" --no-daemon --configure-on-demand --stacktrace --warning-mode all 2>&1 | tee gradle-output.log
+            status=${PIPESTATUS[0]}
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$attempt" -eq "$max_attempts" ] || ! grep -qE 'failed to respond|Could not GET|Could not resolve all (files|artifacts) for configuration|Read timed out|Connection reset|UnknownHostException' gradle-output.log; then
+              echo "Gradle build failed (attempt $attempt/$max_attempts); not retrying further." >&2
+              exit "$status"
+            fi
+            echo "Transient dependency-resolution failure detected (attempt $attempt/$max_attempts); retrying after a pause..." >&2
+            sleep 20
+          done
 
       - name: Verify and stage this group's artifacts
         env:
