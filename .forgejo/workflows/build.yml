@@ -105,7 +105,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: ${{ forge.ref_type == 'tag' && 'codeberg-small' || 'codeberg-small-lazy' }}
+    runs-on: ${{ forge.ref_type == 'tag' && 'codeberg-tiny' || 'codeberg-tiny-lazy' }}
     steps:
       - name: Download all built jars
         uses: https://code.forgejo.org/forgejo/download-artifact@v4
