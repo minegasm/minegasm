@@ -1,0 +1,32 @@
+# Build output
+.gradle/
+build/
+out/
+run/
+versions/*/build/
+versions/*/run/
+
+# Stonecraft/Loom per-version development runtime
+versions/*/.cache/
+versions/*/config/
+versions/*/defaultconfigs/
+versions/*/logs/
+versions/*/mods/
+versions/*/crash-reports/
+versions/*/saves/
+versions/*/screenshots/
+versions/*/resourcepacks/
+versions/*/shaderpacks/
+versions/*/options.txt
+versions/*/servers.dat
+versions/*/usercache.json
+versions/*/usernamecache.json
+
+# Local install targets for `installJars` (per-developer mods folders)
+/mods-install.env
+
+# Local runtime config that lands next to the build
+/minegasm.json
+/minegasm.json.corrupt
+/minegasm.json.before-legacy-import*
+/minegasm-client.toml

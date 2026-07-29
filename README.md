@@ -72,7 +72,10 @@ exactly what's verified versus what still needs the Minecraft toolchain and hard
 
 ### The mod (Gradle + Stonecraft + NeoForge/Fabric/Forge, Java 25 / Java 21 / Java 17)
 
+The modern build lives in `modern/` (alongside `engine/` and `classic/`). Run it from there:
+
 ```bash
+cd modern
 ./gradlew build                # builds the active Stonecutter variant
 ./gradlew chiseledBuild        # builds every registered variant
 ```
@@ -132,9 +135,10 @@ This excludes `net.minegasm.neoforge` and the loader entrypoints (`net.minegasm.
 classpath. Gradle and CI report the current result and test totals.
 
 **Testing the real device path** (Intiface, no Minecraft or hardware needed) and the full in-game
-checklist are described in **`docs/TESTING.md`**, including a standalone `intifaceProbe` harness
-(`./gradlew :26.2-neoforge:intifaceProbe --args="--backend buttplug4j"`). The qualified command runs
-only that variant. An unqualified `./gradlew intifaceProbe` selects every Stonecutter variant and
+checklist are described in **`docs/TESTING.md`**, including a standalone `intifaceProbe` harness (run
+from `modern/`: `./gradlew :26.2-neoforge:intifaceProbe --args="--backend buttplug4j"`). The qualified
+command runs only that variant. An unqualified `./gradlew intifaceProbe` selects every Stonecutter
+variant and
 runs the probes sequentially, because Intiface may reject simultaneous client connections.
 
 ## Using it in-game

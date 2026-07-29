@@ -21,7 +21,10 @@ The current result and test totals are reported by Gradle and CI.
 
 ## Level 1: build the mod (Gradle + NeoForge, Java 25)
 
+The modern build lives in `modern/`; run these from there.
+
 ```bash
+cd modern
 ./gradlew build            # active variant
 ./gradlew chiseledBuild    # all variants
 ```
@@ -59,8 +62,10 @@ provider/command path the engine uses.
    connect a real device.
 3. Run the probe (`net.minegasm.tools.IntifaceProbe`):
 
-   **buttplug4j backend (default in the mod), via Gradle**, which resolves the buttplug4j/Jetty deps:
+   **buttplug4j backend (default in the mod), via Gradle** (run from `modern/`), which resolves the
+   buttplug4j/Jetty deps:
    ```bash
+   cd modern
    ./gradlew :26.2-neoforge:intifaceProbe --args="--backend buttplug4j --url ws://127.0.0.1:12345"
    ```
 

@@ -1,28 +1,10 @@
-# Build output
+# Build output (any module: engine/, modern/, classic/)
 .gradle/
 build/
 out/
 run/
-versions/*/build/
-versions/*/run/
 
-# Stonecraft/Loom per-version development runtime
-versions/*/.cache/
-versions/*/config/
-versions/*/defaultconfigs/
-versions/*/logs/
-versions/*/mods/
-versions/*/crash-reports/
-versions/*/saves/
-versions/*/screenshots/
-versions/*/resourcepacks/
-versions/*/shaderpacks/
-versions/*/options.txt
-versions/*/servers.dat
-versions/*/usercache.json
-versions/*/usernamecache.json
-
-# Local compile/test harness (JDK-only, no Gradle)
+# Local compile/test harness for the engine (JDK-only, no Gradle), at .localbuild/
 .localbuild/out/
 .localbuild/libs/
 .localbuild/testclient/
@@ -39,11 +21,5 @@ versions/*/usernamecache.json
 .DS_Store
 Thumbs.db
 
-# Logs / local config
+# Logs
 *.log
-# Local install targets for `installJars` (per-developer mods folders)
-/mods-install.env
-/minegasm.json
-/minegasm.json.corrupt
-/minegasm.json.before-legacy-import*
-/minegasm-client.toml

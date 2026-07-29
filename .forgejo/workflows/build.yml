@@ -38,6 +38,7 @@ jobs:
           echo "$HOME/jdk-25/bin" >> "$GITHUB_PATH"
 
       - name: Build and test this Minecraft line's variants
+        working-directory: modern
         env:
           VARIANTS: ${{ matrix.variants }}
         run: |
@@ -61,6 +62,7 @@ jobs:
           done
 
       - name: Verify and stage this group's artifacts
+        working-directory: modern
         env:
           VARIANTS: ${{ matrix.variants }}
         run: |
@@ -101,7 +103,7 @@ jobs:
         uses: https://code.forgejo.org/forgejo/upload-artifact@v4
         with:
           name: jars-${{ matrix.group }}
-          path: dist/*.jar
+          path: modern/dist/*.jar
 
   release:
     needs: build

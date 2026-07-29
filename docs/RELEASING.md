@@ -25,10 +25,11 @@ metadata, jar names, and the release workflow. Use a SemVer prerelease value suc
 `1.0.0-beta.1`, then update `CHANGELOG.md` and run a clean local release-candidate build:
 
 ```powershell
+cd modern
 .\gradlew.bat clean chiseledBuild --rerun-tasks --warning-mode all
 ```
 
-Test the exact jars from every `versions/*/build/libs/` directory in their corresponding Minecraft
+Test the exact jars from every `modern/versions/*/build/libs/` directory in their corresponding Minecraft
 versions and loaders, using the **preflight checklist** in `docs/TESTING.md` (a green unit test or
 Intiface-simulator run does not cover it): the full checklist on the current main lines, a smoke test
 on the older ones, per that document's split. That's the bar for a stable release; a beta can relax

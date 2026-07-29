@@ -175,8 +175,10 @@ Stages 1 and 2 touch modern's working tree; nothing is committed without the mod
   pinning exact versions (unimined 1.4.1, Gradle 8.8, forge/mcp coords per version, JDK 21 daemon).
 - **De-record volume**: 38 files; mechanical but not zero. Confined to the engine module.
 - **Native transport swap**: the one non-mechanical downport item.
-- **Two Gradle/JDK combos in the repo**: modern (9.x/25) and classic (8.8/21). A short root README note
-  keeps contributors from running the wrong one.
+- **Two Gradle/JDK combos in the repo**: modern (9.x/25, in `modern/`) and classic (8.8/21, in
+  `classic/`). Addressed: the README documents both builds, and `classic/` pins its own JDK 21 daemon via
+  `classic/gradle/gradle-daemon-jvm.properties` so its `./gradlew` works regardless of `JAVA_HOME`. The
+  modern build now lives in `modern/`, matching the target layout (engine/ + modern/ + classic/).
 
 ## Verified this session (so it isn't re-litigated later)
 

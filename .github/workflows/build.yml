@@ -19,11 +19,13 @@ jobs:
           java-version: '25'
 
       - name: Build and test every variant
+        working-directory: modern
         run: |
           chmod +x gradlew
           ./gradlew chiseledBuild --no-daemon --stacktrace --warning-mode all
 
       - name: Verify packaged artifacts
+        working-directory: modern
         run: |
           shopt -s nullglob
           artifacts=(versions/*/build/libs/minegasm-*.jar)
@@ -61,5 +63,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: minegasm-jars-${{ github.run_id }}
-          path: dist/
+          path: modern/dist/
           if-no-files-found: error
