@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "minegasm",
+  "version": "${version}",
+  "name": "Minegasm",
+  "description": "Responsive, customizable haptic feedback for Minecraft across compatible devices. Entirely client-side.",
+  "license": "AGPL-3.0",
+  "icon": "icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "net.minegasm.classic.MinegasmClassicClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.11",
+    "minecraft": "~1.16.5"
+  }
+}

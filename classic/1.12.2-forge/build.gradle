@@ -8,13 +8,15 @@ group = 'net.minegasm'
 version = providers.gradleProperty('mod_version').get()
 base { archivesName = 'minegasm' }
 
-// Match the modern jar convention: minegasm-<version>+mc<mcversion>-forge.jar. Classic is Forge-only,
-// and project.name is the Minecraft version (1.7.10 / 1.8.9 / 1.12.2).
-def artifactName = "minegasm-${version}+mc${project.name}-forge"
+// Match the modern jar convention: minegasm-<version>+mc<mcversion>-forge.jar. This subproject is a
+// single Forge version; the Minecraft version comes from gradle.properties.
+def artifactName = "minegasm-${version}+mc${project.minecraft_version}-forge"
 tasks.named('jar') { archiveFileName = "${artifactName}-dev.jar" }
 
 unimined.useGlobalCache = false
 
+// Compile the mod (and the shared engine) to Java 8, the runtime stock 1.12.2 uses. The Gradle daemon
+// runs on JDK 21 (unimined needs Gradle 8.8); the toolchain is decoupled from that.
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -22,12 +24,14 @@ java {
 }
 tasks.withType(JavaCompile).configureEach { options.release = 8 }
 
-// 1.7.10 uses cpw.mods.fml, so its entrypoint lives in this subproject's own src (not the shared
-// forge/ dir that 1.8.9 and 1.12.2 use). It still shares the engine and the common glue.
+// Consume the shared engine and the version-agnostic Minecraft glue in place, the same way the modern
+// build srcDir's the engine. The engine is Java 8 source with no Minecraft imports.
 sourceSets {
     main {
         java.srcDir rootProject.file('../engine/src/main/java')
         java.srcDir rootProject.file('common/src/main/java')
+        // net.minecraftforge.fml entrypoint, shared with 1.8.9 (1.7.10 uses cpw.mods.fml instead).
+        java.srcDir rootProject.file('forge/src/main/java')
     }
 }
 
@@ -37,8 +41,10 @@ repositories {
     mavenCentral()
 }
 
-// buttplug4j + Gson are relocated and shaded into the reobfuscated jar (no jar-in-jar on this Forge).
-// `shade` is on the compile classpath but only it is bundled, so Minecraft's own libraries are excluded.
+// The engine's Buttplug backends: buttplug4j (default) + Gson (config + native codec). 1.12.2 Forge has
+// no jar-in-jar, so they are relocated and shaded into the reobfuscated jar. `shade` is on the compile
+// classpath (implementation extends it) but only `shade` is bundled, so Minecraft's own libraries are
+// never pulled in.
 configurations {
     shade
     implementation.extendsFrom shade
@@ -68,14 +74,15 @@ unimined.minecraft {
     version project.minecraft_version
     mappings {
         searge()
-        mcp('stable', '12-1.7.10')
+        mcp('stable', '39-1.12')
     }
     minecraftForge {
         loader project.forge_version
     }
 }
 
-// Reobfuscate the shaded fat jar so the relocated libraries ride along in the final artifact.
+// Reobfuscate the shaded fat jar rather than the thin jar, so the relocated libraries ride along in the
+// final artifact.
 afterEvaluate {
     tasks.named('remapJar') {
         dependsOn shadowJar

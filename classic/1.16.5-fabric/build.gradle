@@ -8,9 +8,8 @@ group = 'net.minegasm'
 version = providers.gradleProperty('mod_version').get()
 base { archivesName = 'minegasm' }
 
-// Match the modern jar convention: minegasm-<version>+mc<mcversion>-forge.jar. Classic is Forge-only,
-// and project.name is the Minecraft version (1.7.10 / 1.8.9 / 1.12.2).
-def artifactName = "minegasm-${version}+mc${project.name}-forge"
+// minegasm-<version>+mc<mcversion>-fabric.jar, matching the modern/Forge naming.
+def artifactName = "minegasm-${version}+mc${project.minecraft_version}-fabric"
 tasks.named('jar') { archiveFileName = "${artifactName}-dev.jar" }
 
 unimined.useGlobalCache = false
@@ -22,23 +21,22 @@ java {
 }
 tasks.withType(JavaCompile).configureEach { options.release = 8 }
 
+// The Fabric 1.16.5 loader layer. It shares the engine and common glue, and (once written) the
+// vanilla-facing 1.16.5 sampler/screen with the Forge subproject; only the loader hooks differ.
 sourceSets {
     main {
         java.srcDir rootProject.file('../engine/src/main/java')
         java.srcDir rootProject.file('common/src/main/java')
-        // net.minecraftforge.fml entrypoint, shared with 1.12.2 (1.7.10 uses cpw.mods.fml instead).
-        java.srcDir rootProject.file('forge/src/main/java')
     }
 }
 
 repositories {
     maven { url = "https://maven.wagyourtail.xyz/releases" }
-    maven { url = "https://repo.spongepowered.org/maven" }
+    maven { url = "https://maven.fabricmc.net/" }
     mavenCentral()
 }
 
-// buttplug4j + Gson are relocated and shaded into the reobfuscated jar (no jar-in-jar on this Forge).
-// `shade` is on the compile classpath but only it is bundled, so Minecraft's own libraries are excluded.
+// buttplug4j + Gson relocated and shaded, same as the Forge subprojects.
 configurations {
     shade
     implementation.extendsFrom shade
@@ -53,9 +51,6 @@ shadowJar {
     configurations = [project.configurations.shade]
     archiveFileName = "${artifactName}-shaded.jar"
     mergeServiceFiles()
-    // Legacy Forge's classpath scanner (old ASM) cannot parse the Java 11+ bytecode in Jackson's
-    // multi-release entries and rejects the whole jar as corrupt, so the mod never loads. Strip them:
-    // we target Java 8, and every versioned class has a Java 8 base copy at the root, so nothing is lost.
     exclude 'META-INF/versions/**'
     relocate 'io.github.blackspherefollower', 'net.minegasm.shadow.buttplug4j'
     relocate 'com.google.gson', 'net.minegasm.shadow.gson'
@@ -67,15 +62,15 @@ shadowJar {
 unimined.minecraft {
     version project.minecraft_version
     mappings {
-        searge()
-        mcp('stable', '22-1.8.9')
+        intermediary()
+        mojmap()
     }
-    minecraftForge {
-        loader project.forge_version
+    fabric {
+        loader project.fabric_loader_version
     }
 }
 
-// Reobfuscate the shaded fat jar so the relocated libraries ride along in the final artifact.
+// Remap the shaded fat jar to intermediary so Fabric loads it.
 afterEvaluate {
     tasks.named('remapJar') {
         dependsOn shadowJar
@@ -86,5 +81,5 @@ afterEvaluate {
 
 processResources {
     inputs.property 'version', project.version
-    filesMatching('mcmod.info') { expand 'version': project.version }
+    filesMatching('fabric.mod.json') { expand 'version': project.version }
 }

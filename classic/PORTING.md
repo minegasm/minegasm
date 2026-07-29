@@ -21,7 +21,7 @@ rest is not.
 | Lifecycle | `@Mod.EventHandler preInit/init` | same | same |
 
 Because 1.7.10 has no `clientSideOnly`, the mod loads on a dedicated server and its `init` must not touch
-any client-only type (see the guard in `1.7.10/.../MinegasmClassicMod.java`). 1.8.9 and 1.12.2 share one
+any client-only type (see the guard in `1.7.10-forge/.../MinegasmClassicMod.java`). 1.8.9 and 1.12.2 share one
 entrypoint under `classic/forge`; 1.7.10 has its own.
 
 ## Client tick / bus / keybindings

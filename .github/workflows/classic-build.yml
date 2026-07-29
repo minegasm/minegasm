@@ -32,18 +32,24 @@ jobs:
         run: |
           shopt -s nullglob
           mkdir -p dist
-          for v in 1.7.10 1.8.9 1.12.2; do
-            jars=("$v"/build/libs/minegasm-*+mc"$v"-forge.jar)
+          for sub in 1.7.10-forge 1.8.9-forge 1.12.2-forge 1.16.5-forge 1.16.5-fabric; do
+            mc="${sub%-*}"; loader="${sub##*-}"
+            jars=("$sub"/build/libs/minegasm-*+mc"$mc"-"$loader".jar)
             if [ "${#jars[@]}" -ne 1 ]; then
-              echo "ERROR: expected exactly one reobfuscated jar for $v, found ${#jars[@]}" >&2
+              echo "ERROR: expected exactly one reobfuscated jar for $sub, found ${#jars[@]}" >&2
               exit 1
             fi
             jar="${jars[0]}"
             echo "Verifying $jar"
-            entries="$(jar tf "$jar")"
+            # Use the JDK jar tool by absolute path; a bare `jar` is not always on PATH in later steps.
+            entries="$("$JAVA_HOME/bin/jar" tf "$jar")"
+            if [ -z "$entries" ]; then
+              echo "ERROR: could not list $jar with $JAVA_HOME/bin/jar" >&2
+              exit 1
+            fi
 
-            # The mod entrypoint and shared engine must be bundled.
-            echo "$entries" | grep -q '^net/minegasm/classic/MinegasmClassicMod.class$' \
+            # The mod entrypoint (Forge: MinegasmClassicMod, Fabric: MinegasmClassicClient) and engine.
+            echo "$entries" | grep -qE '^net/minegasm/classic/(MinegasmClassicMod|MinegasmClassicClient)\.class$' \
               || { echo "ERROR: $jar is missing the mod entrypoint" >&2; exit 1; }
             echo "$entries" | grep -q '^net/minegasm/core/' \
               || { echo "ERROR: $jar is missing the shared engine classes" >&2; exit 1; }

@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[36,)"
+license="AGPL-3.0"
+
+[[mods]]
+modId="minegasm"
+version="${version}"
+displayName="Minegasm"
+logoFile="icon.png"
+description='''
+Responsive, customizable haptic feedback for Minecraft across compatible devices. Entirely client-side.
+'''
+
+[[dependencies.minegasm]]
+    modId="forge"
+    mandatory=true
+    versionRange="[36,)"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.minegasm]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.16.5]"
+    ordering="NONE"
+    side="CLIENT"
