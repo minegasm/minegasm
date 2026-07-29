@@ -29,6 +29,11 @@ sourceSets {
     main {
         java.srcDir rootProject.file('../engine/src/main/java')
         java.srcDir rootProject.file('common/src/main/java')
+        // Vanilla-facing 1.16.5 code (sampler, config screen, keybinds, command executor) shared with
+        // the Fabric subproject; only the loader hooks live in each subproject's own src.
+        java.srcDir rootProject.file('1.16.5-common/src/main/java')
+        // Shared assets (the keybind/lang JSON); mod metadata (mods.toml) stays per-subproject.
+        resources.srcDir rootProject.file('1.16.5-common/src/main/resources')
     }
 }
 

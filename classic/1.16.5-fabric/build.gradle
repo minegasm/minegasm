@@ -21,12 +21,16 @@ java {
 }
 tasks.withType(JavaCompile).configureEach { options.release = 8 }
 
-// The Fabric 1.16.5 loader layer. It shares the engine and common glue, and (once written) the
-// vanilla-facing 1.16.5 sampler/screen with the Forge subproject; only the loader hooks differ.
+// The Fabric 1.16.5 loader layer. It shares the engine and common glue, and the vanilla-facing 1.16.5
+// sampler/screen/keybinds with the Forge subproject; only the loader hooks differ.
 sourceSets {
     main {
         java.srcDir rootProject.file('../engine/src/main/java')
         java.srcDir rootProject.file('common/src/main/java')
+        // Vanilla-facing 1.16.5 code shared with the Forge subproject; only the loader hooks differ.
+        java.srcDir rootProject.file('1.16.5-common/src/main/java')
+        // Shared assets (the keybind/lang JSON); mod metadata (fabric.mod.json) stays per-subproject.
+        resources.srcDir rootProject.file('1.16.5-common/src/main/resources')
     }
 }
 
@@ -42,9 +46,25 @@ configurations {
     implementation.extendsFrom shade
 }
 
+// Configure the Minecraft/Fabric side first: this creates the mod dependency configurations
+// (modImplementation) that the dependencies block below uses.
+unimined.minecraft {
+    version project.minecraft_version
+    mappings {
+        intermediary()
+        mojmap()
+    }
+    fabric {
+        loader project.fabric_loader_version
+    }
+}
+
 dependencies {
     shade 'com.google.code.gson:gson:2.11.0'
     shade 'io.github.blackspherefollower:buttplug4j.connectors.jetty.websocket.client:4.0.278'
+    // Fabric API provides the client tick, keybinding, and client-command APIs the entrypoint uses.
+    // It is a separate mod the player installs (declared in fabric.mod.json), not bundled.
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
 shadowJar {
@@ -57,17 +77,6 @@ shadowJar {
     relocate 'org.eclipse.jetty', 'net.minegasm.shadow.jetty'
     relocate 'com.fasterxml.jackson', 'net.minegasm.shadow.jackson'
     relocate 'org.slf4j', 'net.minegasm.shadow.slf4j'
-}
-
-unimined.minecraft {
-    version project.minecraft_version
-    mappings {
-        intermediary()
-        mojmap()
-    }
-    fabric {
-        loader project.fabric_loader_version
-    }
 }
 
 // Remap the shaded fat jar to intermediary so Fabric loads it.
