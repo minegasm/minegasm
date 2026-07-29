@@ -12,7 +12,7 @@ def envFile = rootProject.file('mods-install.env')
 // Final artifact per version mirrors each subproject's archivesName + version. It is the reobfuscated,
 // shaded jar (no `-dev`/`-shaded` classifier), the one a real client loads.
 def jarByVersion = classicVersions.collectEntries { v ->
-    [(v): rootProject.file("${v}/build/libs/minegasm-classic-${v}-${modVersion}.jar")]
+    [(v): rootProject.file("${v}/build/libs/minegasm-${modVersion}+mc${v}-forge.jar")]
 }
 
 tasks.register('installJars') {
@@ -53,10 +53,11 @@ tasks.register('installJars') {
             if (!jar.isFile()) {
                 throw new GradleException("installJars: built jar not found for ${version}: ${jar.absolutePath}")
             }
-            // Clear prior Classic jars first so a version bump never leaves two of ours side by side (a
-            // duplicate-mod load error). Scoped to our own filenames, and to this Classic line's own
-            // instance, so it never touches a modern `minegasm-*.jar`.
-            modsDir.listFiles({ f -> f.isFile() && f.name.startsWith('minegasm-classic-') && f.name.endsWith('.jar') } as FileFilter)
+            // Clear prior jars for this same Minecraft version first, so a mod-version bump never leaves
+            // two of ours side by side (a duplicate-mod load error). Matching `minegasm-...+mc<ver>-forge`
+            // keeps it scoped to this line's own jar and never touches another version's or a modern jar.
+            modsDir.listFiles({ f -> f.isFile() && f.name.startsWith('minegasm-')
+                    && f.name.endsWith("+mc${version}-forge.jar") } as FileFilter)
                     ?.each { old ->
                         if (old.delete()) {
                             logger.lifecycle("installJars: removed old ${old.name} from ${dest}")

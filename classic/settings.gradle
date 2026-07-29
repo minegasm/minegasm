@@ -1,8 +1,8 @@
 // Minegasm Classic: the legacy-Minecraft build (Forge on 1.7.10 / 1.8.9 / 1.12.2), separate from the
 // root Stonecutter+Loom build. Runs on unimined, which needs Gradle 8.8 on a JDK 21 daemon, so it
 // pins its own wrapper. Each Minecraft version is its own unimined subproject; they share the engine
-// (via a srcDir onto ../engine) and the version-agnostic Minecraft glue under common/. See
-// /RESTRUCTURE.md.
+// (via a srcDir onto ../engine) and the version-agnostic Minecraft glue under common/. See PORTING.md
+// for the per-version API differences.
 pluginManagement {
     repositories {
         mavenCentral()

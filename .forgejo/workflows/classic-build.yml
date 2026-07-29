@@ -1,0 +1,85 @@
+name: Build Classic
+
+# Minegasm Classic is a separate build (unimined + Forge on 1.7.10/1.8.9/1.12.2, Gradle 8.8, Java 8
+# output) that runs on a JDK 21 daemon, not the modern build's Java 25. See classic/PORTING.md. Build
+# and verify only; releases are handled by the modern build.yml.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: codeberg-medium-lazy
+    steps:
+      - name: Check out source
+        env:
+          FORGE_URL: ${{ forge.server_url }}
+          REPOSITORY: ${{ forge.repository }}
+          COMMIT_SHA: ${{ forge.sha }}
+        run: |
+          git clone --no-checkout --filter=blob:none "$FORGE_URL/$REPOSITORY.git" .
+          git checkout --detach "$COMMIT_SHA"
+
+      - name: Set up JDK 21
+        run: |
+          curl -fsSL -o /tmp/jdk.tar.gz "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"
+          mkdir -p "$HOME/jdk-21"
+          tar -xzf /tmp/jdk.tar.gz -C "$HOME/jdk-21" --strip-components=1
+          echo "JAVA_HOME=$HOME/jdk-21" >> "$GITHUB_ENV"
+          echo "$HOME/jdk-21/bin" >> "$GITHUB_PATH"
+
+      - name: Build all Classic versions
+        working-directory: classic
+        run: |
+          chmod +x gradlew
+          max_attempts=3
+          for attempt in $(seq 1 "$max_attempts"); do
+            ./gradlew build --no-daemon --stacktrace --warning-mode all 2>&1 | tee gradle-output.log
+            status=${PIPESTATUS[0]}
+            if [ "$status" -eq 0 ]; then
+              break
+            fi
+            if [ "$attempt" -eq "$max_attempts" ] || ! grep -qE 'failed to respond|Could not GET|Could not resolve all (files|artifacts) for configuration|Read timed out|Connection reset|UnknownHostException' gradle-output.log; then
+              echo "Gradle build failed (attempt $attempt/$max_attempts); not retrying further." >&2
+              exit "$status"
+            fi
+            echo "Transient dependency-resolution failure detected (attempt $attempt/$max_attempts); retrying after a pause..." >&2
+            sleep 20
+          done
+
+      - name: Verify and stage artifacts
+        working-directory: classic
+        run: |
+          shopt -s nullglob
+          mkdir -p dist
+          for v in 1.7.10 1.8.9 1.12.2; do
+            jars=("$v"/build/libs/minegasm-*+mc"$v"-forge.jar)
+            if [ "${#jars[@]}" -ne 1 ]; then
+              echo "ERROR: expected exactly one reobfuscated jar for $v, found ${#jars[@]}" >&2
+              exit 1
+            fi
+            jar="${jars[0]}"
+            echo "Verifying $jar"
+            entries="$(jar tf "$jar")"
+
+            echo "$entries" | grep -q '^net/minegasm/classic/MinegasmClassicMod.class$' \
+              || { echo "ERROR: $jar is missing the mod entrypoint" >&2; exit 1; }
+            echo "$entries" | grep -q '^net/minegasm/core/' \
+              || { echo "ERROR: $jar is missing the shared engine classes" >&2; exit 1; }
+            echo "$entries" | grep -q '^net/minegasm/shadow/buttplug4j/' \
+              || { echo "ERROR: $jar is missing the shaded buttplug4j classes" >&2; exit 1; }
+            if echo "$entries" | grep -q '^META-INF/versions/.*\.class$'; then
+              echo "ERROR: $jar still contains META-INF/versions class entries (legacy FML would reject it)" >&2
+              exit 1
+            fi
+
+            cp "$jar" dist/
+          done
+
+      - name: Upload built jars
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: classic-jars
+          path: classic/dist/*.jar

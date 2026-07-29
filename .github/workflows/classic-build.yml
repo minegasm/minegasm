@@ -1,0 +1,67 @@
+name: Build Classic
+
+# Minegasm Classic is a separate build (unimined + Forge on 1.7.10/1.8.9/1.12.2, Gradle 8.8, Java 8
+# output) that runs on a JDK 21 daemon, not the modern build's Java 25. See classic/PORTING.md.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build all Classic versions
+        working-directory: classic
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon --stacktrace --warning-mode all
+
+      - name: Verify packaged artifacts
+        working-directory: classic
+        run: |
+          shopt -s nullglob
+          mkdir -p dist
+          for v in 1.7.10 1.8.9 1.12.2; do
+            jars=("$v"/build/libs/minegasm-*+mc"$v"-forge.jar)
+            if [ "${#jars[@]}" -ne 1 ]; then
+              echo "ERROR: expected exactly one reobfuscated jar for $v, found ${#jars[@]}" >&2
+              exit 1
+            fi
+            jar="${jars[0]}"
+            echo "Verifying $jar"
+            entries="$(jar tf "$jar")"
+
+            # The mod entrypoint and shared engine must be bundled.
+            echo "$entries" | grep -q '^net/minegasm/classic/MinegasmClassicMod.class$' \
+              || { echo "ERROR: $jar is missing the mod entrypoint" >&2; exit 1; }
+            echo "$entries" | grep -q '^net/minegasm/core/' \
+              || { echo "ERROR: $jar is missing the shared engine classes" >&2; exit 1; }
+            # The Buttplug stack is shaded and relocated (no jar-in-jar on this Forge).
+            echo "$entries" | grep -q '^net/minegasm/shadow/buttplug4j/' \
+              || { echo "ERROR: $jar is missing the shaded buttplug4j classes" >&2; exit 1; }
+            # Legacy FML cannot scan Java 11+ multi-release entries; they must be stripped.
+            if echo "$entries" | grep -q '^META-INF/versions/.*\.class$'; then
+              echo "ERROR: $jar still contains META-INF/versions class entries (legacy FML would reject it)" >&2
+              exit 1
+            fi
+
+            cp "$jar" dist/
+          done
+
+      - name: Upload built jars
+        uses: actions/upload-artifact@v7
+        with:
+          name: minegasm-classic-jars-${{ github.run_id }}
+          path: classic/dist/
+          if-no-files-found: error

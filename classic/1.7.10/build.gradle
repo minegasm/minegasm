@@ -6,7 +6,12 @@ plugins {
 
 group = 'net.minegasm'
 version = providers.gradleProperty('mod_version').get()
-base { archivesName = "minegasm-classic-${project.name}" }
+base { archivesName = 'minegasm' }
+
+// Match the modern jar convention: minegasm-<version>+mc<mcversion>-forge.jar. Classic is Forge-only,
+// and project.name is the Minecraft version (1.7.10 / 1.8.9 / 1.12.2).
+def artifactName = "minegasm-${version}+mc${project.name}-forge"
+tasks.named('jar') { archiveFileName = "${artifactName}-dev.jar" }
 
 unimined.useGlobalCache = false
 
@@ -46,7 +51,7 @@ dependencies {
 
 shadowJar {
     configurations = [project.configurations.shade]
-    archiveClassifier = 'shaded'
+    archiveFileName = "${artifactName}-shaded.jar"
     mergeServiceFiles()
     // Legacy Forge's classpath scanner (old ASM) cannot parse the Java 11+ bytecode in Jackson's
     // multi-release entries and rejects the whole jar as corrupt, so the mod never loads. Strip them:
@@ -75,6 +80,7 @@ afterEvaluate {
     tasks.named('remapJar') {
         dependsOn shadowJar
         inputFile = shadowJar.archiveFile
+        archiveFileName = "${artifactName}.jar"
     }
 }
 

@@ -113,10 +113,11 @@ cd classic
 ./gradlew installJars    # builds all three and copies each into a mods folder (see below)
 ```
 
-Each version produces one jar, e.g. `classic/1.12.2/build/libs/minegasm-classic-1.12.2-1.0.0-beta.2.jar`.
-That jar shades the engine plus the Buttplug stack (no jar-in-jar on this Forge). The shared engine and
-the version-agnostic command/classifier glue are pulled in via source directories; the per-version
-Minecraft layer lives in each subproject. See `/RESTRUCTURE.md` for the full design.
+Each version produces one jar, e.g. `classic/1.12.2/build/libs/minegasm-1.0.0-beta.2+mc1.12.2-forge.jar`
+(the same naming convention as the modern jars). That jar shades the engine plus the Buttplug stack (no
+jar-in-jar on this Forge). The shared engine and the version-agnostic command/classifier glue are pulled
+in via source directories; the per-version Minecraft layer lives in each subproject. See
+`classic/PORTING.md` for the per-version API details.
 
 `installJars` reads `classic/mods-install.env` (gitignored; copy `classic/mods-install.env.example`),
 one `<version>=<mods folder>` line per instance, and copies each built jar into the folder set for it.

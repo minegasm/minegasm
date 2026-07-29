@@ -123,4 +123,4 @@ reject the whole jar as corrupt on all three versions. The shaded jars therefore
 
 All three build on unimined 1.4.1, Gradle 8.8, a JDK 21 daemon (pinned via
 `classic/gradle/gradle-daemon-jvm.properties`), targeting Java 8 bytecode. Forge only: Fabric and
-NeoForge never existed for these versions. See `/RESTRUCTURE.md` for the wider design.
+NeoForge never existed for these versions. See the repository `README.md` for the overall layout.

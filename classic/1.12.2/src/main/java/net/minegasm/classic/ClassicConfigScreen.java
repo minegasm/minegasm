@@ -70,7 +70,7 @@ public final class ClassicConfigScreen extends GuiScreen {
         buttonList.clear();
         int lx = width / 2 - 155;
         int rx = width / 2 + 5;
-        int y0 = 30;
+        int y0 = 40;
         int dy = 22;
 
         enabledBtn = addButton(new GuiButton(ID_ENABLED, lx, y0, 150, 20, enabledLabel()));
@@ -85,18 +85,19 @@ public final class ClassicConfigScreen extends GuiScreen {
         fatigueBtn = addButton(new GuiButton(ID_FATIGUE, lx, y0 + 5 * dy, 150, 20, fatigueLabel()));
         pauseBtn = addButton(new GuiButton(ID_PAUSE, lx, y0 + 6 * dy, 150, 20, pauseLabel()));
 
+        autoConnectBtn = addButton(new GuiButton(ID_AUTOCONNECT, rx, y0, 150, 20, autoConnectLabel()));
+        autoScanBtn = addButton(new GuiButton(ID_AUTOSCAN, rx, y0 + dy, 150, 20, autoScanLabel()));
+        allowRemoteBtn = addButton(new GuiButton(ID_ALLOWREMOTE, rx, y0 + 2 * dy, 150, 20, allowRemoteLabel()));
+        stopUnloadBtn = addButton(new GuiButton(ID_STOPUNLOAD, rx, y0 + 3 * dy, 150, 20, stopUnloadLabel()));
+
         serverFieldX = rx;
-        serverFieldY = y0 + 1;
+        serverFieldY = y0 + 4 * dy + 10; // leaves room for the "Server:" label above it
         serverField = new GuiTextField(0, fontRenderer, serverFieldX, serverFieldY, 150, 18);
         serverField.setMaxStringLength(120);
         serverField.setText(model.serverUrl);
 
-        autoConnectBtn = addButton(new GuiButton(ID_AUTOCONNECT, rx, y0 + dy, 150, 20, autoConnectLabel()));
-        autoScanBtn = addButton(new GuiButton(ID_AUTOSCAN, rx, y0 + 2 * dy, 150, 20, autoScanLabel()));
-        allowRemoteBtn = addButton(new GuiButton(ID_ALLOWREMOTE, rx, y0 + 3 * dy, 150, 20, allowRemoteLabel()));
-        stopUnloadBtn = addButton(new GuiButton(ID_STOPUNLOAD, rx, y0 + 4 * dy, 150, 20, stopUnloadLabel()));
-        addButton(new GuiButton(ID_CONNECT, rx, y0 + 5 * dy, 73, 20, "Connect"));
-        addButton(new GuiButton(ID_TEST, rx + 77, y0 + 5 * dy, 73, 20, "Test"));
+        addButton(new GuiButton(ID_CONNECT, rx, y0 + 6 * dy, 73, 20, "Connect"));
+        addButton(new GuiButton(ID_TEST, rx + 77, y0 + 6 * dy, 73, 20, "Test"));
 
         addButton(new GuiButton(ID_DONE, width / 2 - 100, height - 26, 200, 20, "Done"));
     }
@@ -185,7 +186,11 @@ public final class ClassicConfigScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
-        drawCenteredString(fontRenderer, "Minegasm", width / 2, 10, 0xFFFFFF);
+        int lx = width / 2 - 155;
+        int rx = width / 2 + 5;
+        drawCenteredString(fontRenderer, "Minegasm", width / 2, 8, 0xFFFFFF);
+        drawCenteredString(fontRenderer, "Gameplay", lx + 75, 28, 0xC0C0C0);
+        drawCenteredString(fontRenderer, "Connection", rx + 75, 28, 0xC0C0C0);
         drawString(fontRenderer, "Server:", serverFieldX, serverFieldY - 10, 0xA0A0A0);
         super.drawScreen(mouseX, mouseY, partialTicks);
         serverField.drawTextBox();

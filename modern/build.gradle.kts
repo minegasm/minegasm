@@ -125,7 +125,7 @@ if (project.name == "1.21.1-neoforge") {
 sourceSets.named("main") {
     // The loader/Minecraft-independent engine lives in ../engine (one source of truth, also consumed by
     // the Java 8 "Classic" build). Modern compiles it in-place from there; it carries no Stonecutter
-    // `//?` guards, so it passes through preprocessing unchanged. See ../RESTRUCTURE.md.
+    // `//?` guards, so it passes through preprocessing unchanged. See ../engine/README.md.
     java.srcDir(rootProject.file("../engine/src/main/java"))
     resources.srcDir(rootProject.file("loader-resources/${project.name.substringAfterLast('-')}"))
 }
