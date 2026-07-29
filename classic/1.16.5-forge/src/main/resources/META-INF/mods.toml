@@ -18,14 +18,10 @@ Responsive, customizable haptic feedback for Minecraft across compatible devices
     ordering="NONE"
     side="CLIENT"
 
-# Forge 1.16.5 does not ship Mixin; MixinBootstrap provides the Mixin service that loads our client
-# command mixin. It must load before us.
-[[dependencies.minegasm]]
-    modId="mixinbootstrap"
-    mandatory=true
-    versionRange="[1,)"
-    ordering="BEFORE"
-    side="CLIENT"
+# Forge 1.16.5 does not ship Mixin. MixinBootstrap provides the Mixin service that loads our client
+# command mixin; install it alongside this mod. It is a launch-service library, not a registered Forge
+# mod, so it cannot be declared as a dependency here (it would always read as "missing"); its presence in
+# the mods folder is what matters.
 
 [[dependencies.minegasm]]
     modId="minecraft"
