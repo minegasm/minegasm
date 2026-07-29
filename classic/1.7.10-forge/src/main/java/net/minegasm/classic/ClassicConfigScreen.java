@@ -38,6 +38,7 @@ public final class ClassicConfigScreen extends GuiScreen {
     private static final int ID_CONNECT = 12;
     private static final int ID_TEST = 13;
     private static final int ID_DONE = 14;
+    private static final int ID_PANIC = 15;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
@@ -52,6 +53,8 @@ public final class ClassicConfigScreen extends GuiScreen {
     private GuiButton autoScanBtn;
     private GuiButton allowRemoteBtn;
     private GuiButton stopUnloadBtn;
+    private GuiButton connectBtn;
+    private GuiButton panicBtn;
     private GuiButton testBtn;
     private GuiSlider intensitySlider;
     private GuiSlider variationSlider;
@@ -106,11 +109,14 @@ public final class ClassicConfigScreen extends GuiScreen {
         serverField.setMaxStringLength(120);
         serverField.setText(model.serverUrl);
 
-        buttonList.add(new GuiButton(ID_CONNECT, rx, y0 + 6 * dy, 73, 20, "Connect"));
-        testBtn = new GuiButton(ID_TEST, rx + 77, y0 + 6 * dy, 73, 20, "Test");
+        int by = height - 26;
+        connectBtn = new GuiButton(ID_CONNECT, lx, by, 74, 20, connectLabel());
+        panicBtn = new GuiButton(ID_PANIC, lx + 78, by, 74, 20, panicLabel());
+        testBtn = new GuiButton(ID_TEST, lx + 156, by, 74, 20, "Test");
+        buttonList.add(connectBtn);
+        buttonList.add(panicBtn);
         buttonList.add(testBtn);
-
-        buttonList.add(new GuiButton(ID_DONE, width / 2 - 100, height - 26, 200, 20, "Done"));
+        buttonList.add(new GuiButton(ID_DONE, lx + 234, by, 74, 20, "Done"));
         refreshActionButtons();
     }
 
@@ -164,9 +170,20 @@ public final class ClassicConfigScreen extends GuiScreen {
                 break;
             case ID_CONNECT:
                 applyNow();
-                if (!client.isConnected()) {
+                if (client.isConnected()) {
+                    client.disconnect();
+                } else {
                     client.connect();
                 }
+                refreshActionButtons();
+                break;
+            case ID_PANIC:
+                if (client.runtime().worker().isOutputEnabled()) {
+                    client.panic();
+                } else {
+                    client.clearPanic();
+                }
+                refreshActionButtons();
                 break;
             case ID_TEST:
                 applyNow();
@@ -185,6 +202,7 @@ public final class ClassicConfigScreen extends GuiScreen {
     @Override
     public void updateScreen() {
         serverField.updateCursorCounter();
+        refreshActionButtons(); // keep Connect/Stop labels and Test state in sync with async changes
     }
 
     @Override
@@ -237,11 +255,32 @@ public final class ClassicConfigScreen extends GuiScreen {
         refreshActionButtons();
     }
 
-    /** Grey out Test when the live config cannot produce a pulse, so the state is visible. */
+    /**
+     * Keep the action bar in sync with live state: Connect/Disconnect and Stop/Resume reflect the
+     * connection and panic state, and Test is greyed out whenever it cannot produce a pulse (disabled,
+     * disconnected, no device, or panic-latched), so nothing silently does nothing.
+     */
     private void refreshActionButtons() {
-        if (testBtn != null) {
-            testBtn.enabled = client.config().enabled() && client.isConnected();
+        boolean connected = client.isConnected();
+        boolean panicked = !client.runtime().worker().isOutputEnabled();
+        if (connectBtn != null) {
+            connectBtn.displayString = connectLabel();
         }
+        if (panicBtn != null) {
+            panicBtn.displayString = panicLabel();
+        }
+        if (testBtn != null) {
+            testBtn.enabled = client.config().enabled() && connected
+                    && client.status().deviceCount() > 0 && !panicked;
+        }
+    }
+
+    private String connectLabel() {
+        return client.isConnected() ? "Disconnect" : "Connect";
+    }
+
+    private String panicLabel() {
+        return client.runtime().worker().isOutputEnabled() ? "Stop" : "Resume";
     }
 
     private void syncWidgetsIntoModel() {

@@ -32,6 +32,8 @@ public final class ConfigScreen16 extends Screen {
     private final ClassicConfigModel model;
 
     private EditBox serverField;
+    private Button connectBtn;
+    private Button panicBtn;
     private Button testBtn;
     private int serverLabelX;
     private int serverLabelY;
@@ -109,27 +111,38 @@ public final class ConfigScreen16 extends Screen {
         serverField.setValue(model.serverUrl);
         addButton(serverField);
 
-        addButton(new Button(rx, y0 + 6 * dy, 73, 20, new TextComponent("Connect"), b -> {
+        int by = height - 28;
+        connectBtn = addButton(new Button(lx, by, 74, 20, new TextComponent(connectLabel()), b -> {
             applyNow();
-            if (!client.isConnected()) {
+            if (client.isConnected()) {
+                client.disconnect();
+            } else {
                 client.connect();
             }
+            refreshActionButtons();
         }));
-        testBtn = addButton(new Button(rx + 77, y0 + 6 * dy, 73, 20, new TextComponent("Test"), b -> {
+        panicBtn = addButton(new Button(lx + 78, by, 74, 20, new TextComponent(panicLabel()), b -> {
+            if (client.runtime().worker().isOutputEnabled()) {
+                client.panic();
+            } else {
+                client.clearPanic();
+            }
+            refreshActionButtons();
+        }));
+        testBtn = addButton(new Button(lx + 156, by, 74, 20, new TextComponent("Test"), b -> {
             applyNow();
             if (client.isConnected() && client.config().enabled()) {
                 client.testPulse(0.5f, 400);
             }
         }));
-
-        addButton(new Button(width / 2 - 100, height - 28, 200, 20, new TextComponent("Done"),
-                b -> onClose()));
+        addButton(new Button(lx + 234, by, 74, 20, new TextComponent("Done"), b -> onClose()));
         refreshActionButtons();
     }
 
     @Override
     public void tick() {
         serverField.tick();
+        refreshActionButtons(); // keep Connect/Stop labels and Test state in sync with async changes
     }
 
     @Override
@@ -163,11 +176,32 @@ public final class ConfigScreen16 extends Screen {
         refreshActionButtons();
     }
 
-    /** Grey out Test when the live config cannot produce a pulse, so the state is visible. */
+    /**
+     * Keep the action bar in sync with live state: Connect/Disconnect and Stop/Resume reflect the
+     * connection and panic state, and Test is greyed out whenever it cannot produce a pulse (disabled,
+     * disconnected, no device, or panic-latched), so nothing silently does nothing.
+     */
     private void refreshActionButtons() {
-        if (testBtn != null) {
-            testBtn.active = client.config().enabled() && client.isConnected();
+        boolean connected = client.isConnected();
+        boolean panicked = !client.runtime().worker().isOutputEnabled();
+        if (connectBtn != null) {
+            connectBtn.setMessage(new TextComponent(connectLabel()));
         }
+        if (panicBtn != null) {
+            panicBtn.setMessage(new TextComponent(panicLabel()));
+        }
+        if (testBtn != null) {
+            testBtn.active = client.config().enabled() && connected
+                    && client.status().deviceCount() > 0 && !panicked;
+        }
+    }
+
+    private String connectLabel() {
+        return client.isConnected() ? "Disconnect" : "Connect";
+    }
+
+    private String panicLabel() {
+        return client.runtime().worker().isOutputEnabled() ? "Stop" : "Resume";
     }
 
     // --- labels ----------------------------------------------------------------------------
