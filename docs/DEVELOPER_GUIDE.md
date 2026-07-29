@@ -20,7 +20,8 @@ the next section is a crash course.
 8. [Your first contribution](#8-your-first-contribution)
 9. [Where things live](#9-where-things-live)
 10. [Conventions and gotchas](#10-conventions-and-gotchas)
-11. [Further reading](#11-further-reading)
+11. [Loaders and Minecraft versions, with 26.x as the reference](#11-loaders-and-minecraft-versions-with-26x-as-the-reference)
+12. [Further reading](#12-further-reading)
 
 ---
 
@@ -48,11 +49,14 @@ Minecraft runs a **client** (what the player sees) and, in multiplayer, a separa
 the player's state once per client tick and reacts. Single-player is really an integrated server plus a
 client in one process; our mod only ever runs on the client side.
 
-### Minecraft's code is obfuscated, so mods use "mappings"
+### Minecraft's code was obfuscated, so mods use "mappings"
 
-Mojang ships Minecraft with obfuscated names (`net.minecraft.class_1234`, methods like `func_71165_d`).
-To write readable mod code, toolchains apply **mappings** that rename things to human names. There are
-several mapping sets, and which one you see depends on the version and toolchain:
+For most of Minecraft's history Mojang shipped the game with obfuscated names (`net.minecraft.class_1234`,
+methods like `func_71165_d`). To write readable mod code, toolchains apply **mappings** that rename things
+to human names. That changed recently: the 25w snapshots that led into 26.x ship with Mojang's own real
+names, so there is nothing to deobfuscate on 26.x and nothing to reobfuscate when you release. Every
+version this project targets *except* 26.x is still obfuscated and still needs mappings. There are several
+mapping sets, and which one you see depends on the version and toolchain:
 
 - **MCP / SRG (searge)**: the old Forge-era names (`ClientPlayerEntity`, `func_71165_d`). Used by the
   legacy Classic versions here.
@@ -62,9 +66,11 @@ several mapping sets, and which one you see depends on the version and toolchain
 - **Intermediary / Yarn**: Fabric's stable mapping set.
 
 The important consequence: **the same Minecraft class has different names in different versions**, which
-is why the code that touches Minecraft is written per version. When your mod is packaged for release it
-is **reobfuscated** back to the names the shipped game uses, so it loads in production. The build does
-this for you (`remapJar`).
+is why the code that touches Minecraft is written per version. On the obfuscated versions, when your mod
+is packaged for release it is **reobfuscated** back to the names the shipped game uses, so it loads in
+production; the build does this for you (`remapJar`). On 26.x the mapped names already are the shipped
+names, so that step is a no-op. Section 11 walks the whole spread of versions and loaders with 26.x as the
+baseline.
 
 ### Mod loaders
 
@@ -321,7 +327,144 @@ classic/
   declared dependency).
 - **Never push or amend without being asked.** Build locally, keep commits small and green.
 
-## 11. Further reading
+## 11. Loaders and Minecraft versions, with 26.x as the reference
+
+This project spans two loader families and nine version/loader combinations. The Minecraft-facing code
+looks different in each, which is intimidating until you pick a fixed point and read everything else as a
+delta from it. Use **26.x** as that fixed point. It ships with Mojang's own unobfuscated names and the
+newest APIs, so its code is the most readable and the closest to current Minecraft documentation. Learn
+what 26.x looks like, then learn each older line as "here is what changes."
+
+For the legacy trio (1.7.10 / 1.8.9 / 1.12.2) the exhaustive, cell-by-cell matrix lives in
+`classic/PORTING.md`. This section is the wider map: it includes the modern versions and the 1.16.5
+middle ground, and it explains the *kinds* of things that move, so the matrix makes sense.
+
+### The lay of the land
+
+| Version | Loaders here | Mappings | Runtime Java | Build tool |
+| --- | --- | --- | --- | --- |
+| 1.7.10 | Forge (`cpw.mods.fml`) | MCP / searge | 8 | unimined |
+| 1.8.9 | Forge | MCP / searge | 8 | unimined |
+| 1.12.2 | Forge | MCP / searge | 8 | unimined |
+| 1.16.5 | Forge, Fabric | mojmap (1.16-era names) | 8 | unimined |
+| 1.19.2 | Forge, Fabric | mojmap | 17 | Stonecutter + Loom |
+| 1.20.1 | Forge, Fabric | mojmap | 17 | Stonecutter + Loom |
+| 1.21.1 | NeoForge, Forge, Fabric | mojmap | 21 | Stonecutter + Loom |
+| 26.1.2 | NeoForge, Forge, Fabric | official (unobfuscated) | 25 | Stonecutter + Loom |
+| 26.2 | NeoForge, Forge, Fabric | official (unobfuscated) | 25 | Stonecutter + Loom |
+
+NeoForge only exists from 1.20.1 onward, and only its modern coordinates (1.21.1+) are wired up here;
+1.20.1 and 1.19.2 are Forge + Fabric. Forge exists for every row. Fabric starts at 1.14, so it covers
+1.16.5 up. The legacy trio is Forge-only because nothing else existed for those versions.
+
+### The reference: what 26.x code looks like
+
+On 26.x you are writing against current, documented Minecraft. The pieces this mod touches:
+
+- **Screens** extend `net.minecraft.client.gui.screens.Screen`. You add widgets with
+  `addRenderableWidget(...)` and the screen renders and routes input to them for you.
+- **Widgets** are `Button` (built with `Button.builder(text, onPress).bounds(...).build()`), `EditBox`
+  for text, `AbstractSliderButton` for sliders, and `ObjectSelectionList` for scrollable lists. All live
+  under `net.minecraft.client.gui.components`.
+- **Text** is `net.minecraft.network.chat.Component`: `Component.literal("Connect")` for a fixed string,
+  `Component.translatable("minegasm.settings.save")` for a localized one.
+- **Drawing** happens through the retained render pipeline: you override `extractRenderState(...)` and draw
+  with the `GuiGraphicsExtractor` it hands you (`graphics.text(...)`, `graphics.centeredText(...)`), and a
+  list entry draws itself in `extractContent(...)`. Lists clip their own contents.
+- **The window** is `com.mojang.blaze3d.platform.Window` via `minecraft.getWindow()`
+  (`getGuiScale()`, `getHeight()`).
+- **Commands** are Brigadier trees registered from the client-command event. **Key bindings** are
+  `KeyMapping`s registered from a key-registration event.
+- **The loader** is NeoForge: metadata in `neoforge.mods.toml`, a `@Mod` constructor, mod-bus events, and
+  `IConfigScreenFactory` for the mods-list "Config" button. The package root is `net.neoforged`.
+
+Everything in `modern/src/main/java/net/minegasm/neoforge/` is written against this and then dialed back
+for older versions with Stonecutter comments (see below). Despite the `neoforge` package name, the same
+source compiles for Fabric and Forge on every modern version.
+
+### Reading older code: what moves, and how
+
+Going backward from 26.x, five things change. None of them touch the engine; they are all in the thin
+Minecraft layer.
+
+**1. Names (mappings).** 26.x uses Mojang's shipped names. 1.19.2 through 1.21.1 use the *same* names
+via mojmap, so most modern code reads identically there; the differences are real API changes, not
+renames. 1.16.5 also uses mojmap, but 1.16-era, so a few classes have older names (`TextComponent` instead
+of `Component.literal`, `GuiComponent` for the static draw helpers). The legacy trio uses MCP/searge, an
+entirely different naming set (`GuiScreen`, `GuiButton`, `fontRendererObj`, `displayString`), which is why
+that code looks least like the rest. Fabric additionally runs against *intermediary* names at runtime, but
+you still develop against mojmap here.
+
+**2. Text.** `Component.literal(x)` (1.19+) becomes `new TextComponent(x)` (1.16.5-1.18), and on the
+legacy trio becomes `ChatComponentText`/`IChatComponent` (1.7.10, 1.8.9) or `TextComponentString`/
+`ITextComponent` (1.12.2). Localized text is `Component.translatable(...)` on modern; the Classic screens
+just hardcode English strings.
+
+**3. Screens and widgets.** `Screen` becomes `GuiScreen` on the legacy trio. `addRenderableWidget(...)`
+becomes `addButton(...)` on 1.12.2 and 1.16.5, and plain `buttonList.add(...)` on 1.7.10/1.8.9 (no helper
+there). `Button.builder(...)` is only 1.19.4+; 1.19.2 and 1.16.5 call `new Button(x, y, w, h, text,
+onPress)`, and the legacy trio uses `GuiButton` with a mutable `displayString`. `EditBox` is `GuiTextField`
+on the legacy trio (and its constructor even loses its id argument on 1.7.10). Sliders are
+`AbstractSliderButton` on modern and 1.16.5 but Forge's `GuiSlider` on the legacy trio (from `cpw.mods.fml`
+on 1.7.10, `net.minecraftforge.fml` on 1.8.9/1.12.2, reading `getValueInt()` vs `getValue()`). The font is
+`this.font` on modern and 1.16.5, `fontRenderer` on 1.12.2, `fontRendererObj` on 1.7.10/1.8.9.
+
+**4. Rendering.** The entry point and draw calls change with almost every era:
+
+| Era | Render hook | Draw a string | Clip a region |
+| --- | --- | --- | --- |
+| 26.1.2+ | `extractRenderState(GuiGraphicsExtractor, ...)` | `graphics.text(font, ...)` | lists clip themselves |
+| 1.20.1 - 26.1.1 | `render(GuiGraphics, ...)` | `graphics.drawString(font, ...)` | `graphics.enableScissor(...)` |
+| 1.19.2, 1.16.5 | `render(PoseStack, ...)` | `GuiComponent.drawString(pose, font, ...)` | GL scissor (`GL11`) |
+| legacy trio | `drawScreen(int, int, float)` | `drawString(fontRenderer, ...)` (instance) | GL scissor (`GL11`) |
+
+A concrete consequence lives in the list widgets. On 1.21.1+ an `ObjectSelectionList` clips its own rows.
+On 1.20.1 and 1.19.2 this mod turns off the list's background masks (they otherwise paint over the rows),
+which also removes the built-in clipping, so the widget adds a scissor of its own. On the legacy trio there
+is no list widget at all, so the Classic dashboard draws the device and error lists as plain text panels
+with hand-rolled mouse-wheel scrolling. Same feature, three implementations, one reason: the list API only
+arrived later.
+
+**5. Registration, config screens, commands, keys (per loader).** This is where the *loader*, not just the
+version, decides the shape:
+
+- **Metadata and entry.** NeoForge reads `neoforge.mods.toml` and a `@Mod` constructor. Modern Forge
+  reads `mods.toml` and a `@Mod` constructor. Legacy Forge reads `mcmod.info` and `@Mod.EventHandler`
+  lifecycle methods, under `cpw.mods.fml` on 1.7.10 and `net.minecraftforge.fml` on 1.8.9/1.12.2. Fabric
+  reads `fabric.mod.json` and a `ClientModInitializer` entry, on every version it supports.
+- **The mods-list "Config" button.** NeoForge/Forge expose it through a config-screen factory
+  (`IConfigScreenFactory` on NeoForge, `ConfigScreenHandler.ConfigScreenFactory` on modern Forge,
+  `IModGuiFactory` on legacy Forge, whose shape even shifts between 1.7.10/1.8.9 and 1.12.2). Fabric has no
+  such hook, so the config screen opens through optional **Mod Menu** (`ModMenuApi`) instead.
+- **Commands.** Modern is Brigadier registered from a client-command event on both loaders. Forge on
+  1.16.5 is the awkward one: it has Brigadier but no event for client-only commands, so this is the single
+  place the mod uses a **Mixin** to inject one. The legacy trio predates Brigadier entirely and
+  hand-implements `ICommand`, registered through `ClientCommandHandler`.
+- **Client-only safety.** Modern loaders and 1.8.9/1.12.2 Forge have a client-side flag or dist marker, so
+  the loader keeps the mod off dedicated servers. 1.7.10 Forge has no such flag, so its entrypoint guards
+  the side by hand before constructing anything client-facing.
+
+### How the two builds express all this
+
+The split maps onto the two build tools:
+
+- **Modern (`modern/`)** keeps a *single* source tree and selects an API branch per variant with
+  **Stonecutter** preprocessor comments. A `//? if >=1.20.1 { ... }` block compiles only for the versions
+  that match, and the rest is left commented. So the same file carries the `extractRenderState`,
+  `render(GuiGraphics, ...)`, and `render(PoseStack, ...)` branches side by side, and Stonecutter picks one
+  when it builds each variant. When you edit modern UI code you are editing every modern version at once,
+  which is why those files look busy.
+- **Classic (`classic/`)** does the opposite: each version/loader is a *separate subproject* with its own
+  copy of the Minecraft-facing code, sharing only the engine and the Minecraft-free `common/`. There is no
+  preprocessor; the differences are just different files. The 1.16.5 pair share a `1.16.5-common`
+  subproject because both loaders speak the same 1.16.5 API.
+
+If you are adding something to the Minecraft layer, the practical rule is: on modern, write it against 26.x
+first, then add the older branches Stonecutter complains about; on Classic, copy the nearest sibling
+version and fix up the names using `classic/PORTING.md`. When a mapped name is uncertain, confirm it with
+`javap` against the mapped jar the build produced rather than guessing.
+
+## 12. Further reading
 
 - `docs/ARCHITECTURE.md` - the layered design, threading model, and key invariants.
 - `docs/TESTING.md` - the testing levels and the full in-game preflight checklist.
