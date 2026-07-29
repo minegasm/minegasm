@@ -10,6 +10,9 @@
   "entrypoints": {
     "client": [
       "net.minegasm.classic.MinegasmClassicClient"
+    ],
+    "modmenu": [
+      "net.minegasm.classic.MinegasmModMenu"
     ]
   },
   "depends": {

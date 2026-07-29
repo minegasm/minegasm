@@ -5,11 +5,14 @@ import net.minegasm.client.MinegasmClient;
 import net.minegasm.time.SystemClock;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ExtensionPoint;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -18,6 +21,7 @@ import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.nio.file.Path;
+import java.util.function.BiFunction;
 
 /**
  * Client-only Minegasm entrypoint for Forge on Minecraft 1.16.5. Post-flattening Forge: a plain
@@ -52,6 +56,10 @@ public final class MinegasmClassicMod {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onClientSetup);
         MinecraftForge.EVENT_BUS.register(this);
         Runtime.getRuntime().addShutdownHook(new Thread(client::shutdown, "minegasm-shutdown"));
+
+        // Mods-list "Config" button -> the shared settings screen.
+        ModLoadingContext.get().registerExtensionPoint(ExtensionPoint.CONFIGGUIFACTORY,
+                () -> (BiFunction<Minecraft, Screen, Screen>) (mc, parent) -> new ConfigScreen16(parent));
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
