@@ -35,7 +35,8 @@ Fresh installs automatically connect to local Intiface and start scanning. Hapti
 disabled until the user explicitly enables it; a first-run toast explains this opt-in. Existing
 configuration files are not migrated or overwritten by these defaults.
 
-See `docs/ARCHITECTURE.md` for the layered design and `docs/adr/` for the decisions behind it.
+See `docs/ARCHITECTURE.md` for the layered design and `docs/adr/` for the decisions behind it. New
+contributors, including anyone new to Minecraft modding, should start with `docs/DEVELOPER_GUIDE.md`.
 
 ## Project status
 
