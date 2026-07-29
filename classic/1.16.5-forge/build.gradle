@@ -53,11 +53,19 @@ configurations {
 dependencies {
     shade 'com.google.code.gson:gson:2.11.0'
     shade 'io.github.blackspherefollower:buttplug4j.connectors.jetty.websocket.client:4.0.278'
+    // Mixin annotations for the client-command hook. Forge 1.16.5 has no client-command event, so a
+    // Mixin into LocalPlayer.chat intercepts /minegasm client-side. compileOnly: the Mixin runtime comes
+    // from MixinBootstrap (a mandatory dependency declared in mods.toml). unimined builds and remaps the
+    // refmap during remapJar (see mixinRemap below).
+    compileOnly 'org.spongepowered:mixin:0.8.5'
 }
 
 shadowJar {
     configurations = [project.configurations.shade]
     archiveFileName = "${artifactName}-shaded.jar"
+    // ModLauncher/MixinBootstrap reads the mixin config from this manifest attribute; it must ride on
+    // the fat jar that remapJar reobfuscates into the final artifact.
+    manifest { attributes 'MixinConfigs': 'minegasm.mixins.json' }
     mergeServiceFiles()
     // Legacy Forge's classpath scanner (old ASM) cannot parse the Java 11+ bytecode in Jackson's
     // multi-release entries and rejects the whole jar as corrupt, so the mod never loads. Strip them:
@@ -87,6 +95,11 @@ afterEvaluate {
         dependsOn shadowJar
         inputFile = shadowJar.archiveFile
         archiveFileName = "${artifactName}.jar"
+        // Build and remap the mixin refmap (mojmap dev names -> searge/SRG runtime names) so the mixin's
+        // LocalPlayer.chat target resolves in the reobfuscated, production environment.
+        mixinRemap {
+            enableBaseMixin()
+        }
     }
 }
 

@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.minegasm.classic.mixin",
+  "refmap": "minegasm.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "LocalPlayerChatMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

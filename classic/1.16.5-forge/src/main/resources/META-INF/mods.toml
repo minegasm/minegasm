@@ -18,6 +18,15 @@ Responsive, customizable haptic feedback for Minecraft across compatible devices
     ordering="NONE"
     side="CLIENT"
 
+# Forge 1.16.5 does not ship Mixin; MixinBootstrap provides the Mixin service that loads our client
+# command mixin. It must load before us.
+[[dependencies.minegasm]]
+    modId="mixinbootstrap"
+    mandatory=true
+    versionRange="[1,)"
+    ordering="BEFORE"
+    side="CLIENT"
+
 [[dependencies.minegasm]]
     modId="minecraft"
     mandatory=true
