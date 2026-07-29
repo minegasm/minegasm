@@ -123,7 +123,18 @@ if (project.name == "1.21.1-neoforge") {
 // (ADR-013). Adding it only to that loader's variants means no jar carries another loader's manifest.
 // Forge keeps its own copy under `versions/26.2-forge` while unregistered.
 sourceSets.named("main") {
+    // The loader/Minecraft-independent engine lives in engine/ (one source of truth, also consumed by
+    // the Java 8 "Classic" build). Modern compiles it in-place from here; it carries no Stonecutter
+    // `//?` guards, so it passes through preprocessing unchanged. See RESTRUCTURE.md.
+    java.srcDir(rootProject.file("engine/src/main/java"))
     resources.srcDir(rootProject.file("loader-resources/${project.name.substringAfterLast('-')}"))
+}
+
+// The engine's unit tests moved to engine/ with its source. Keep running them in the modern build (no
+// coverage change) by compiling them from there; the standalone engine build (.localbuild, later its own
+// Gradle module) runs the same suite independently.
+sourceSets.named("test") {
+    java.srcDir(rootProject.file("engine/src/test/java"))
 }
 
 // Java 25 for the 26.x lines (brief §4.1, ADR-002); Minecraft 1.21.1 requires Java 21 and 1.20.1

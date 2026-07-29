@@ -46,13 +46,27 @@ public final class IntifaceProbe {
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
-                case "--url" -> url = args[++i];
-                case "--backend" -> backend = args[++i];
-                case "--intensity" -> intensity = HapticMath.clamp01(Float.parseFloat(args[++i]));
-                case "--durationMs" -> durationMs = Integer.parseInt(args[++i]);
-                case "--scanMs" -> scanMs = Integer.parseInt(args[++i]);
-                case "--noPulse" -> pulse = false;
-                default -> System.out.println("ignoring unknown arg: " + args[i]);
+                case "--url":
+                    url = args[++i];
+                    break;
+                case "--backend":
+                    backend = args[++i];
+                    break;
+                case "--intensity":
+                    intensity = HapticMath.clamp01(Float.parseFloat(args[++i]));
+                    break;
+                case "--durationMs":
+                    durationMs = Integer.parseInt(args[++i]);
+                    break;
+                case "--scanMs":
+                    scanMs = Integer.parseInt(args[++i]);
+                    break;
+                case "--noPulse":
+                    pulse = false;
+                    break;
+                default:
+                    System.out.println("ignoring unknown arg: " + args[i]);
+                    break;
             }
         }
 

@@ -17,37 +17,39 @@ $junit = "$build\libs\junit-platform-console-standalone-1.11.4.jar"
 Remove-Item "$out" -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "$out\classes","$out\test-classes" | Out-Null
 
-# Core sources exclude the Minecraft/NeoForge integration packages, which require the
-# Minecraft classpath only present under the Gradle+Stonecraft build.
-$mainSrc = Get-ChildItem "$proj\src\main\java\net\minegasm" -Recurse -Filter *.java |
+# Engine sources live under engine/ (one source of truth, shared with the Java 8 Classic build). The
+# b4j provider is compiled separately below (it needs buttplug4j on the classpath); neoforge/mc are the
+# modern Minecraft layer and stay under the root src/, never reached from here.
+$mainSrc = Get-ChildItem "$proj\engine\src\main\java\net\minegasm" -Recurse -Filter *.java |
     Where-Object { $_.FullName -notmatch '\\neoforge\\' -and $_.FullName -notmatch '\\mc\\' -and $_.FullName -notmatch '\\b4j\\' } |
     Select-Object -ExpandProperty FullName
 [System.IO.File]::WriteAllLines("$out\main-sources.txt", $mainSrc)
 
-& "$bin\javac.exe" -Xlint:all -d "$out\classes" -cp $gson "@$out\main-sources.txt" 2> "$out\javac-main.log"
+& "$bin\javac.exe" --release 8 -Xlint:all,-options -d "$out\classes" -cp $gson "@$out\main-sources.txt" 2> "$out\javac-main.log"
 $mainExit = $LASTEXITCODE
 Get-Content "$out\javac-main.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match "error:|warning:.*minegasm" }
 if ($mainExit -ne 0) { Write-Output "MAIN COMPILE FAILED"; exit 1 }
 Write-Output "MAIN COMPILE OK ($($mainSrc.Count) files)"
 
 # Optional: verify the buttplug4j-backed provider against the real library, if its jars are present.
-# (net.minegasm.buttplug.b4j + neoforge/ProviderFactory need buttplug4j/Jetty/Jackson on the classpath.)
+# (net.minegasm.buttplug.b4j needs buttplug4j/Jetty/Jackson on the classpath.) ProviderFactory and
+# WebSocketTransport are the loader-side JDK-WebSocket glue (java.net.http, Java 11+) and are compiled
+# by the Gradle build, not here, so this Java 8 slice stays free of them.
 $b4jLibs = "$build\libs\b4j"
 if (Test-Path $b4jLibs) {
     $b4jCp = ((Get-ChildItem $b4jLibs -Filter *.jar | ForEach-Object { $_.FullName }) -join ';')
     $b4jSrc = @()
-    $b4jSrc += Get-ChildItem "$proj\src\main\java\net\minegasm\buttplug\b4j" -Filter *.java | Select-Object -ExpandProperty FullName
-    $b4jSrc += "$proj\src\main\java\net\minegasm\neoforge\ProviderFactory.java"
+    $b4jSrc += Get-ChildItem "$proj\engine\src\main\java\net\minegasm\buttplug\b4j" -Filter *.java | Select-Object -ExpandProperty FullName
     [System.IO.File]::WriteAllLines("$out\b4j-sources.txt", $b4jSrc)
     New-Item -ItemType Directory -Force -Path "$out\b4j-classes" | Out-Null
-    & "$bin\javac.exe" -d "$out\b4j-classes" -cp "$out\classes;$gson;$b4jCp" "@$out\b4j-sources.txt" 2> "$out\javac-b4j.log"
+    & "$bin\javac.exe" --release 8 -d "$out\b4j-classes" -cp "$out\classes;$gson;$b4jCp" "@$out\b4j-sources.txt" 2> "$out\javac-b4j.log"
     if ($LASTEXITCODE -ne 0) { Get-Content "$out\javac-b4j.log"; Write-Output "B4J COMPILE FAILED"; exit 1 }
     Write-Output "B4J COMPILE OK ($($b4jSrc.Count) files vs buttplug4j 4.0.278)"
 }
 
 if (-not $Test) { exit 0 }
 
-$testRoot = "$proj\src\test\java"
+$testRoot = "$proj\engine\src\test\java"
 if (-not (Test-Path $testRoot)) { Write-Output "no tests yet"; exit 0 }
 $testSrc = Get-ChildItem $testRoot -Recurse -Filter *.java | Select-Object -ExpandProperty FullName
 if ($testSrc.Count -eq 0) { Write-Output "no tests yet"; exit 0 }
