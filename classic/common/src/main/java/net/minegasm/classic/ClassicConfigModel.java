@@ -5,7 +5,9 @@ import net.minegasm.config.HapticConfig;
 import net.minegasm.config.MinegasmMode;
 import net.minegasm.config.PauseBehavior;
 import net.minegasm.config.RecipePackId;
+import net.minegasm.config.TestOutputLimits;
 
+import java.net.URI;
 import java.util.Locale;
 
 /**
@@ -37,6 +39,10 @@ public final class ClassicConfigModel {
     public boolean autoConnect;
     public boolean autoScan;
     public boolean allowRemote;
+    public int testMaxPercent;
+    public int testMaxDurationMs;
+    public int unsafeTestMaxPercent;
+    public int unsafeTestMaxDurationMs;
 
     public ClassicConfigModel(HapticConfig original) {
         this.original = original;
@@ -55,6 +61,10 @@ public final class ClassicConfigModel {
         this.autoConnect = b.autoConnect();
         this.autoScan = b.autoScan();
         this.allowRemote = b.allowRemoteServer();
+        this.testMaxPercent = g.testMaxPercent();
+        this.testMaxDurationMs = g.testMaxDurationMs();
+        this.unsafeTestMaxPercent = g.unsafeTestMaxPercent();
+        this.unsafeTestMaxDurationMs = g.unsafeTestMaxDurationMs();
     }
 
     /** Step the pause behavior through Stop -> Pause -> Continue -> Stop. */
@@ -74,14 +84,65 @@ public final class ClassicConfigModel {
         mode = all[(mode.ordinal() + 1) % all.length];
     }
 
+    /** Step the everyday test-output cap through preset profiles (mirrors the modern settings screen). */
+    public void cycleNormalTestLimit() {
+        int[][] profiles = {{25, 400}, {50, 2_000}, {75, 5_000}, {100, 10_000}};
+        int next = nextProfile(profiles, testMaxPercent, testMaxDurationMs);
+        testMaxPercent = profiles[next][0];
+        testMaxDurationMs = profiles[next][1];
+        unsafeTestMaxPercent = Math.max(unsafeTestMaxPercent, testMaxPercent);
+        unsafeTestMaxDurationMs = Math.max(unsafeTestMaxDurationMs, testMaxDurationMs);
+    }
+
+    /** Step the hard (unsafe-confirmed) test cap, never below the everyday cap. */
+    public void cycleUnsafeTestLimit() {
+        int[][] profiles = {{50, 2_000}, {75, 5_000}, {100, 10_000},
+                {100, 30_000}, {100, 60_000}, {100, 300_000},
+                {TestOutputLimits.MAX_PERCENT, TestOutputLimits.MAX_DURATION_MS}};
+        int next = nextProfile(profiles, unsafeTestMaxPercent, unsafeTestMaxDurationMs);
+        for (int i = 0; i < profiles.length; i++) {
+            int candidate = (next + i) % profiles.length;
+            if (profiles[candidate][0] >= testMaxPercent && profiles[candidate][1] >= testMaxDurationMs) {
+                unsafeTestMaxPercent = profiles[candidate][0];
+                unsafeTestMaxDurationMs = profiles[candidate][1];
+                return;
+            }
+        }
+    }
+
+    /**
+     * Whether a server URL is a well-formed Buttplug WebSocket endpoint (matches the modern settings
+     * screen's check). The settings screens use this to reject a bad URL before saving and flag the field,
+     * rather than persisting something the provider can never connect to.
+     */
+    public static boolean isValidServerUrl(String url) {
+        try {
+            URI parsed = URI.create(url);
+            String scheme = parsed.getScheme();
+            return ("ws".equalsIgnoreCase(scheme) || "wss".equalsIgnoreCase(scheme))
+                    && parsed.getHost() != null;
+        } catch (IllegalArgumentException invalid) {
+            return false;
+        }
+    }
+
+    private static int nextProfile(int[][] profiles, int percent, int durationMs) {
+        for (int i = 0; i < profiles.length; i++) {
+            if (profiles[i][0] == percent && profiles[i][1] == durationMs) {
+                return (i + 1) % profiles.length;
+            }
+        }
+        return 0;
+    }
+
     /** Rebuild the persisted config: the original with only the edited fields replaced. */
     public HapticConfig toConfig() {
         HapticConfig.Global g = original.global();
         HapticConfig.Global newGlobal = new HapticConfig.Global(
                 enabled, intensity, variation, fatigueProtection,
                 pauseBehavior.name(), stopOnWorldUnload, g.panicKey(),
-                g.testMaxPercent(), g.testMaxDurationMs(),
-                g.unsafeTestMaxPercent(), g.unsafeTestMaxDurationMs());
+                testMaxPercent, testMaxDurationMs,
+                unsafeTestMaxPercent, unsafeTestMaxDurationMs);
 
         HapticConfig.Identity newIdentity = new HapticConfig.Identity(
                 recipePack.name().toLowerCase(Locale.ROOT), mode.name());

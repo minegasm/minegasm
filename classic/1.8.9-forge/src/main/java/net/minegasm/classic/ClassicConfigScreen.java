@@ -1,121 +1,112 @@
 package net.minegasm.classic;
 
-import net.minegasm.buttplug.ProviderStatus;
+import net.minegasm.buttplug.ConnectionState;
+import net.minegasm.device.HapticDevice;
 import net.minegasm.client.MinegasmClient;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiTextField;
-import net.minecraftforge.fml.client.config.GuiSlider;
+
+import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 
 /**
- * The in-game settings screen for Minecraft 1.8.9, opened from the mods list "Config" button (see
- * {@link ClassicGuiFactory}). It edits the shared {@link ClassicConfigModel} and exposes the same
- * settings the modern screen does: master enable, intensity, variation, recipe pack, compatibility mode,
- * fatigue protection, pause behavior, stop-on-world-unload, the Buttplug server URL, auto-connect,
- * auto-scan, and allow-remote, plus a status line and connect/test. Like modern it does not toggle
- * individual events; the recipe pack and mode select those. Edits apply on close.
+ * The main in-game control screen for Minecraft 1.8.9, opened from the mods list "Config" button (see
+ * {@link ClassicGuiFactory}). It mirrors the modern dashboard: master enable, connect/disconnect,
+ * scan/refresh, test, an always-visible stop/resume, a live device list and provider-error history on the
+ * right, and buttons through to the {@link ClassicSettingsScreen} and the {@link ClassicLegacyImportScreen}.
+ * Actions run live against the shared {@link MinegasmClient}; the deferred knobs live on the settings
+ * sub-screen. There is no adapter toggle: Classic only ships the buttplug4j provider.
  *
- * <p>Sibling of the 1.12.2 and 1.7.10 screens. On 1.8.9 the font accessor is {@code fontRendererObj} and
- * buttons are added straight to {@code buttonList} (no {@code addButton}).
+ * <p>Sibling of the 1.12.2 and 1.7.10 dashboards. On 1.8.9 the font accessor is {@code fontRendererObj}
+ * and buttons are added straight to {@code buttonList} (no {@code addButton}).
  */
 public final class ClassicConfigScreen extends GuiScreen {
 
     private static final int ID_ENABLED = 1;
-    private static final int ID_INTENSITY = 2;
-    private static final int ID_VARIATION = 3;
-    private static final int ID_RECIPE = 4;
-    private static final int ID_MODE = 5;
-    private static final int ID_FATIGUE = 6;
-    private static final int ID_PAUSE = 7;
-    private static final int ID_AUTOCONNECT = 8;
-    private static final int ID_AUTOSCAN = 9;
-    private static final int ID_ALLOWREMOTE = 10;
-    private static final int ID_STOPUNLOAD = 11;
-    private static final int ID_CONNECT = 12;
-    private static final int ID_TEST = 13;
-    private static final int ID_DONE = 14;
-    private static final int ID_PANIC = 15;
+    private static final int ID_CONNECT = 2;
+    private static final int ID_SCAN = 3;
+    private static final int ID_REFRESH = 4;
+    private static final int ID_TEST = 5;
+    private static final int ID_PANIC = 6;
+    private static final int ID_SETTINGS = 7;
+    private static final int ID_LEGACY = 8;
+    private static final int ID_DONE = 9;
+    private static final int ID_CLEAR_ERRORS = 10;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
-    private final ClassicConfigModel model;
 
     private GuiButton enabledBtn;
-    private GuiButton recipeBtn;
-    private GuiButton modeBtn;
-    private GuiButton fatigueBtn;
-    private GuiButton pauseBtn;
-    private GuiButton autoConnectBtn;
-    private GuiButton autoScanBtn;
-    private GuiButton allowRemoteBtn;
-    private GuiButton stopUnloadBtn;
     private GuiButton connectBtn;
-    private GuiButton panicBtn;
+    private GuiButton scanBtn;
+    private GuiButton refreshBtn;
     private GuiButton testBtn;
-    private GuiSlider intensitySlider;
-    private GuiSlider variationSlider;
-    private GuiTextField serverField;
-    private int serverFieldX;
-    private int serverFieldY;
+    private GuiButton panicBtn;
+    private GuiButton clearErrorsBtn;
+
+    private int leftX;
+    private int rightX;
+    private int columnWidth;
+    private int deviceTop;
+    private int deviceHeight;
+    private int errorTop;
+    private int errorHeight;
+    private int deviceScroll;
+    private int errorScroll;
 
     public ClassicConfigScreen(GuiScreen parent) {
         this.parent = parent;
         this.client = ClassicClientHolder.get();
-        this.model = new ClassicConfigModel(client.config().raw());
     }
 
     @Override
     public void initGui() {
         buttonList.clear();
-        int lx = width / 2 - 155;
-        int rx = width / 2 + 5;
-        int y0 = 40;
-        int dy = 22;
+        int totalWidth = Math.min(width - 16, 420);
+        int columnGap = 8;
+        columnWidth = (totalWidth - columnGap) / 2;
+        leftX = (width - totalWidth) / 2;
+        rightX = leftX + columnWidth + columnGap;
+        int half = (columnWidth - 4) / 2;
+        int h = 20;
+        int gap = 24;
+        int y = 42;
 
-        enabledBtn = new GuiButton(ID_ENABLED, lx, y0, 150, 20, enabledLabel());
-        intensitySlider = new GuiSlider(ID_INTENSITY, lx, y0 + dy, 150, 20, "Intensity: ", "%",
-                0, 100, Math.round(model.intensity * 100), false, true);
-        variationSlider = new GuiSlider(ID_VARIATION, lx, y0 + 2 * dy, 150, 20, "Variation: ", "%",
-                0, 100, Math.round(model.variation * 100), false, true);
-        recipeBtn = new GuiButton(ID_RECIPE, lx, y0 + 3 * dy, 150, 20, recipeLabel());
-        modeBtn = new GuiButton(ID_MODE, lx, y0 + 4 * dy, 150, 20, modeLabel());
-        fatigueBtn = new GuiButton(ID_FATIGUE, lx, y0 + 5 * dy, 150, 20, fatigueLabel());
-        pauseBtn = new GuiButton(ID_PAUSE, lx, y0 + 6 * dy, 150, 20, pauseLabel());
+        deviceTop = 52;
+        deviceHeight = 64;
+        errorTop = 132;
+        errorHeight = Math.max(28, height - 144);
+
+        enabledBtn = new GuiButton(ID_ENABLED, leftX, y, columnWidth, h, enabledLabel());
         buttonList.add(enabledBtn);
-        buttonList.add(intensitySlider);
-        buttonList.add(variationSlider);
-        buttonList.add(recipeBtn);
-        buttonList.add(modeBtn);
-        buttonList.add(fatigueBtn);
-        buttonList.add(pauseBtn);
-
-        autoConnectBtn = new GuiButton(ID_AUTOCONNECT, rx, y0, 150, 20, autoConnectLabel());
-        autoScanBtn = new GuiButton(ID_AUTOSCAN, rx, y0 + dy, 150, 20, autoScanLabel());
-        allowRemoteBtn = new GuiButton(ID_ALLOWREMOTE, rx, y0 + 2 * dy, 150, 20, allowRemoteLabel());
-        stopUnloadBtn = new GuiButton(ID_STOPUNLOAD, rx, y0 + 3 * dy, 150, 20, stopUnloadLabel());
-        buttonList.add(autoConnectBtn);
-        buttonList.add(autoScanBtn);
-        buttonList.add(allowRemoteBtn);
-        buttonList.add(stopUnloadBtn);
-
-        serverFieldX = rx;
-        serverFieldY = y0 + 4 * dy + 10; // leaves room for the "Server:" label above it
-        serverField = new GuiTextField(0, fontRendererObj, serverFieldX, serverFieldY, 150, 18);
-        serverField.setMaxStringLength(120);
-        serverField.setText(model.serverUrl);
-
-        int by = height - 26;
-        connectBtn = new GuiButton(ID_CONNECT, lx, by, 74, 20, connectLabel());
-        panicBtn = new GuiButton(ID_PANIC, lx + 78, by, 74, 20, panicLabel());
-        testBtn = new GuiButton(ID_TEST, lx + 156, by, 74, 20, "Test");
+        y += gap;
+        connectBtn = new GuiButton(ID_CONNECT, leftX, y, columnWidth, h, connectLabel());
         buttonList.add(connectBtn);
-        buttonList.add(panicBtn);
+        y += gap;
+        scanBtn = new GuiButton(ID_SCAN, leftX, y, half, h, scanLabel());
+        refreshBtn = new GuiButton(ID_REFRESH, leftX + half + 4, y, half, h, "Refresh");
+        buttonList.add(scanBtn);
+        buttonList.add(refreshBtn);
+        y += gap;
+        testBtn = new GuiButton(ID_TEST, leftX, y, half, h, "Test");
+        panicBtn = new GuiButton(ID_PANIC, leftX + half + 4, y, half, h, panicLabel());
         buttonList.add(testBtn);
-        buttonList.add(new GuiButton(ID_DONE, lx + 234, by, 74, 20, "Done"));
+        buttonList.add(panicBtn);
+        y += gap;
+        buttonList.add(new GuiButton(ID_SETTINGS, leftX, y, columnWidth, h, "Settings..."));
+        y += gap;
+        if (client.hasLegacyConfig()) {
+            buttonList.add(new GuiButton(ID_LEGACY, leftX, y, columnWidth, h, "Import legacy config..."));
+        }
+        buttonList.add(new GuiButton(ID_DONE, leftX, height - 24, columnWidth, h, "Done"));
+
+        clearErrorsBtn = new GuiButton(ID_CLEAR_ERRORS, rightX + columnWidth - 44, 117, 44, 14, "Clear");
+        buttonList.add(clearErrorsBtn);
+
         refreshActionButtons();
     }
 
@@ -123,58 +114,27 @@ public final class ClassicConfigScreen extends GuiScreen {
     protected void actionPerformed(GuiButton button) throws IOException {
         switch (button.id) {
             case ID_ENABLED:
-                model.enabled = !model.enabled;
-                enabledBtn.displayString = enabledLabel();
-                applyNow();
-                break;
-            case ID_RECIPE:
-                model.toggleRecipePack();
-                recipeBtn.displayString = recipeLabel();
-                applyNow();
-                break;
-            case ID_MODE:
-                model.cycleMode();
-                modeBtn.displayString = modeLabel();
-                applyNow();
-                break;
-            case ID_FATIGUE:
-                model.fatigueProtection = !model.fatigueProtection;
-                fatigueBtn.displayString = fatigueLabel();
-                applyNow();
-                break;
-            case ID_PAUSE:
-                model.cyclePauseBehavior();
-                pauseBtn.displayString = pauseLabel();
-                applyNow();
-                break;
-            case ID_AUTOCONNECT:
-                model.autoConnect = !model.autoConnect;
-                autoConnectBtn.displayString = autoConnectLabel();
-                applyNow();
-                break;
-            case ID_AUTOSCAN:
-                model.autoScan = !model.autoScan;
-                autoScanBtn.displayString = autoScanLabel();
-                applyNow();
-                break;
-            case ID_ALLOWREMOTE:
-                model.allowRemote = !model.allowRemote;
-                allowRemoteBtn.displayString = allowRemoteLabel();
-                applyNow();
-                break;
-            case ID_STOPUNLOAD:
-                model.stopOnWorldUnload = !model.stopOnWorldUnload;
-                stopUnloadBtn.displayString = stopUnloadLabel();
-                applyNow();
+                toggleEnabled();
                 break;
             case ID_CONNECT:
-                applyNow();
                 if (client.isConnected()) {
                     client.disconnect();
                 } else {
                     client.connect();
                 }
-                refreshActionButtons();
+                break;
+            case ID_SCAN:
+                if (client.status().state() == ConnectionState.SCANNING) {
+                    client.stopScanning();
+                } else {
+                    client.startScanning();
+                }
+                break;
+            case ID_REFRESH:
+                client.refreshDevices();
+                break;
+            case ID_TEST:
+                client.testPulse(0.25f);
                 break;
             case ID_PANIC:
                 if (client.runtime().worker().isOutputEnabled()) {
@@ -182,13 +142,15 @@ public final class ClassicConfigScreen extends GuiScreen {
                 } else {
                     client.clearPanic();
                 }
-                refreshActionButtons();
                 break;
-            case ID_TEST:
-                applyNow();
-                if (client.isConnected() && client.config().enabled()) {
-                    client.testPulse(0.5f, 400);
-                }
+            case ID_CLEAR_ERRORS:
+                client.clearErrorHistory();
+                break;
+            case ID_SETTINGS:
+                mc.displayGuiScreen(new ClassicSettingsScreen(this));
+                break;
+            case ID_LEGACY:
+                mc.displayGuiScreen(new ClassicLegacyImportScreen(this));
                 break;
             case ID_DONE:
                 mc.displayGuiScreen(parent);
@@ -196,156 +158,186 @@ public final class ClassicConfigScreen extends GuiScreen {
             default:
                 break;
         }
+        refreshActionButtons();
     }
 
     @Override
     public void updateScreen() {
-        serverField.updateCursorCounter();
-        refreshActionButtons(); // keep Connect/Stop labels and Test state in sync with async changes
+        refreshActionButtons();
     }
 
     @Override
-    protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        if (serverField.isFocused()) {
-            serverField.textboxKeyTyped(typedChar, keyCode);
-            model.serverUrl = serverField.getText().trim();
-            if (keyCode == 1) { // Escape still closes the screen
-                super.keyTyped(typedChar, keyCode);
-            }
-        } else {
-            super.keyTyped(typedChar, keyCode);
+    public void handleMouseInput() throws IOException {
+        super.handleMouseInput();
+        int wheel = Mouse.getEventDWheel();
+        if (wheel == 0) {
+            return;
         }
-    }
-
-    @Override
-    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
-        super.mouseClicked(mouseX, mouseY, mouseButton);
-        serverField.mouseClicked(mouseX, mouseY, mouseButton);
+        int mx = Mouse.getEventX() * width / mc.displayWidth;
+        int my = height - Mouse.getEventY() * height / mc.displayHeight - 1;
+        int step = wheel > 0 ? -1 : 1; // wheel up scrolls toward the top of the list
+        if (inRect(mx, my, rightX, deviceTop, columnWidth, deviceHeight)) {
+            deviceScroll = clampScroll(deviceScroll + step,
+                    client.provider().devices().all().size(), deviceCapacity());
+        } else if (inRect(mx, my, rightX, errorTop, columnWidth, errorHeight)) {
+            errorScroll = clampScroll(errorScroll + step,
+                    client.errorHistory().size(), errorCapacity());
+        }
     }
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
-        int lx = width / 2 - 155;
-        int rx = width / 2 + 5;
-        drawCenteredString(fontRendererObj, "Minegasm", width / 2, 8, 0xFFFFFF);
-        drawCenteredString(fontRendererObj, "Gameplay", lx + 75, 28, 0xC0C0C0);
-        drawCenteredString(fontRendererObj, "Connection", rx + 75, 28, 0xC0C0C0);
-        drawString(fontRendererObj, "Server:", serverFieldX, serverFieldY - 10, 0xA0A0A0);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        serverField.drawTextBox();
-        drawCenteredString(fontRendererObj, statusLine(), width / 2, height - 40, 0x80FF80);
+
+        drawCenteredString(fontRendererObj, "Minegasm", width / 2, 12, 0xFFFFFF);
+        drawCenteredString(fontRendererObj, "State: " + stateName(), width / 2, 26, 0xA0A0A0);
+
+        int devices = client.provider().devices().all().size();
+        drawCenteredString(fontRendererObj, "Devices (" + devices + ")",
+                rightX + columnWidth / 2, 42, 0xFFFFFF);
+        drawString(fontRendererObj, "Errors (" + client.errorHistory().size() + ")",
+                rightX, 120, 0xFFFFFF);
+
+        drawDevicePanel();
+        drawErrorPanel();
     }
 
     @Override
     public void onGuiClosed() {
-        applyNow();
     }
 
-    /**
-     * Read the widget-owned values into the model, persist the whole config through the client, and
-     * refresh the action buttons. Called after every change so the settings take effect immediately (the
-     * modern screen behaves the same way); without this, Test would read the pre-edit config and quietly
-     * do nothing right after the player enabled haptics.
-     */
-    private void applyNow() {
-        syncWidgetsIntoModel();
+    private void drawDevicePanel() {
+        drawRect(rightX, deviceTop, rightX + columnWidth, deviceTop + deviceHeight, 0x60000000);
+        List<HapticDevice> devices = client.provider().devices().all();
+        if (devices.isEmpty()) {
+            drawString(fontRendererObj, "No devices", rightX + 4, deviceTop + 6, 0x808080);
+            return;
+        }
+        int rowH = 20;
+        int capacity = deviceCapacity();
+        deviceScroll = clampScroll(deviceScroll, devices.size(), capacity);
+        int end = Math.min(devices.size(), deviceScroll + capacity);
+        for (int i = deviceScroll; i < end; i++) {
+            HapticDevice d = devices.get(i);
+            int ry = deviceTop + 2 + (i - deviceScroll) * rowH;
+            drawString(fontRendererObj,
+                    fontRendererObj.trimStringToWidth(ClassicDeviceFormat.label(d), columnWidth - 10),
+                    rightX + 4, ry + 2, 0xFFFFFF);
+            drawString(fontRendererObj,
+                    fontRendererObj.trimStringToWidth(ClassicDeviceFormat.capabilities(d), columnWidth - 10),
+                    rightX + 4, ry + 11, 0xA0A0A0);
+        }
+        drawScrollbar(deviceTop, deviceHeight, devices.size(), capacity, deviceScroll);
+    }
+
+    private void drawErrorPanel() {
+        drawRect(rightX, errorTop, rightX + columnWidth, errorTop + errorHeight, 0x60000000);
+        List<String> errors = client.errorHistory();
+        if (errors.isEmpty()) {
+            drawString(fontRendererObj, "No errors", rightX + 4, errorTop + 6, 0x808080);
+            return;
+        }
+        int lineH = 10;
+        int capacity = errorCapacity();
+        errorScroll = clampScroll(errorScroll, errors.size(), capacity);
+        // Newest first, so scroll offset 0 keeps the latest error pinned to the top.
+        int shown = Math.min(capacity, errors.size() - errorScroll);
+        for (int r = 0; r < shown; r++) {
+            int idx = errors.size() - 1 - (errorScroll + r);
+            drawString(fontRendererObj,
+                    fontRendererObj.trimStringToWidth(errors.get(idx), columnWidth - 10),
+                    rightX + 4, errorTop + 2 + r * lineH, 0xFF7777);
+        }
+        drawScrollbar(errorTop, errorHeight, errors.size(), capacity, errorScroll);
+    }
+
+    private int deviceCapacity() {
+        return Math.max(1, (deviceHeight - 4) / 20);
+    }
+
+    private int errorCapacity() {
+        return Math.max(1, (errorHeight - 4) / 10);
+    }
+
+    private void drawScrollbar(int top, int height, int total, int capacity, int scroll) {
+        if (total <= capacity) {
+            return;
+        }
+        int barX = rightX + columnWidth - 3;
+        drawRect(barX, top, barX + 2, top + height, 0x40FFFFFF);
+        int thumbH = Math.max(6, height * capacity / total);
+        int max = Math.max(1, total - capacity);
+        int thumbY = top + (height - thumbH) * scroll / max;
+        drawRect(barX, thumbY, barX + 2, thumbY + thumbH, 0xC0FFFFFF);
+    }
+
+    private static int clampScroll(int scroll, int total, int capacity) {
+        int max = Math.max(0, total - capacity);
+        return Math.max(0, Math.min(scroll, max));
+    }
+
+    private static boolean inRect(int px, int py, int x, int y, int w, int h) {
+        return px >= x && px < x + w && py >= y && py < y + h;
+    }
+
+    private void toggleEnabled() {
+        ClassicConfigModel model = new ClassicConfigModel(client.config().raw());
+        model.enabled = !model.enabled;
         model.apply(client);
-        refreshActionButtons();
     }
 
-    /**
-     * Keep the action bar in sync with live state: Connect/Disconnect and Stop/Resume reflect the
-     * connection and panic state, and Test is greyed out whenever it cannot produce a pulse (disabled,
-     * disconnected, no device, or panic-latched), so nothing silently does nothing.
-     */
     private void refreshActionButtons() {
-        boolean connected = client.isConnected();
+        ConnectionState state = client.status().state();
+        boolean connected = state != ConnectionState.DISCONNECTED;
+        boolean busy = state == ConnectionState.CONNECTING || state == ConnectionState.NEGOTIATING
+                || state == ConnectionState.STOPPING;
         boolean panicked = !client.runtime().worker().isOutputEnabled();
+        boolean enabled = client.config().enabled();
+
+        if (enabledBtn != null) {
+            enabledBtn.displayString = enabledLabel();
+        }
         if (connectBtn != null) {
             connectBtn.displayString = connectLabel();
+            connectBtn.enabled = !busy;
+        }
+        if (scanBtn != null) {
+            scanBtn.displayString = scanLabel();
+            scanBtn.enabled = connected && !busy;
+        }
+        if (refreshBtn != null) {
+            refreshBtn.enabled = connected && !busy;
         }
         if (panicBtn != null) {
             panicBtn.displayString = panicLabel();
         }
         if (testBtn != null) {
-            testBtn.enabled = client.config().enabled() && connected
+            testBtn.enabled = enabled && connected
                     && client.status().deviceCount() > 0 && !panicked;
         }
+        if (clearErrorsBtn != null) {
+            clearErrorsBtn.enabled = !client.errorHistory().isEmpty();
+        }
+    }
+
+    private String enabledLabel() {
+        return "Haptics: " + (client.config().enabled() ? "ON" : "OFF");
     }
 
     private String connectLabel() {
         return client.isConnected() ? "Disconnect" : "Connect";
     }
 
+    private String scanLabel() {
+        return client.status().state() == ConnectionState.SCANNING ? "Stop scan" : "Scan";
+    }
+
     private String panicLabel() {
         return client.runtime().worker().isOutputEnabled() ? "Stop" : "Resume";
     }
 
-    private void syncWidgetsIntoModel() {
-        if (intensitySlider != null) {
-            model.intensity = intensitySlider.getValue() / 100.0;
-        }
-        if (variationSlider != null) {
-            model.variation = variationSlider.getValue() / 100.0;
-        }
-        if (serverField != null) {
-            model.serverUrl = serverField.getText().trim();
-        }
-    }
-
-    // --- labels ----------------------------------------------------------------------------
-
-    private String enabledLabel() {
-        return "Haptics: " + onOff(model.enabled);
-    }
-
-    private String recipeLabel() {
-        return "Recipe: " + capitalize(model.recipePack.name());
-    }
-
-    private String modeLabel() {
-        return "Mode: " + capitalize(model.mode.name());
-    }
-
-    private String fatigueLabel() {
-        return "Fatigue guard: " + onOff(model.fatigueProtection);
-    }
-
-    private String pauseLabel() {
-        return "Pause: " + capitalize(model.pauseBehavior.name());
-    }
-
-    private String autoConnectLabel() {
-        return "Auto-connect: " + onOff(model.autoConnect);
-    }
-
-    private String autoScanLabel() {
-        return "Auto-scan: " + onOff(model.autoScan);
-    }
-
-    private String allowRemoteLabel() {
-        return "Allow remote: " + onOff(model.allowRemote);
-    }
-
-    private String stopUnloadLabel() {
-        return "Stop on exit: " + onOff(model.stopOnWorldUnload);
-    }
-
-    private String statusLine() {
-        ProviderStatus status = client.status();
-        return status.state().name().toLowerCase(Locale.ROOT) + " | " + status.deviceCount()
-                + (status.deviceCount() == 1 ? " device" : " devices");
-    }
-
-    private static String onOff(boolean value) {
-        return value ? "ON" : "OFF";
-    }
-
-    private static String capitalize(String s) {
-        if (s == null || s.isEmpty()) {
-            return s;
-        }
-        return s.substring(0, 1).toUpperCase(Locale.ROOT) + s.substring(1).toLowerCase(Locale.ROOT);
+    private String stateName() {
+        return client.status().state().name().toLowerCase(Locale.ROOT);
     }
 }
