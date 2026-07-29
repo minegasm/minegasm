@@ -6,8 +6,11 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 //?} elif >=1.20.1 {
 /*import net.minecraft.client.gui.GuiGraphics;
 *///?} else {
-/*import com.mojang.blaze3d.vertex.PoseStack;
+/*import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiComponent;
+
+import org.lwjgl.opengl.GL11;
 *///?}
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.network.chat.Component;
@@ -50,6 +53,32 @@ final class ErrorListWidget extends ObjectSelectionList<ErrorListWidget.Entry> {
         /*return this.width - 14; // 1.20.1 AbstractSelectionList exposes the width field, not getWidth()
         *///?}
     }
+
+    // Pinned to the newest entry, so an overflowing history bleeds up over the heading and device panel.
+    // Pre-1.21.1 the masks are disabled (see ctor), so clip to the list's own rectangle; 1.21.1+ and 26.x
+    // lists clip themselves.
+    //? if >=1.20.1 && <1.21.1 {
+    /*@Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        graphics.enableScissor(this.x0, this.y0, this.x1, this.y1);
+        super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.disableScissor();
+    }
+    *///?}
+    //? if <1.20.1 {
+    /*@Override
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        // 1.19.2 predates GuiGraphics.enableScissor; scissor coordinates are framebuffer pixels with the
+        // origin bottom-left, so scale by the GUI factor and flip Y.
+        Window window = this.minecraft.getWindow();
+        double scale = window.getGuiScale();
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor((int) (this.x0 * scale), (int) (window.getHeight() - this.y1 * scale),
+                (int) ((this.x1 - this.x0) * scale), (int) ((this.y1 - this.y0) * scale));
+        super.render(poseStack, mouseX, mouseY, partialTick);
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+    }
+    *///?}
 
     static final class Entry extends ObjectSelectionList.Entry<Entry> {
         private final Minecraft minecraft;
