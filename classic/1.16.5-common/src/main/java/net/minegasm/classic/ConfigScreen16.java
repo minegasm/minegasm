@@ -32,6 +32,7 @@ public final class ConfigScreen16 extends Screen {
     private final ClassicConfigModel model;
 
     private EditBox serverField;
+    private Button testBtn;
     private int serverLabelX;
     private int serverLabelY;
 
@@ -49,46 +50,56 @@ public final class ConfigScreen16 extends Screen {
         int y0 = 40;
         int dy = 22;
 
-        // Left column: gameplay.
-        Button enabledBtn = addButton(new Button(lx, y0, 150, 20, enabledLabel(), b -> {
+        // Left column: gameplay. Every change applies immediately (applyNow), like the modern screen,
+        // so Test/Connect read the current config rather than a stale one.
+        addButton(new Button(lx, y0, 150, 20, enabledLabel(), b -> {
             model.enabled = !model.enabled;
             b.setMessage(enabledLabel());
+            applyNow();
         }));
         addButton(new PctSlider(lx, y0 + dy, 150, 20, "Intensity: ", model.intensity, v -> model.intensity = v));
         addButton(new PctSlider(lx, y0 + 2 * dy, 150, 20, "Variation: ", model.variation, v -> model.variation = v));
         addButton(new Button(lx, y0 + 3 * dy, 150, 20, recipeLabel(), b -> {
             model.toggleRecipePack();
             b.setMessage(recipeLabel());
+            applyNow();
         }));
         addButton(new Button(lx, y0 + 4 * dy, 150, 20, modeLabel(), b -> {
             model.cycleMode();
             b.setMessage(modeLabel());
+            applyNow();
         }));
         addButton(new Button(lx, y0 + 5 * dy, 150, 20, fatigueLabel(), b -> {
             model.fatigueProtection = !model.fatigueProtection;
             b.setMessage(fatigueLabel());
+            applyNow();
         }));
         addButton(new Button(lx, y0 + 6 * dy, 150, 20, pauseLabel(), b -> {
             model.cyclePauseBehavior();
             b.setMessage(pauseLabel());
+            applyNow();
         }));
 
         // Right column: connection.
         addButton(new Button(rx, y0, 150, 20, autoConnectLabel(), b -> {
             model.autoConnect = !model.autoConnect;
             b.setMessage(autoConnectLabel());
+            applyNow();
         }));
         addButton(new Button(rx, y0 + dy, 150, 20, autoScanLabel(), b -> {
             model.autoScan = !model.autoScan;
             b.setMessage(autoScanLabel());
+            applyNow();
         }));
         addButton(new Button(rx, y0 + 2 * dy, 150, 20, allowRemoteLabel(), b -> {
             model.allowRemote = !model.allowRemote;
             b.setMessage(allowRemoteLabel());
+            applyNow();
         }));
         addButton(new Button(rx, y0 + 3 * dy, 150, 20, stopUnloadLabel(), b -> {
             model.stopOnWorldUnload = !model.stopOnWorldUnload;
             b.setMessage(stopUnloadLabel());
+            applyNow();
         }));
 
         serverLabelX = rx;
@@ -99,11 +110,13 @@ public final class ConfigScreen16 extends Screen {
         addButton(serverField);
 
         addButton(new Button(rx, y0 + 6 * dy, 73, 20, new TextComponent("Connect"), b -> {
+            applyNow();
             if (!client.isConnected()) {
                 client.connect();
             }
         }));
-        addButton(new Button(rx + 77, y0 + 6 * dy, 73, 20, new TextComponent("Test"), b -> {
+        testBtn = addButton(new Button(rx + 77, y0 + 6 * dy, 73, 20, new TextComponent("Test"), b -> {
+            applyNow();
             if (client.isConnected() && client.config().enabled()) {
                 client.testPulse(0.5f, 400);
             }
@@ -111,6 +124,7 @@ public final class ConfigScreen16 extends Screen {
 
         addButton(new Button(width / 2 - 100, height - 28, 200, 20, new TextComponent("Done"),
                 b -> onClose()));
+        refreshActionButtons();
     }
 
     @Override
@@ -133,9 +147,27 @@ public final class ConfigScreen16 extends Screen {
 
     @Override
     public void onClose() {
+        applyNow();
+        minecraft.setScreen(parent);
+    }
+
+    /**
+     * Read the server field into the model (the sliders already write live) and persist the whole config
+     * through the client, then refresh the action buttons. Called after every change so settings take
+     * effect immediately; without this, Test would read the pre-edit config and quietly do nothing right
+     * after the player enabled haptics.
+     */
+    private void applyNow() {
         model.serverUrl = serverField.getValue().trim();
         model.apply(client);
-        minecraft.setScreen(parent);
+        refreshActionButtons();
+    }
+
+    /** Grey out Test when the live config cannot produce a pulse, so the state is visible. */
+    private void refreshActionButtons() {
+        if (testBtn != null) {
+            testBtn.active = client.config().enabled() && client.isConnected();
+        }
     }
 
     // --- labels ----------------------------------------------------------------------------

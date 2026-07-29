@@ -52,6 +52,7 @@ public final class ClassicConfigScreen extends GuiScreen {
     private GuiButton autoScanBtn;
     private GuiButton allowRemoteBtn;
     private GuiButton stopUnloadBtn;
+    private GuiButton testBtn;
     private GuiSlider intensitySlider;
     private GuiSlider variationSlider;
     private GuiTextField serverField;
@@ -105,9 +106,11 @@ public final class ClassicConfigScreen extends GuiScreen {
         serverField.setText(model.serverUrl);
 
         buttonList.add(new GuiButton(ID_CONNECT, rx, y0 + 6 * dy, 73, 20, "Connect"));
-        buttonList.add(new GuiButton(ID_TEST, rx + 77, y0 + 6 * dy, 73, 20, "Test"));
+        testBtn = new GuiButton(ID_TEST, rx + 77, y0 + 6 * dy, 73, 20, "Test");
+        buttonList.add(testBtn);
 
         buttonList.add(new GuiButton(ID_DONE, width / 2 - 100, height - 26, 200, 20, "Done"));
+        refreshActionButtons();
     }
 
     @Override
@@ -116,45 +119,56 @@ public final class ClassicConfigScreen extends GuiScreen {
             case ID_ENABLED:
                 model.enabled = !model.enabled;
                 enabledBtn.displayString = enabledLabel();
+                applyNow();
                 break;
             case ID_RECIPE:
                 model.toggleRecipePack();
                 recipeBtn.displayString = recipeLabel();
+                applyNow();
                 break;
             case ID_MODE:
                 model.cycleMode();
                 modeBtn.displayString = modeLabel();
+                applyNow();
                 break;
             case ID_FATIGUE:
                 model.fatigueProtection = !model.fatigueProtection;
                 fatigueBtn.displayString = fatigueLabel();
+                applyNow();
                 break;
             case ID_PAUSE:
                 model.cyclePauseBehavior();
                 pauseBtn.displayString = pauseLabel();
+                applyNow();
                 break;
             case ID_AUTOCONNECT:
                 model.autoConnect = !model.autoConnect;
                 autoConnectBtn.displayString = autoConnectLabel();
+                applyNow();
                 break;
             case ID_AUTOSCAN:
                 model.autoScan = !model.autoScan;
                 autoScanBtn.displayString = autoScanLabel();
+                applyNow();
                 break;
             case ID_ALLOWREMOTE:
                 model.allowRemote = !model.allowRemote;
                 allowRemoteBtn.displayString = allowRemoteLabel();
+                applyNow();
                 break;
             case ID_STOPUNLOAD:
                 model.stopOnWorldUnload = !model.stopOnWorldUnload;
                 stopUnloadBtn.displayString = stopUnloadLabel();
+                applyNow();
                 break;
             case ID_CONNECT:
+                applyNow();
                 if (!client.isConnected()) {
                     client.connect();
                 }
                 break;
             case ID_TEST:
+                applyNow();
                 if (client.isConnected() && client.config().enabled()) {
                     client.testPulse(0.5f, 400);
                 }
@@ -207,8 +221,26 @@ public final class ClassicConfigScreen extends GuiScreen {
 
     @Override
     public void onGuiClosed() {
+        applyNow();
+    }
+
+    /**
+     * Read the widget-owned values into the model, persist the whole config through the client, and
+     * refresh the action buttons. Called after every change so the settings take effect immediately (the
+     * modern screen behaves the same way); without this, Test would read the pre-edit config and quietly
+     * do nothing right after the player enabled haptics.
+     */
+    private void applyNow() {
         syncWidgetsIntoModel();
         model.apply(client);
+        refreshActionButtons();
+    }
+
+    /** Grey out Test when the live config cannot produce a pulse, so the state is visible. */
+    private void refreshActionButtons() {
+        if (testBtn != null) {
+            testBtn.enabled = client.config().enabled() && client.isConnected();
+        }
     }
 
     private void syncWidgetsIntoModel() {
