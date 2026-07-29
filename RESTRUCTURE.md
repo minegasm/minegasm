@@ -134,10 +134,38 @@ preprocessing needed, given how localized the differences are.
    so the engine is `java.net.http`-free; Classic connects through buttplug4j. Verified: engine
    compiles at `--release 8` (major version 52) and its 93 tests pass, and the 26.2-neoforge build
    stays green consuming the downported engine.
-3. **Stand up `classic/`.** unimined, three versions, engine consumed and shaded, Minecraft layer
-   written. Gate: `classic` builds green for 1.7.10, 1.8.9, 1.12.2, and a client launches and drives a
-   device through Intiface.
-4. **Retire `platforms/forge-1.7.10/`** (RFG), superseded by `classic`.
+3. **Stand up `classic/`.** 🔨 **In progress.** The unimined multi-version build exists and **all three
+   versions (1.7.10, 1.8.9, 1.12.2) build green**, each producing a reobfuscated Forge jar that carries
+   the shared engine as Java 8 bytecode, with the right entrypoint per version (`cpw.mods.fml` for
+   1.7.10; `net.minecraftforge.fml`, shared via `classic/forge`, for 1.8.9 and 1.12.2). The Buttplug
+   stack is now **shaded into the jars** (no jar-in-jar on this Forge): a `shade` configuration feeds
+   the Gradle Shadow plugin, which relocates buttplug4j, Gson, Jetty, Jackson, and slf4j under
+   `net.minegasm.shadow.*`, and `remapJar` reobfuscates the shaded fat jar. Verified on all three: the
+   final jar bundles the engine plus the relocated libraries with no leakage at the original
+   coordinates. The **per-version observation/UI layer is now written**: each version drives the shared
+   `MinegasmClient` once per client tick, sampling continuous player state into a `ClientStateSnapshot`
+   and emitting the discrete events that read reliably client-side on an unmodified server (attack,
+   block break, placement, fishing bite), the same shape as the modern NeoForge sampler. It registers
+   panic/connect key bindings and a hand-parsed `/minegasm` (plus `/mg`) command with chat feedback. The
+   command parsing and the block→material classifier are Minecraft-free and shared through
+   `classic/common`; the Minecraft glue is per version, because the client API diverges too far to share
+   (`mc.player`/`mc.thePlayer`, `RayTraceResult`/`MovingObjectPosition`, the `BlockPos` package moves,
+   block name/hardness accessors, `ICommand` method names, and the text-component types), so 1.8.9 and
+   1.12.2 each carry their own `ClassicClientHandler` behind the shared `classic/forge` entrypoint, and
+   1.7.10 carries its own under `cpw.mods.fml`. Each version also has an in-game settings screen behind
+   the mods-list "Config" button (master enable, intensity, pause behavior, auto-connect/auto-scan,
+   server URL, variation, recipe pack, mode, fatigue protection, stop-on-world-unload, allow-remote, a
+   status line, connect/test — the same set the modern screen exposes, using modes and recipe packs
+   rather than per-event toggles), wired through a per-version `guiFactory`
+   (the 1.7.10/1.8.9 `mainConfigGuiClass()` form and the newer 1.12.2 `createConfigGui` form). Its edits
+   go through a shared, Minecraft-free `ClassicConfigModel` that copies the existing config and swaps only
+   the edited fields, so nothing the screen does not show is disturbed (checked with an MC-free
+   round-trip test). Verified: all three compile at `--release 8` and build to reobfuscated jars carrying
+   the new layer. The final in-game gate (a client drives a device through Intiface) needs Intiface +
+   hardware, the same as the modern side.
+4. **Retire `platforms/forge-1.7.10/`** (RFG), superseded by `classic/1.7.10`. ✅ **Done.** The scaffold
+   was committed once so it stays recoverable from history, then removed; `classic/1.7.10` on unimined
+   replaces it.
 
 Stages 1 and 2 touch modern's working tree; nothing is committed without the modern suite passing first.
 

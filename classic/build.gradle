@@ -1,0 +1,72 @@
+// Root build for Minegasm Classic. The three Minecraft versions are independent unimined subprojects
+// (see settings.gradle); this file only carries build-wide helper tasks, not shared plugin config.
+
+// `installJars`: build every version and copy each reobfuscated jar into a local Minecraft instance's
+// `mods` folder, for hands-on testing. This is the Classic counterpart to the modern build's task in
+// stonecutter.gradle.kts. Targets come from `mods-install.env` (gitignored; copy the .example), one
+// `<version>=<mods folder>` line per instance; blank or absent lines are skipped.
+def modVersion = providers.gradleProperty('mod_version').get()
+def classicVersions = ['1.7.10', '1.8.9', '1.12.2']
+def envFile = rootProject.file('mods-install.env')
+
+// Final artifact per version mirrors each subproject's archivesName + version. It is the reobfuscated,
+// shaded jar (no `-dev`/`-shaded` classifier), the one a real client loads.
+def jarByVersion = classicVersions.collectEntries { v ->
+    [(v): rootProject.file("${v}/build/libs/minegasm-classic-${v}-${modVersion}.jar")]
+}
+
+tasks.register('installJars') {
+    group = 'minegasm'
+    description = 'Build all Classic versions and copy each jar into the mods folder set in mods-install.env.'
+    dependsOn classicVersions.collect { ":${it}:build" }
+    doLast {
+        if (!envFile.exists()) {
+            throw new GradleException(
+                    "Missing ${envFile.name}. Copy mods-install.env.example to ${envFile.name} and set your instances' mods folders.")
+        }
+        // Parse `key=value` lines ourselves so raw Windows paths with backslashes paste in without
+        // escaping. The value is the verbatim remainder, with optional surrounding quotes stripped.
+        def targets = [:]
+        envFile.readLines().each { raw ->
+            def line = raw.trim()
+            if (line.isEmpty() || line.startsWith('#')) {
+                return
+            }
+            def eq = line.indexOf('=')
+            if (eq <= 0) {
+                return
+            }
+            targets[line.substring(0, eq).trim()] = line.substring(eq + 1).trim().replaceAll('^"|"$', '')
+        }
+
+        int installed = 0
+        jarByVersion.each { version, jar ->
+            def dest = targets[version]
+            if (dest == null || dest.isEmpty()) {
+                logger.lifecycle("installJars: skip ${version} (no target in ${envFile.name})")
+                return
+            }
+            def modsDir = file(dest)
+            if (!modsDir.isDirectory()) {
+                throw new GradleException("installJars: ${version} target is not a folder: ${dest}")
+            }
+            if (!jar.isFile()) {
+                throw new GradleException("installJars: built jar not found for ${version}: ${jar.absolutePath}")
+            }
+            // Clear prior Classic jars first so a version bump never leaves two of ours side by side (a
+            // duplicate-mod load error). Scoped to our own filenames, and to this Classic line's own
+            // instance, so it never touches a modern `minegasm-*.jar`.
+            modsDir.listFiles({ f -> f.isFile() && f.name.startsWith('minegasm-classic-') && f.name.endsWith('.jar') } as FileFilter)
+                    ?.each { old ->
+                        if (old.delete()) {
+                            logger.lifecycle("installJars: removed old ${old.name} from ${dest}")
+                        }
+                    }
+            java.nio.file.Files.copy(jar.toPath(), new File(modsDir, jar.name).toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            logger.lifecycle("installJars: installed ${jar.name} -> ${dest}")
+            installed++
+        }
+        logger.lifecycle("installJars: installed ${installed} jar(s).")
+    }
+}

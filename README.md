@@ -95,6 +95,29 @@ notes per the brief). Forge additionally pins Architectury Loom `1.17.491` in `s
 (see `docs/adr/ADR-011-add-forge-loader.md`), which also unblocks Forge on 1.21.1, which Architectury
 otherwise warns is unsupported.
 
+### Minegasm Classic (unimined + Forge on 1.7.10 / 1.8.9 / 1.12.2, Java 8)
+
+The legacy Minecraft versions live in a **separate build** under `classic/`, not as Stonecutter
+variants. They sit below the modern toolchain's floor and run on [unimined](https://github.com/unimined/Unimined),
+which needs **Gradle 8.8 on a JDK 21 daemon** (Gradle 8.8 does not run on Java 25, the default for the
+modern build). The `classic/` build pins its own Gradle wrapper and, via
+`classic/gradle/gradle-daemon-jvm.properties`, its own JDK 21 daemon, so its `./gradlew` works
+regardless of your `JAVA_HOME`. Run it from inside `classic/`:
+
+```bash
+cd classic
+./gradlew build          # builds all three versions (Forge jars, reobfuscated, engine shaded in)
+./gradlew installJars    # builds all three and copies each into a mods folder (see below)
+```
+
+Each version produces one jar, e.g. `classic/1.12.2/build/libs/minegasm-classic-1.12.2-1.0.0-beta.2.jar`.
+That jar shades the engine plus the Buttplug stack (no jar-in-jar on this Forge). The shared engine and
+the version-agnostic command/classifier glue are pulled in via source directories; the per-version
+Minecraft layer lives in each subproject. See `/RESTRUCTURE.md` for the full design.
+
+`installJars` reads `classic/mods-install.env` (gitignored; copy `classic/mods-install.env.example`),
+one `<version>=<mods folder>` line per instance, and copies each built jar into the folder set for it.
+
 ### The pure core only (JDK 25, no Gradle): fast inner loop
 
 The engine has no Minecraft or Gradle dependency, so it can be compiled and unit-tested with just a

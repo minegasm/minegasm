@@ -1,0 +1,91 @@
+plugins {
+    id 'java'
+    id 'xyz.wagyourtail.unimined' version '1.4.1'
+    id 'com.gradleup.shadow' version '8.3.6'
+}
+
+group = 'net.minegasm'
+version = providers.gradleProperty('mod_version').get()
+base { archivesName = "minegasm-classic-${project.name}" }
+
+unimined.useGlobalCache = false
+
+// Compile the mod (and the shared engine) to Java 8, the runtime stock 1.12.2 uses. The Gradle daemon
+// runs on JDK 21 (unimined needs Gradle 8.8); the toolchain is decoupled from that.
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+tasks.withType(JavaCompile).configureEach { options.release = 8 }
+
+// Consume the shared engine and the version-agnostic Minecraft glue in place, the same way the modern
+// build srcDir's the engine. The engine is Java 8 source with no Minecraft imports.
+sourceSets {
+    main {
+        java.srcDir rootProject.file('../engine/src/main/java')
+        java.srcDir rootProject.file('common/src/main/java')
+        // net.minecraftforge.fml entrypoint, shared with 1.8.9 (1.7.10 uses cpw.mods.fml instead).
+        java.srcDir rootProject.file('forge/src/main/java')
+    }
+}
+
+repositories {
+    maven { url = "https://maven.wagyourtail.xyz/releases" }
+    maven { url = "https://repo.spongepowered.org/maven" }
+    mavenCentral()
+}
+
+// The engine's Buttplug backends: buttplug4j (default) + Gson (config + native codec). 1.12.2 Forge has
+// no jar-in-jar, so they are relocated and shaded into the reobfuscated jar. `shade` is on the compile
+// classpath (implementation extends it) but only `shade` is bundled, so Minecraft's own libraries are
+// never pulled in.
+configurations {
+    shade
+    implementation.extendsFrom shade
+}
+
+dependencies {
+    shade 'com.google.code.gson:gson:2.11.0'
+    shade 'io.github.blackspherefollower:buttplug4j.connectors.jetty.websocket.client:4.0.278'
+}
+
+shadowJar {
+    configurations = [project.configurations.shade]
+    archiveClassifier = 'shaded'
+    mergeServiceFiles()
+    // Legacy Forge's classpath scanner (old ASM) cannot parse the Java 11+ bytecode in Jackson's
+    // multi-release entries and rejects the whole jar as corrupt, so the mod never loads. Strip them:
+    // we target Java 8, and every versioned class has a Java 8 base copy at the root, so nothing is lost.
+    exclude 'META-INF/versions/**'
+    relocate 'io.github.blackspherefollower', 'net.minegasm.shadow.buttplug4j'
+    relocate 'com.google.gson', 'net.minegasm.shadow.gson'
+    relocate 'org.eclipse.jetty', 'net.minegasm.shadow.jetty'
+    relocate 'com.fasterxml.jackson', 'net.minegasm.shadow.jackson'
+    relocate 'org.slf4j', 'net.minegasm.shadow.slf4j'
+}
+
+unimined.minecraft {
+    version project.minecraft_version
+    mappings {
+        searge()
+        mcp('stable', '39-1.12')
+    }
+    minecraftForge {
+        loader project.forge_version
+    }
+}
+
+// Reobfuscate the shaded fat jar rather than the thin jar, so the relocated libraries ride along in the
+// final artifact.
+afterEvaluate {
+    tasks.named('remapJar') {
+        dependsOn shadowJar
+        inputFile = shadowJar.archiveFile
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('mcmod.info') { expand 'version': project.version }
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "modid": "minegasm",
+    "name": "Minegasm",
+    "version": "${version}",
+    "mcversion": "1.7.10",
+    "description": "Responsive, customizable haptic feedback for Minecraft across compatible devices. Entirely client-side.",
+    "url": "https://www.minegasm.net",
+    "logoFile": "icon.png",
+    "authorList": ["Minegasm contributors"],
+    "dependencies": []
+  }
+]
