@@ -100,9 +100,18 @@ public final class MinegasmClient {
         provider.setStatusListener(this::recordProviderError);
     }
 
-    /** Folder holding user scene packs, a sibling of the config file (brief 0003 §2.5). */
+    /**
+     * Folder holding user scene packs: {@code <config-base>/scene-packs} next to the config file, where
+     * {@code <config-base>} is the config file name without its extension (brief 0003 §2.5). For a
+     * config at {@code config/minegasm.json} this is {@code config/minegasm/scene-packs}, a namespaced
+     * subfolder rather than dropping packs loose in the shared config directory.
+     */
     private Path packsDir() {
-        return configStore.file().toAbsolutePath().resolveSibling("scene-packs");
+        Path file = configStore.file().toAbsolutePath();
+        String fileName = file.getFileName().toString();
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        return file.resolveSibling(base).resolve("scene-packs");
     }
 
     /** Number of scene packs successfully loaded from the packs folder at startup. */

@@ -113,6 +113,13 @@
   "minegasm.devices.editor.calibration.travel_fraction": "Gameplay travel",
   "minegasm.devices.editor.calibration.require_neutral": "Require return to neutral",
 
+  "minegasm.packs.button": "Scene packs...",
+  "minegasm.packs.title": "Minegasm Scene Packs",
+  "minegasm.packs.subtitle": "%s loaded from the scene-packs folder",
+  "minegasm.packs.builtin.classic": "Classic (built-in)",
+  "minegasm.packs.builtin.balanced": "Balanced (built-in)",
+  "minegasm.packs.selected": "%s (selected)",
+
   "minegasm.output.enable": "Enable haptic feedback",
   "minegasm.output.disable": "Disable haptic feedback",
   "minegasm.output.on": "Feedback: enabled",

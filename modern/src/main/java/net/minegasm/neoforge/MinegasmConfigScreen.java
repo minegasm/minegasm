@@ -119,7 +119,9 @@ public final class MinegasmConfigScreen extends Screen {
         y += gap;
 
         addRenderableWidget(button(Component.translatable("minegasm.settings.button"),
-                b -> openSettings(), leftX, y, columnWidth, h));
+                b -> openSettings(), leftX, y, half, h));
+        addRenderableWidget(button(Component.translatable("minegasm.packs.button"),
+                b -> openScenePacks(), leftX + half + 4, y, half, h));
         y += gap;
 
         addRenderableWidget(button(Component.translatable("minegasm.customization.button"),
@@ -221,6 +223,14 @@ public final class MinegasmConfigScreen extends Screen {
         this.minecraft.gui.setScreen(new MinegasmDeviceEditorScreen(this, client));
         //?} else {
         /*this.minecraft.setScreen(new MinegasmDeviceEditorScreen(this, client));
+        *///?}
+    }
+
+    private void openScenePacks() {
+        //? if >=26.2 {
+        this.minecraft.gui.setScreen(new MinegasmScenePackScreen(this, client));
+        //?} else {
+        /*this.minecraft.setScreen(new MinegasmScenePackScreen(this, client));
         *///?}
     }
 
