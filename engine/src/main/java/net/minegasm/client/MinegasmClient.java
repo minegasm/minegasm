@@ -23,6 +23,7 @@ import net.minegasm.device.DeviceRegistrySnapshot;
 import net.minegasm.device.HapticDevice;
 import net.minegasm.device.HapticFeature;
 import net.minegasm.observe.ClientStateSnapshot;
+import net.minegasm.pack.PackLoader;
 import net.minegasm.runtime.HapticRuntime;
 import net.minegasm.time.Clock;
 import net.minegasm.util.HapticMath;
@@ -64,6 +65,7 @@ public final class MinegasmClient {
     private final Clock clock;
     private final AtomicBoolean shutdown = new AtomicBoolean();
     private final boolean firstRun;
+    private final int scenePackCount;
     private final List<String> errorHistory = new ArrayList<>();
     private static final int MAX_ERROR_HISTORY = 50;
     private static final DateTimeFormatter ERROR_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -85,8 +87,25 @@ public final class MinegasmClient {
         }
         this.config = new AtomicReference<>(RuntimeConfig.of(loaded.config()));
         this.provider = provider;
-        this.runtime = new HapticRuntime(provider, clock, config::get);
+        // Load user scene packs before the runtime so the recipe engine can select them (brief 0003
+        // §2.5). A bad pack is isolated and surfaced in the error history, never fatal.
+        PackLoader.Result packs = new PackLoader().loadDirectory(packsDir());
+        for (String packError : packs.errors()) {
+            errorHistory.add("[scene-packs] " + packError);
+        }
+        this.scenePackCount = packs.loaded();
+        this.runtime = new HapticRuntime(provider, clock, config::get, packs.registry());
         provider.setStatusListener(this::recordProviderError);
+    }
+
+    /** Folder holding user scene packs, a sibling of the config file (brief 0003 §2.5). */
+    private Path packsDir() {
+        return configStore.file().toAbsolutePath().resolveSibling("scene-packs");
+    }
+
+    /** Number of scene packs successfully loaded from the packs folder at startup. */
+    public int scenePackCount() {
+        return scenePackCount;
     }
 
     public void start() {

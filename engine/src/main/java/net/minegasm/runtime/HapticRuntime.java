@@ -12,6 +12,7 @@ import net.minegasm.observe.HapticAggregator;
 import net.minegasm.observe.StateTracker;
 import net.minegasm.observe.StateTransitions;
 import net.minegasm.observe.TickEventBuffer;
+import net.minegasm.pack.PackRegistry;
 import net.minegasm.recipe.RecipeEngine;
 import net.minegasm.time.Clock;
 
@@ -33,7 +34,7 @@ public final class HapticRuntime {
     private final TickEventBuffer tickBuffer = new TickEventBuffer();
     private final StateTracker tracker = new StateTracker();
     private final HapticAggregator aggregator = new HapticAggregator();
-    private final RecipeEngine recipe = new RecipeEngine();
+    private final RecipeEngine recipe;
     private final SceneIngressQueue ingress = new SceneIngressQueue();
     private final HapticProvider provider;
     private final HapticWorker worker;
@@ -47,9 +48,15 @@ public final class HapticRuntime {
     private boolean worldPresent;
 
     public HapticRuntime(HapticProvider provider, Clock clock, Supplier<RuntimeConfig> config) {
+        this(provider, clock, config, new PackRegistry());
+    }
+
+    public HapticRuntime(HapticProvider provider, Clock clock, Supplier<RuntimeConfig> config,
+                         PackRegistry packs) {
         this.provider = provider;
         this.clock = clock;
         this.config = config;
+        this.recipe = new RecipeEngine(packs);
         this.worker = new HapticWorker(ingress, provider, clock, config);
         // The scene seam (brief 0003 §3.2): scenes fan out through the coordinator, which today holds a
         // single ButtplugBackend wrapping the worker unchanged. The watchdog stays on the worker for now.
