@@ -30,7 +30,13 @@ public final class HapticConfig implements ConfigValue {
     private final Map<String, PositionCalibration> positionCalibrations;
     private final AccumulationParams accumulation;
     private final CustomIntensities customIntensity;
+    private final Bridge bridge;
 
+    /**
+     * Full constructor including the bridge section. The Gson adapter uses this one (it matches every
+     * instance field). New code that needs to set the bridge calls it directly; older call sites use the
+     * shorter constructor below, which defaults the bridge.
+     */
     public HapticConfig(
             int schemaVersion,
             Profile profile,
@@ -41,7 +47,8 @@ public final class HapticConfig implements ConfigValue {
             Map<String, DeviceSetting> devices,
             Map<String, PositionCalibration> positionCalibrations,
             AccumulationParams accumulation,
-            CustomIntensities customIntensity) {
+            CustomIntensities customIntensity,
+            Bridge bridge) {
         this.schemaVersion = schemaVersion <= 0 ? CURRENT_SCHEMA_VERSION : schemaVersion;
         this.profile = profile == null ? Profile.defaults() : profile;
         this.global = global == null ? Global.defaults() : global;
@@ -56,6 +63,23 @@ public final class HapticConfig implements ConfigValue {
         this.accumulation = accumulation == null ? AccumulationParams.defaults() : accumulation;
         this.customIntensity = customIntensity == null
                 ? CustomIntensities.legacyDefaults() : customIntensity;
+        this.bridge = bridge == null ? Bridge.defaults() : bridge;
+    }
+
+    /** Convenience constructor without the bridge section; defaults it. Keeps existing call sites intact. */
+    public HapticConfig(
+            int schemaVersion,
+            Profile profile,
+            Global global,
+            Buttplug buttplug,
+            Map<String, EventSetting> events,
+            Map<String, OutputPolicy> outputPolicy,
+            Map<String, DeviceSetting> devices,
+            Map<String, PositionCalibration> positionCalibrations,
+            AccumulationParams accumulation,
+            CustomIntensities customIntensity) {
+        this(schemaVersion, profile, global, buttplug, events, outputPolicy, devices,
+                positionCalibrations, accumulation, customIntensity, null);
     }
 
     private static <K, V> Map<K, V> unmodifiableCopy(Map<K, V> source) {
@@ -102,6 +126,10 @@ public final class HapticConfig implements ConfigValue {
         return customIntensity;
     }
 
+    public Bridge bridge() {
+        return bridge;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -112,6 +140,7 @@ public final class HapticConfig implements ConfigValue {
         }
         HapticConfig other = (HapticConfig) o;
         return schemaVersion == other.schemaVersion
+                && Objects.equals(bridge, other.bridge)
                 && Objects.equals(profile, other.profile)
                 && Objects.equals(global, other.global)
                 && Objects.equals(buttplug, other.buttplug)
@@ -126,7 +155,7 @@ public final class HapticConfig implements ConfigValue {
     @Override
     public int hashCode() {
         return Objects.hash(schemaVersion, profile, global, buttplug, events, outputPolicy, devices,
-                positionCalibrations, accumulation, customIntensity);
+                positionCalibrations, accumulation, customIntensity, bridge);
     }
 
     @Override
@@ -135,7 +164,7 @@ public final class HapticConfig implements ConfigValue {
                 + ", global=" + global + ", buttplug=" + buttplug + ", events=" + events
                 + ", outputPolicy=" + outputPolicy + ", devices=" + devices
                 + ", positionCalibrations=" + positionCalibrations + ", accumulation=" + accumulation
-                + ", customIntensity=" + customIntensity + "]";
+                + ", customIntensity=" + customIntensity + ", bridge=" + bridge + "]";
     }
 
     /** Recipe pack + haptic mode selection. */
@@ -432,6 +461,64 @@ public final class HapticConfig implements ConfigValue {
             return "Buttplug[serverUrl=" + serverUrl + ", autoConnect=" + autoConnect
                     + ", autoScan=" + autoScan + ", allowRemoteServer=" + allowRemoteServer
                     + ", reconnect=" + reconnect + ", client=" + client + "]";
+        }
+    }
+
+    /**
+     * Local haptic-bridge settings (brief 0002 §4.3, 0003 §3.4). Disabled by default, so a fresh
+     * install and every existing config are unaffected. The endpoint is loopback by default; a
+     * non-loopback URL is refused unless {@code allowRemote} is set, mirroring the Buttplug remote
+     * opt-in.
+     */
+    public static final class Bridge implements ConfigValue {
+        private final boolean enabled;
+        private final String url;
+        private final boolean allowRemote;
+
+        public Bridge(boolean enabled, String url, boolean allowRemote) {
+            this.enabled = enabled;
+            this.url = url == null || url.trim().isEmpty() ? "ws://127.0.0.1:12347" : url;
+            this.allowRemote = allowRemote;
+        }
+
+        public boolean enabled() {
+            return enabled;
+        }
+
+        public String url() {
+            return url;
+        }
+
+        public boolean allowRemote() {
+            return allowRemote;
+        }
+
+        public static Bridge defaults() {
+            return new Bridge(false, "ws://127.0.0.1:12347", false);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Bridge)) {
+                return false;
+            }
+            Bridge other = (Bridge) o;
+            return enabled == other.enabled
+                    && allowRemote == other.allowRemote
+                    && Objects.equals(url, other.url);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(enabled, url, allowRemote);
+        }
+
+        @Override
+        public String toString() {
+            return "Bridge[enabled=" + enabled + ", url=" + url + ", allowRemote=" + allowRemote + "]";
         }
     }
 

@@ -145,4 +145,18 @@ public final class RuntimeConfig {
     public String providerBackend() {
         return config.buttplug().client();
     }
+
+    // --- local bridge -----------------------------------------------------------------------
+
+    public boolean bridgeEnabled() {
+        return config.bridge().enabled();
+    }
+
+    public String bridgeUrl() {
+        return config.bridge().url();
+    }
+
+    public boolean bridgeAllowRemote() {
+        return config.bridge().allowRemote();
+    }
 }

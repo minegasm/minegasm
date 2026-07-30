@@ -3,6 +3,8 @@ package net.minegasm.runtime;
 import net.minegasm.backend.BackendCoordinator;
 import net.minegasm.backend.ButtplugBackend;
 import net.minegasm.backend.HapticBackend;
+import net.minegasm.bridge.BridgeBackend;
+import net.minegasm.bridge.BridgeTransport;
 import net.minegasm.buttplug.HapticProvider;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.core.HapticIntent;
@@ -16,7 +18,8 @@ import net.minegasm.pack.PackRegistry;
 import net.minegasm.recipe.RecipeEngine;
 import net.minegasm.time.Clock;
 
-import java.util.Collections;
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -48,20 +51,35 @@ public final class HapticRuntime {
     private boolean worldPresent;
 
     public HapticRuntime(HapticProvider provider, Clock clock, Supplier<RuntimeConfig> config) {
-        this(provider, clock, config, new PackRegistry());
+        this(provider, clock, config, new PackRegistry(), null);
     }
 
     public HapticRuntime(HapticProvider provider, Clock clock, Supplier<RuntimeConfig> config,
                          PackRegistry packs) {
+        this(provider, clock, config, packs, null);
+    }
+
+    /**
+     * @param bridgeTransport an outbound bridge transport to fan scenes to a local adapter, or null for
+     *     no bridge. The loader injects it only when the bridge is enabled and its endpoint passed the
+     *     loopback/remote check, so a null transport here means "no bridge backend" (brief 0003 §3.4).
+     */
+    public HapticRuntime(HapticProvider provider, Clock clock, Supplier<RuntimeConfig> config,
+                         PackRegistry packs, BridgeTransport bridgeTransport) {
         this.provider = provider;
         this.clock = clock;
         this.config = config;
         this.recipe = new RecipeEngine(packs);
         this.worker = new HapticWorker(ingress, provider, clock, config);
-        // The scene seam (brief 0003 §3.2): scenes fan out through the coordinator, which today holds a
-        // single ButtplugBackend wrapping the worker unchanged. The watchdog stays on the worker for now.
-        this.coordinator = new BackendCoordinator(
-                Collections.<HapticBackend>singletonList(new ButtplugBackend(worker)));
+        // The scene seam (brief 0003 §3.2): scenes fan out through the coordinator. It always holds the
+        // ButtplugBackend (wrapping the worker unchanged) and adds the bridge backend when a transport is
+        // injected. The watchdog stays on the worker for now.
+        List<HapticBackend> backends = new ArrayList<>();
+        backends.add(new ButtplugBackend(worker));
+        if (bridgeTransport != null) {
+            backends.add(new BridgeBackend(bridgeTransport, URI.create(config.get().bridgeUrl()), clock));
+        }
+        this.coordinator = new BackendCoordinator(backends);
         this.lifecycle = new LifecycleController(coordinator, config);
         this.watchdog = new Watchdog(worker, clock, WATCHDOG_STALL_MS);
     }
