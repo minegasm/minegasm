@@ -70,8 +70,13 @@ jobs:
               exit 1
             fi
 
-            echo "$entries" | grep -qE '^net/minegasm/classic/(MinegasmClassicMod|MinegasmClassicClient)\.class$' \
-              || { echo "ERROR: $jar is missing the mod entrypoint" >&2; exit 1; }
+            if ! echo "$entries" | grep -qE '^net/minegasm/classic/(MinegasmClassicMod|MinegasmClassicClient)\.class$'; then
+              echo "ERROR: $jar is missing the mod entrypoint" >&2
+              echo "--- net/minegasm/classic entries present in $jar: ---" >&2
+              echo "$entries" | grep -E '^net/minegasm/classic/' >&2 || echo "(none)" >&2
+              echo "--- net/minegasm entry count: $(echo "$entries" | grep -c '^net/minegasm/') ---" >&2
+              exit 1
+            fi
             echo "$entries" | grep -q '^net/minegasm/core/' \
               || { echo "ERROR: $jar is missing the shared engine classes" >&2; exit 1; }
             echo "$entries" | grep -q '^net/minegasm/shadow/buttplug4j/' \
