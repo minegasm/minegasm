@@ -227,7 +227,7 @@ public final class ScenePackCodec {
         JsonObject o = new JsonObject();
         o.addProperty("layerId", l.layerId());
         o.addProperty("role", l.role().name());
-        o.add("primitive", writePrimitive(l.primitive()));
+        o.add("primitive", PrimitiveJson.toJson(l.primitive()));
         if (!l.allowedOutputs().isEmpty()) {
             JsonArray arr = new JsonArray();
             for (OutputKind k : l.allowedOutputs()) {
@@ -249,71 +249,6 @@ public final class ScenePackCodec {
         }
         if (l.strengthWeight() > 0f) {
             o.addProperty("strengthWeight", l.strengthWeight());
-        }
-        return o;
-    }
-
-    private static JsonObject writePrimitive(HapticPrimitive p) {
-        JsonObject o = new JsonObject();
-        // instanceof chain, not a switch: the engine also compiles as Java 8 for Classic. The trailing
-        // throw keeps this exhaustive, so a new core primitive fails loudly here instead of silently
-        // writing a pack that is missing a layer (mirrors PrimitiveEvaluator).
-        if (p instanceof HapticPrimitive.Impulse) {
-            HapticPrimitive.Impulse i = (HapticPrimitive.Impulse) p;
-            o.addProperty("type", "impulse");
-            o.addProperty("level", i.level());
-            o.addProperty("durationMs", i.durationMs());
-            o.addProperty("attackMs", i.attackMs());
-            o.addProperty("releaseMs", i.releaseMs());
-        } else if (p instanceof HapticPrimitive.Texture) {
-            HapticPrimitive.Texture t = (HapticPrimitive.Texture) p;
-            o.addProperty("type", "texture");
-            o.addProperty("level", t.level());
-            o.addProperty("durationMs", t.durationMs());
-            o.addProperty("grain", t.grain());
-            o.addProperty("density", t.density());
-            o.addProperty("irregularity", t.irregularity());
-        } else if (p instanceof HapticPrimitive.Rumble) {
-            HapticPrimitive.Rumble r = (HapticPrimitive.Rumble) p;
-            o.addProperty("type", "rumble");
-            o.addProperty("level", r.level());
-            o.addProperty("durationMs", r.durationMs());
-            o.addProperty("roughness", r.roughness());
-            o.addProperty("decay", r.decay());
-        } else if (p instanceof HapticPrimitive.Sweep) {
-            HapticPrimitive.Sweep s = (HapticPrimitive.Sweep) p;
-            o.addProperty("type", "sweep");
-            o.addProperty("from", s.from());
-            o.addProperty("to", s.to());
-            o.addProperty("durationMs", s.durationMs());
-            o.addProperty("easing", s.easing().name());
-        } else if (p instanceof HapticPrimitive.BeatPattern) {
-            HapticPrimitive.BeatPattern bp = (HapticPrimitive.BeatPattern) p;
-            o.addProperty("type", "beat");
-            JsonArray beats = new JsonArray();
-            for (HapticPrimitive.Beat b : bp.beats()) {
-                JsonObject bo = new JsonObject();
-                bo.addProperty("atMs", b.atMs());
-                bo.addProperty("level", b.level());
-                bo.addProperty("durationMs", b.durationMs());
-                beats.add(bo);
-            }
-            o.add("beats", beats);
-        } else if (p instanceof HapticPrimitive.Hold) {
-            HapticPrimitive.Hold h = (HapticPrimitive.Hold) p;
-            o.addProperty("type", "hold");
-            o.addProperty("level", h.level());
-            o.addProperty("durationMs", h.durationMs());
-            o.addProperty("fadeInMs", h.fadeInMs());
-            o.addProperty("fadeOutMs", h.fadeOutMs());
-        } else if (p instanceof HapticPrimitive.Oscillation) {
-            HapticPrimitive.Oscillation osc = (HapticPrimitive.Oscillation) p;
-            o.addProperty("type", "oscillation");
-            o.addProperty("level", osc.level());
-            o.addProperty("periodMs", osc.periodMs());
-            o.addProperty("durationMs", osc.durationMs());
-        } else {
-            throw new IllegalStateException("Unknown HapticPrimitive: " + p);
         }
         return o;
     }
