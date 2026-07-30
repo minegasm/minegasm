@@ -104,10 +104,11 @@ class BridgeBackendTest {
         }
 
         @Override
-        public void send(String frame) {
+        public CompletionStage<Void> send(String frame) {
             if (open) {
                 sent.add(frame);
             }
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override

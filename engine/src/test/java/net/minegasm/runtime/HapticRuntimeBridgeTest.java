@@ -61,7 +61,8 @@ class HapticRuntimeBridgeTest {
         }
 
         @Override
-        public void send(String frame) {
+        public CompletionStage<Void> send(String frame) {
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override

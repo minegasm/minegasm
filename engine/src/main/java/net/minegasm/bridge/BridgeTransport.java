@@ -20,8 +20,12 @@ public interface BridgeTransport extends AutoCloseable {
      */
     CompletionStage<Void> connect(URI uri, Consumer<String> onMessage, Consumer<Throwable> onClose);
 
-    /** Send a complete text frame. Must be non-blocking; a no-op if the transport is not open. */
-    void send(String frame);
+    /**
+     * Send a complete text frame. Must be non-blocking to the caller. The returned stage completes when
+     * the frame has been accepted by the transport, so the caller can serialize sends (one in flight at
+     * a time, which the JDK WebSocket requires). A closed transport returns an already-completed stage.
+     */
+    CompletionStage<Void> send(String frame);
 
     boolean isOpen();
 

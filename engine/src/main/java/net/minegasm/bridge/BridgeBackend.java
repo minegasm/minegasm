@@ -21,19 +21,23 @@ import java.net.URI;
  * prerequisite before any electrostim adapter rides this bridge: ADR-016 requires shock to be governed
  * against the central body budget, so a coarse ungoverned v1 must never become the shock path.
  *
- * <p><b>No backpressure yet (v1).</b> {@link #submit} serializes and sends inline with no bounded queue
- * and no coalescing. Because raw pre-mix scenes are fanned out, continuous scenes (mining texture,
- * accumulation, stroke) are re-offered every client tick, so once a real transport is attached the
- * bridge would emit a near-identical full-scene frame per continuous scene per tick. The Buttplug path
- * avoids this because {@code SceneMixer} coalesces by {@code continuousKey} and {@code FeatureScheduler}
- * deadbands; the bridge bypasses both. Per-{@code continuousKey} coalescing and a bounded drop-oldest
- * queue must land together with the real transport (brief 0002 §4.3, "queues are bounded and stale
- * messages are dropped").
+ * <p><b>Bounded, but not coalesced (v1).</b> Outbound frames go through a bounded, one-in-flight
+ * {@link OutboundQueue} that drops the oldest when full, so a burst cannot grow memory and a stop-all
+ * cannot be overtaken by a queued effect. What it does not yet do is coalesce: because raw pre-mix scenes
+ * are fanned out, continuous scenes (mining texture, accumulation, stroke) are re-offered every client
+ * tick, so the bridge enqueues a near-identical full-scene frame per continuous scene per tick. The
+ * Buttplug path avoids that because {@code SceneMixer} coalesces by {@code continuousKey}; the scene-level
+ * central-governance lift (ADR-018) provides the same coalescing to the bridge for free, so
+ * per-{@code continuousKey} coalescing is deferred to it rather than duplicated here.
  */
 public final class BridgeBackend implements HapticBackend {
 
+    /** Outbound frame bound: a burst beyond this drops oldest rather than growing memory. */
+    private static final int QUEUE_CAPACITY = 64;
+
     private final BridgeTransport transport;
     private final BridgeCodec codec = new BridgeCodec();
+    private final OutboundQueue outbound;
     private final URI endpoint;
     private final Clock clock;
 
@@ -44,6 +48,7 @@ public final class BridgeBackend implements HapticBackend {
         this.transport = transport;
         this.endpoint = endpoint;
         this.clock = clock;
+        this.outbound = new OutboundQueue(QUEUE_CAPACITY, transport::send);
     }
 
     @Override
@@ -62,16 +67,16 @@ public final class BridgeBackend implements HapticBackend {
         if (!outputEnabled || !transport.isOpen()) {
             return; // panic-latched or no adapter connected: drop, do not buffer stale output
         }
-        transport.send(codec.encodeEffect(scene, clock.nanoTime()));
+        outbound.offer(codec.encodeEffect(scene, clock.nanoTime()));
         lastHealthyCycleNs = clock.nanoTime();
     }
 
     @Override
     public void stop(StopReason reason) {
-        // Send stop-all even while output is disabled; a no-op if the transport is closed. The effect
-        // takes hold synchronously (serialize + hand to the non-blocking transport), and every effect
-        // also carries a TTL so a dropped connection self-clears regardless.
-        transport.send(codec.encodeStop());
+        // Send stop-all even while output is disabled. clearAndOffer drops every queued effect so none
+        // can be delivered after the stop; a single already-in-flight effect completes first. Every
+        // effect also carries a TTL, so a dropped connection self-clears regardless.
+        outbound.clearAndOffer(codec.encodeStop());
     }
 
     @Override
@@ -101,6 +106,7 @@ public final class BridgeBackend implements HapticBackend {
 
     @Override
     public void close() {
+        outbound.close();
         transport.close();
     }
 
