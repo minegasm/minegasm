@@ -4,6 +4,8 @@ import net.minegasm.buttplug.ConnectionState;
 import net.minegasm.buttplug.ProviderStatus;
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.config.HapticConfig;
+import net.minegasm.config.MinegasmMode;
+import net.minegasm.config.RecipePackId;
 import net.minegasm.config.TestOutputLimits;
 import net.minegasm.core.GameEventKind;
 import net.minegasm.core.RawGameEvent;
@@ -36,7 +38,7 @@ public final class ClassicCommands {
     /** Sub-command names, in help order, for tab completion. */
     public static final List<String> SUBCOMMANDS = Arrays.asList(
             "status", "connect", "disconnect", "reconnect", "enable", "disable",
-            "stop", "resume", "test", "trigger");
+            "mode", "recipe", "stop", "resume", "test", "trigger");
 
     private static final Map<String, GameEventKind> TRIGGER_EVENTS = triggerEvents();
 
@@ -78,6 +80,12 @@ public final class ClassicCommands {
                 client.disconnect();
                 out.info("Disconnected.");
                 break;
+            case "mode":
+                mode(client, out, args);
+                break;
+            case "recipe":
+                recipe(client, out, args);
+                break;
             case "test":
                 test(client, out, args);
                 break;
@@ -96,6 +104,58 @@ public final class ClassicCommands {
         } else {
             out.info(changed ? "Haptics disabled." : "Haptics were already disabled.");
         }
+    }
+
+    private static void mode(MinegasmClient client, Feedback out, String[] args) {
+        HapticConfig cfg = client.config().raw();
+        if (args.length < 2) {
+            out.info("Mode: " + cfg.identity().mode().name().toLowerCase(Locale.ROOT)
+                    + ". Options: " + names(MinegasmMode.values()));
+            return;
+        }
+        MinegasmMode mode = MinegasmMode.fromString(args[1], null);
+        if (mode == null) {
+            out.error("Unknown mode '" + args[1] + "'. Options: " + names(MinegasmMode.values()));
+            return;
+        }
+        applyIdentity(client, cfg, new HapticConfig.Identity(cfg.identity().recipePack(), mode.name()));
+        out.info("Mode set to " + mode.name().toLowerCase(Locale.ROOT) + ".");
+    }
+
+    private static void recipe(MinegasmClient client, Feedback out, String[] args) {
+        HapticConfig cfg = client.config().raw();
+        if (args.length < 2) {
+            out.info("Recipe: " + cfg.identity().recipePackId().name().toLowerCase(Locale.ROOT)
+                    + ". Options: " + names(RecipePackId.values()));
+            return;
+        }
+        RecipePackId pack = RecipePackId.fromString(args[1], null);
+        if (pack == null) {
+            out.error("Unknown recipe '" + args[1] + "'. Options: " + names(RecipePackId.values()));
+            return;
+        }
+        applyIdentity(client, cfg, new HapticConfig.Identity(
+                pack.name().toLowerCase(Locale.ROOT), cfg.identity().compatibilityMode()));
+        out.info("Recipe set to " + pack.name().toLowerCase(Locale.ROOT) + ".");
+    }
+
+    /** Persist a new identity (recipe pack + mode), preserving everything else in the config. */
+    private static void applyIdentity(MinegasmClient client, HapticConfig cfg,
+                                      HapticConfig.Identity identity) {
+        client.updateConfig(new HapticConfig(cfg.schemaVersion(), identity, cfg.global(),
+                cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity()));
+    }
+
+    private static String names(Enum<?>[] values) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(values[i].name().toLowerCase(Locale.ROOT));
+        }
+        return sb.toString();
     }
 
     private static void test(MinegasmClient client, Feedback out, String[] args) {

@@ -4,6 +4,9 @@
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.core.GameEventKind;
 import net.minegasm.core.RawGameEvent;
+import net.minegasm.config.HapticConfig;
+import net.minegasm.config.MinegasmMode;
+import net.minegasm.config.RecipePackId;
 import net.minegasm.config.TestOutputLimits;
 import net.minegasm.neoforge.McCompat;
 import net.minegasm.neoforge.MinecraftSampler;
@@ -70,6 +73,8 @@ public final class MinegasmMod implements ClientModInitializer {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<String, GameEventKind> TRIGGER_EVENTS = triggerEvents();
+    private static final java.util.List<String> MODE_NAMES = lowerNames(MinegasmMode.values());
+    private static final java.util.List<String> RECIPE_NAMES = lowerNames(RecipePackId.values());
 
     // The live client, published for the optional ModMenu integration (a separate `modmenu`
     // entrypoint ModMenu instantiates on its own, so it cannot reach the instance field). Written
@@ -184,6 +189,26 @@ public final class MinegasmMod implements ClientModInitializer {
                     connectFromCommand(context.getSource(), true);
                     return 1;
                 }))
+                .then(ClientCommands.literal("mode")
+                        .executes(context -> {
+                            sendMode(context.getSource());
+                            return 1;
+                        })
+                        .then(ClientCommands.argument("mode", StringArgumentType.word())
+                                .suggests((context, builder) ->
+                                        SharedSuggestionProvider.suggest(MODE_NAMES, builder))
+                                .executes(context -> modeFromCommand(context.getSource(),
+                                        StringArgumentType.getString(context, "mode")))))
+                .then(ClientCommands.literal("recipe")
+                        .executes(context -> {
+                            sendRecipe(context.getSource());
+                            return 1;
+                        })
+                        .then(ClientCommands.argument("recipe", StringArgumentType.word())
+                                .suggests((context, builder) ->
+                                        SharedSuggestionProvider.suggest(RECIPE_NAMES, builder))
+                                .executes(context -> recipeFromCommand(context.getSource(),
+                                        StringArgumentType.getString(context, "recipe")))))
                 .then(ClientCommands.literal("test")
                         .executes(context -> testFromCommand(context.getSource(), 25, 400, false))
                         .then(ClientCommands.argument("strength-percent", IntegerArgumentType.integer(
@@ -256,6 +281,59 @@ public final class MinegasmMod implements ClientModInitializer {
         source.sendFeedback(Component.translatable("minegasm.command.test_sent",
                 targeted, strengthPercent, durationMs));
         return targeted;
+    }
+
+    private void sendMode(FabricClientCommandSource source) {
+        source.sendFeedback(Component.translatable("minegasm.command.mode_current",
+                client.config().raw().identity().mode().name().toLowerCase(Locale.ROOT)));
+    }
+
+    private int modeFromCommand(FabricClientCommandSource source, String name) {
+        MinegasmMode mode = MinegasmMode.fromString(name, null);
+        if (mode == null) {
+            source.sendError(Component.translatable("minegasm.command.mode_unknown", name));
+            return 0;
+        }
+        HapticConfig cfg = client.config().raw();
+        applyIdentity(new HapticConfig.Identity(cfg.identity().recipePack(), mode.name()));
+        source.sendFeedback(Component.translatable("minegasm.command.mode_set",
+                mode.name().toLowerCase(Locale.ROOT)));
+        return 1;
+    }
+
+    private void sendRecipe(FabricClientCommandSource source) {
+        source.sendFeedback(Component.translatable("minegasm.command.recipe_current",
+                client.config().raw().identity().recipePackId().name().toLowerCase(Locale.ROOT)));
+    }
+
+    private int recipeFromCommand(FabricClientCommandSource source, String name) {
+        RecipePackId pack = RecipePackId.fromString(name, null);
+        if (pack == null) {
+            source.sendError(Component.translatable("minegasm.command.recipe_unknown", name));
+            return 0;
+        }
+        HapticConfig cfg = client.config().raw();
+        applyIdentity(new HapticConfig.Identity(pack.name().toLowerCase(Locale.ROOT),
+                cfg.identity().compatibilityMode()));
+        source.sendFeedback(Component.translatable("minegasm.command.recipe_set",
+                pack.name().toLowerCase(Locale.ROOT)));
+        return 1;
+    }
+
+    // Persist a new identity (recipe pack + mode), preserving everything else in the config.
+    private void applyIdentity(HapticConfig.Identity identity) {
+        HapticConfig cfg = client.config().raw();
+        client.updateConfig(new HapticConfig(cfg.schemaVersion(), identity, cfg.global(),
+                cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity()));
+    }
+
+    private static java.util.List<String> lowerNames(Enum<?>[] values) {
+        java.util.List<String> names = new java.util.ArrayList<>(values.length);
+        for (Enum<?> value : values) {
+            names.add(value.name().toLowerCase(Locale.ROOT));
+        }
+        return names;
     }
 
     private int triggerFromCommand(FabricClientCommandSource source, String name) {
