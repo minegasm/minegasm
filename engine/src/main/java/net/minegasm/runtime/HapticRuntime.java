@@ -1,5 +1,8 @@
 package net.minegasm.runtime;
 
+import net.minegasm.backend.BackendCoordinator;
+import net.minegasm.backend.ButtplugBackend;
+import net.minegasm.backend.HapticBackend;
 import net.minegasm.buttplug.HapticProvider;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.core.HapticIntent;
@@ -12,6 +15,7 @@ import net.minegasm.observe.TickEventBuffer;
 import net.minegasm.recipe.RecipeEngine;
 import net.minegasm.time.Clock;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -33,6 +37,7 @@ public final class HapticRuntime {
     private final SceneIngressQueue ingress = new SceneIngressQueue();
     private final HapticProvider provider;
     private final HapticWorker worker;
+    private final BackendCoordinator coordinator;
     private final LifecycleController lifecycle;
     private final Watchdog watchdog;
     private final Clock clock;
@@ -46,7 +51,11 @@ public final class HapticRuntime {
         this.clock = clock;
         this.config = config;
         this.worker = new HapticWorker(ingress, provider, clock, config);
-        this.lifecycle = new LifecycleController(worker, config);
+        // The scene seam (brief 0003 §3.2): scenes fan out through the coordinator, which today holds a
+        // single ButtplugBackend wrapping the worker unchanged. The watchdog stays on the worker for now.
+        this.coordinator = new BackendCoordinator(
+                Collections.<HapticBackend>singletonList(new ButtplugBackend(worker)));
+        this.lifecycle = new LifecycleController(coordinator, config);
         this.watchdog = new Watchdog(worker, clock, WATCHDOG_STALL_MS);
     }
 
@@ -101,12 +110,12 @@ public final class HapticRuntime {
         RuntimeConfig cfg = config.get();
 
         for (HapticIntent intent : aggregator.aggregate(discrete, transitions, snapshot, cfg, now)) {
-            recipe.resolve(intent, cfg).ifPresent(scene -> ingress.offer(scene, now));
+            recipe.resolve(intent, cfg).ifPresent(scene -> coordinator.submit(scene));
         }
         // Accumulation mode decays and refreshes even without new events.
-        recipe.tickAccumulation(cfg, now).ifPresent(scene -> ingress.offer(scene, now));
+        recipe.tickAccumulation(cfg, now).ifPresent(scene -> coordinator.submit(scene));
         // Rhythmic stroking for position devices decays and refreshes the same way (Balanced only).
-        recipe.tickStroke(cfg, now).ifPresent(scene -> ingress.offer(scene, now));
+        recipe.tickStroke(cfg, now).ifPresent(scene -> coordinator.submit(scene));
     }
 
     /** Run a single worker cycle now (used by the real loop and by tests). */
@@ -115,15 +124,19 @@ public final class HapticRuntime {
     }
 
     public void start() {
-        worker.start();
+        coordinator.start();
     }
 
     public void shutdown() {
-        worker.shutdown();
+        coordinator.close();
     }
 
     public HapticWorker worker() {
         return worker;
+    }
+
+    public BackendCoordinator coordinator() {
+        return coordinator;
     }
 
     public LifecycleController lifecycle() {
