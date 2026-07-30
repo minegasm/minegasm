@@ -52,7 +52,7 @@ public final class SettingsScreen16 extends Screen {
         addButton(new PctSlider(lx, y0, 150, 20, "Intensity: ", model.intensity, v -> model.intensity = v));
         addButton(new PctSlider(lx, y0 + dy, 150, 20, "Variation: ", model.variation, v -> model.variation = v));
         addButton(new Button(lx, y0 + 2 * dy, 150, 20, recipeLabel(), b -> {
-            model.toggleRecipePack();
+            model.cycleRecipePack(filePackIds());
             b.setMessage(recipeLabel());
         }));
         addButton(new Button(lx, y0 + 3 * dy, 150, 20, modeLabel(), b -> {
@@ -135,7 +135,16 @@ public final class SettingsScreen16 extends Screen {
     // --- labels ----------------------------------------------------------------------------
 
     private Component recipeLabel() {
-        return new TextComponent("Recipe: " + capitalize(model.recipePack.name()));
+        return new TextComponent("Recipe: " + capitalize(model.recipePack));
+    }
+
+    /** Ids of the loaded scene packs, for the recipe cycle (built-ins are always included). */
+    private java.util.List<String> filePackIds() {
+        java.util.List<String> ids = new java.util.ArrayList<String>();
+        for (net.minegasm.pack.ScenePackInfo info : client.scenePacks()) {
+            ids.add(info.id());
+        }
+        return ids;
     }
 
     private Component modeLabel() {

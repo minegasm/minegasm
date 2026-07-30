@@ -5,7 +5,6 @@ import net.minegasm.buttplug.ProviderStatus;
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.config.HapticConfig;
 import net.minegasm.config.MinegasmMode;
-import net.minegasm.config.RecipePackId;
 import net.minegasm.config.TestOutputLimits;
 import net.minegasm.core.GameEventKind;
 import net.minegasm.core.RawGameEvent;
@@ -124,19 +123,38 @@ public final class ClassicCommands {
 
     private static void recipe(MinegasmClient client, Feedback out, String[] args) {
         HapticConfig cfg = client.config().raw();
+        java.util.List<String> options = recipeOptions(client);
         if (args.length < 2) {
-            out.info("Recipe: " + cfg.profile().recipePackId().name().toLowerCase(Locale.ROOT)
-                    + ". Options: " + names(RecipePackId.values()));
+            out.info("Recipe: " + cfg.profile().recipePack()
+                    + ". Options: " + String.join(", ", options));
             return;
         }
-        RecipePackId pack = RecipePackId.fromString(args[1], null);
-        if (pack == null) {
-            out.error("Unknown recipe '" + args[1] + "'. Options: " + names(RecipePackId.values()));
+        String selected = null;
+        for (String option : options) {
+            if (option.equalsIgnoreCase(args[1])) {
+                selected = option;
+                break;
+            }
+        }
+        if (selected == null) {
+            out.error("Unknown recipe '" + args[1] + "'. Options: " + String.join(", ", options));
             return;
         }
-        applyProfile(client, cfg, new HapticConfig.Profile(
-                pack.name().toLowerCase(Locale.ROOT), cfg.profile().hapticMode()));
-        out.info("Recipe set to " + pack.name().toLowerCase(Locale.ROOT) + ".");
+        applyProfile(client, cfg, new HapticConfig.Profile(selected, cfg.profile().hapticMode()));
+        out.info("Recipe set to " + selected + ".");
+    }
+
+    /** The selectable recipe pack ids: the two built-ins plus every loaded file pack (ADR-017). */
+    private static java.util.List<String> recipeOptions(MinegasmClient client) {
+        java.util.List<String> options = new java.util.ArrayList<String>();
+        options.add("classic");
+        options.add("balanced");
+        for (net.minegasm.pack.ScenePackInfo info : client.scenePacks()) {
+            if (!options.contains(info.id())) {
+                options.add(info.id());
+            }
+        }
+        return options;
     }
 
     /** Persist a new profile (recipe pack + mode), preserving everything else in the config. */

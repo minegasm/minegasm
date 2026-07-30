@@ -4,11 +4,11 @@ import net.minegasm.client.MinegasmClient;
 import net.minegasm.config.HapticConfig;
 import net.minegasm.config.MinegasmMode;
 import net.minegasm.config.PauseBehavior;
-import net.minegasm.config.RecipePackId;
 import net.minegasm.config.TestOutputLimits;
 
 import java.net.URI;
-import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A small editable view of the settings the Classic config screen exposes, sitting between the immutable
@@ -30,7 +30,8 @@ public final class ClassicConfigModel {
     public boolean enabled;
     public double intensity;
     public double variation;
-    public RecipePackId recipePack;
+    /** Raw recipe-pack selector: a built-in name ("classic"/"balanced") or a loaded file pack id (ADR-017). */
+    public String recipePack;
     public MinegasmMode mode;
     public boolean fatigueProtection;
     public PauseBehavior pauseBehavior;
@@ -54,7 +55,7 @@ public final class ClassicConfigModel {
         this.pauseBehavior = g.pauseBehaviorMode();
         this.stopOnWorldUnload = g.stopOnWorldUnload();
         HapticConfig.Profile id = original.profile();
-        this.recipePack = id.recipePackId();
+        this.recipePack = id.recipePack();
         this.mode = id.mode();
         HapticConfig.Buttplug b = original.buttplug();
         this.serverUrl = b.serverUrl();
@@ -73,9 +74,24 @@ public final class ClassicConfigModel {
         pauseBehavior = all[(pauseBehavior.ordinal() + 1) % all.length];
     }
 
-    /** Toggle the recipe pack between Balanced and Classic (the two modern exposes). */
-    public void toggleRecipePack() {
-        recipePack = recipePack == RecipePackId.BALANCED ? RecipePackId.CLASSIC : RecipePackId.BALANCED;
+    /**
+     * Step the recipe pack through the two built-ins and then every loaded file pack, in order
+     * (ADR-017). An unrecognized current selection resets to Classic. {@code fileIds} are the loaded
+     * scene pack ids (from {@code client.scenePacks()}); pass empty to cycle the built-ins only.
+     */
+    public void cycleRecipePack(List<String> fileIds) {
+        List<String> ids = new ArrayList<>();
+        ids.add("classic");
+        ids.add("balanced");
+        if (fileIds != null) {
+            for (String id : fileIds) {
+                if (id != null && !ids.contains(id)) {
+                    ids.add(id);
+                }
+            }
+        }
+        int idx = ids.indexOf(recipePack);
+        recipePack = ids.get((idx + 1 + ids.size()) % ids.size());
     }
 
     /** Step the compatibility mode through its presets. */
@@ -144,8 +160,7 @@ public final class ClassicConfigModel {
                 testMaxPercent, testMaxDurationMs,
                 unsafeTestMaxPercent, unsafeTestMaxDurationMs);
 
-        HapticConfig.Profile newIdentity = new HapticConfig.Profile(
-                recipePack.name().toLowerCase(Locale.ROOT), mode.name());
+        HapticConfig.Profile newIdentity = new HapticConfig.Profile(recipePack, mode.name());
 
         HapticConfig.Buttplug b = original.buttplug();
         HapticConfig.Buttplug newButtplug = new HapticConfig.Buttplug(

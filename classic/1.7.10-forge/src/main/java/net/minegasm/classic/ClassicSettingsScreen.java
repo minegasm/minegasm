@@ -115,7 +115,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
     protected void actionPerformed(GuiButton button) {
         switch (button.id) {
             case ID_RECIPE:
-                model.toggleRecipePack();
+                model.cycleRecipePack(filePackIds());
                 recipeBtn.displayString = recipeLabel();
                 break;
             case ID_MODE:
@@ -213,7 +213,16 @@ public final class ClassicSettingsScreen extends GuiScreen {
     // --- labels ----------------------------------------------------------------------------
 
     private String recipeLabel() {
-        return "Recipe: " + capitalize(model.recipePack.name());
+        return "Recipe: " + capitalize(model.recipePack);
+    }
+
+    /** Ids of the loaded scene packs, for the recipe cycle (built-ins are always included). */
+    private java.util.List<String> filePackIds() {
+        java.util.List<String> ids = new java.util.ArrayList<String>();
+        for (net.minegasm.pack.ScenePackInfo info : client.scenePacks()) {
+            ids.add(info.id());
+        }
+        return ids;
     }
 
     private String modeLabel() {
