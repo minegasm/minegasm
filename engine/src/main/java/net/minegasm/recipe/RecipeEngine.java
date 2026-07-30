@@ -14,6 +14,8 @@ import net.minegasm.core.HapticRoute;
 import net.minegasm.core.HapticScene;
 import net.minegasm.core.OutputKind;
 import net.minegasm.core.Priorities;
+import net.minegasm.pack.PackRegistry;
+import net.minegasm.pack.ScenePack;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +39,15 @@ public final class RecipeEngine implements RecipeResolver {
     private final RecipePack balanced = new BalancedRecipePack();
     private final AccumulationProcessor accumulator = new AccumulationProcessor();
     private final StrokeProcessor stroker = new StrokeProcessor();
+    private final PackRegistry packs;
+
+    public RecipeEngine() {
+        this(new PackRegistry());
+    }
+
+    public RecipeEngine(PackRegistry packs) {
+        this.packs = packs == null ? new PackRegistry() : packs;
+    }
 
     @Override
     public Optional<HapticScene> resolve(HapticIntent intent, RuntimeConfig config) {
@@ -52,19 +63,41 @@ public final class RecipeEngine implements RecipeResolver {
             return resolveAccumulation(intent, config);
         }
 
+        RecipePack pack = selectPack(config);
+        float userGain = config.eventMultiplier(kind) * config.globalIntensity();
+
+        if (pack != classic && pack != balanced) {
+            // File pack: the author's levels are the shape, scaled only by the user's volume. The mode
+            // preset's per-event base does not gate a file pack, it is its own recipe (ADR-017).
+            RecipeContext ctx = new RecipeContext(intent, 1.0f, userGain, config, intent.createdAtNs());
+            return pack.resolve(ctx);
+        }
+
         Preset preset = Presets.forMode(config.mode());
         float modeBase = preset.baseFor(kind, config);
         if (modeBase <= 0f) {
             return Optional.empty(); // event disabled in this mode
         }
-        float userGain = config.eventMultiplier(kind) * config.globalIntensity();
         RecipeContext ctx = new RecipeContext(intent, modeBase, userGain, config, intent.createdAtNs());
-        RecipePack pack = config.recipePack() == RecipePackId.CLASSIC ? classic : balanced;
         if (pack == balanced) {
             // Feed the rhythmic-stroke drive; only firing Balanced events count as activity.
             stroker.contribute(intent.strength());
         }
         return pack.resolve(ctx);
+    }
+
+    /**
+     * Pick the pack for the current selection. A file pack whose id matches the config's raw pack name
+     * wins; otherwise the built-in classic/balanced. Selection reads {@link RuntimeConfig#recipePackName()},
+     * never the enum, because {@code RecipePackId.fromString} collapses an unknown (file-pack) name to
+     * BALANCED and would silently misroute (ADR-017).
+     */
+    private RecipePack selectPack(RuntimeConfig config) {
+        Optional<ScenePack> filePack = packs.find(config.recipePackName());
+        if (filePack.isPresent()) {
+            return new FileRecipePack(filePack.get());
+        }
+        return config.recipePack() == RecipePackId.CLASSIC ? classic : balanced;
     }
 
     /**
@@ -110,7 +143,10 @@ public final class RecipeEngine implements RecipeResolver {
      */
     public Optional<HapticScene> tickStroke(RuntimeConfig config, long nowNs) {
         stroker.update(nowNs);
-        if (!config.enabled() || config.recipePack() == RecipePackId.CLASSIC || !stroker.active()) {
+        // The rhythmic stroke is a Balanced-only feature. Gate on the actual selected pack, not the
+        // enum: a file pack reads as BALANCED through the enum but must not drive the built-in stroke
+        // on top of its own motion layers (ADR-017).
+        if (!config.enabled() || selectPack(config) != balanced || !stroker.active()) {
             return Optional.empty();
         }
         long origin = stroker.strokeOriginNs(nowNs);

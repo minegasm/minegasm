@@ -65,6 +65,15 @@ public final class RuntimeConfig {
         return config.profile().recipePackId();
     }
 
+    /**
+     * The raw pack selector string: a built-in name ("classic"/"balanced") or a file pack's id. Unlike
+     * {@link #recipePack()}, this does not collapse an unknown name to a built-in, so file-pack
+     * selection must read this (ADR-017).
+     */
+    public String recipePackName() {
+        return config.profile().recipePack();
+    }
+
     // --- events -----------------------------------------------------------------------------
 
     private EventSetting event(GameEventKind kind) {
