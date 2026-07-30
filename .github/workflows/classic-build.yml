@@ -42,15 +42,24 @@ jobs:
             jar="${jars[0]}"
             echo "Verifying $jar"
             # Use the JDK jar tool by absolute path; a bare `jar` is not always on PATH in later steps.
-            entries="$("$JAVA_HOME/bin/jar" tf "$jar")"
+            # Strip carriage returns: some runners return entry names with a trailing CR that is invisible
+            # in the log but defeats the `$`-anchored greps below, so a present class reads as missing.
+            entries="$("$JAVA_HOME/bin/jar" tf "$jar" | tr -d '\r')"
             if [ -z "$entries" ]; then
               echo "ERROR: could not list $jar with $JAVA_HOME/bin/jar" >&2
               exit 1
             fi
 
             # The mod entrypoint (Forge: MinegasmClassicMod, Fabric: MinegasmClassicClient) and engine.
-            echo "$entries" | grep -qE '^net/minegasm/classic/(MinegasmClassicMod|MinegasmClassicClient)\.class$' \
-              || { echo "ERROR: $jar is missing the mod entrypoint" >&2; exit 1; }
+            if ! echo "$entries" | grep -qE '^net/minegasm/classic/(MinegasmClassicMod|MinegasmClassicClient)\.class$'; then
+              echo "ERROR: $jar is missing the mod entrypoint" >&2
+              echo "--- net/minegasm/classic entries present in $jar: ---" >&2
+              echo "$entries" | grep -E '^net/minegasm/classic/' >&2 || echo "(none)" >&2
+              # Raw bytes of any entrypoint-like line, so a lingering hidden character is unmistakable.
+              echo "--- raw bytes of entrypoint line(s): ---" >&2
+              echo "$entries" | grep -E 'MinegasmClassic(Mod|Client)\.class' | od -c >&2 || true
+              exit 1
+            fi
             echo "$entries" | grep -q '^net/minegasm/core/' \
               || { echo "ERROR: $jar is missing the shared engine classes" >&2; exit 1; }
             # The Buttplug stack is shaded and relocated (no jar-in-jar on this Forge).

@@ -64,7 +64,10 @@ jobs:
             jar="${jars[0]}"
             echo "Verifying $jar"
             # Use the JDK jar tool by absolute path; a bare `jar` is not always on PATH in later steps.
-            entries="$("$JAVA_HOME/bin/jar" tf "$jar")"
+            # Strip carriage returns: on the runner some entry names come back with a trailing CR, which
+            # is invisible in the log but defeats the `$`-anchored greps below (the class is present, yet
+            # the match fails). tr keeps every check robust regardless of where the CR sneaks in.
+            entries="$("$JAVA_HOME/bin/jar" tf "$jar" | tr -d '\r')"
             if [ -z "$entries" ]; then
               echo "ERROR: could not list $jar with $JAVA_HOME/bin/jar" >&2
               exit 1
@@ -74,7 +77,9 @@ jobs:
               echo "ERROR: $jar is missing the mod entrypoint" >&2
               echo "--- net/minegasm/classic entries present in $jar: ---" >&2
               echo "$entries" | grep -E '^net/minegasm/classic/' >&2 || echo "(none)" >&2
-              echo "--- net/minegasm entry count: $(echo "$entries" | grep -c '^net/minegasm/') ---" >&2
+              # Raw bytes of any entrypoint-like line, so a lingering hidden character is unmistakable.
+              echo "--- raw bytes of entrypoint line(s): ---" >&2
+              echo "$entries" | grep -E 'MinegasmClassic(Mod|Client)\.class' | od -c >&2 || true
               exit 1
             fi
             echo "$entries" | grep -q '^net/minegasm/core/' \
