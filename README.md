@@ -181,6 +181,9 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
 Haptics default to **off** until you complete setup, and only **loopback** servers are allowed
 unless you explicitly opt in to remote (see `docs/SAFETY.md`).
 
+Hitting a problem that looks like the mod but isn't? See `docs/TROUBLESHOOTING.md`, which covers
+known environmental issues such as the Intel-driver screen flashing on Minecraft 1.7.10.
+
 ## Safety
 
 Physical hardware, so the engine fails toward **stopped**: bounded queues, real-time expiry, a
