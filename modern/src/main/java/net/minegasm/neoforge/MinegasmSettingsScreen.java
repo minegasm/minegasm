@@ -43,6 +43,7 @@ public final class MinegasmSettingsScreen extends Screen {
     private int testMaxDurationMs;
     private int unsafeTestMaxPercent;
     private int unsafeTestMaxDurationMs;
+    private boolean bridgeEnabled;
     private EditBox serverUrl;
 
     public MinegasmSettingsScreen(Screen parent, MinegasmClient client) {
@@ -64,6 +65,7 @@ public final class MinegasmSettingsScreen extends Screen {
         testMaxDurationMs = cfg.global().testMaxDurationMs();
         unsafeTestMaxPercent = cfg.global().unsafeTestMaxPercent();
         unsafeTestMaxDurationMs = cfg.global().unsafeTestMaxDurationMs();
+        bridgeEnabled = cfg.bridge().enabled();
     }
 
     @Override
@@ -122,6 +124,10 @@ public final class MinegasmSettingsScreen extends Screen {
             cycleUnsafeTestLimit();
             b.setMessage(unsafeTestLimitLabel());
         }, right, 168, columnWidth, h));
+        addRenderableWidget(button(bridgeLabel(), b -> {
+            bridgeEnabled = !bridgeEnabled;
+            b.setMessage(bridgeLabel());
+        }, right, 192, columnWidth, h));
 
         addRenderableWidget(button(Component.translatable("minegasm.settings.save"),
                 b -> save(), right, height - 24, (columnWidth - 4) / 2, h));
@@ -177,6 +183,15 @@ public final class MinegasmSettingsScreen extends Screen {
     private Component unsafeTestLimitLabel() {
         return Component.translatable("minegasm.settings.unsafe_limit",
                 unsafeTestMaxPercent + "% / " + unsafeTestMaxDurationMs / 1_000.0 + "s");
+    }
+
+    private Component bridgeLabel() {
+        // Enabling/disabling the bridge changes which backends the runtime builds, which happens at
+        // startup, so a changed value shows a restart hint.
+        boolean changed = bridgeEnabled != client.config().raw().bridge().enabled();
+        return Component.translatable(
+                changed ? "minegasm.settings.bridge_restart" : "minegasm.settings.bridge",
+                Component.translatable(bridgeEnabled ? "options.on" : "options.off"));
     }
 
     private void cycleNormalTestLimit() {
@@ -238,7 +253,9 @@ public final class MinegasmSettingsScreen extends Screen {
                 new HapticConfig.Buttplug(url, autoConnect, autoScan, allowRemote,
                         bp.reconnect(), bp.client()),
                 cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
-                cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
+                cfg.accumulation(), cfg.customIntensity(),
+                new HapticConfig.Bridge(bridgeEnabled, cfg.bridge().url(), cfg.bridge().transport(),
+                        cfg.bridge().allowRemote()));
         client.updateConfig(updated);
         onClose();
     }

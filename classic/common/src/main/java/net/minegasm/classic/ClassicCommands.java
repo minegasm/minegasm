@@ -37,7 +37,7 @@ public final class ClassicCommands {
     /** Sub-command names, in help order, for tab completion. */
     public static final List<String> SUBCOMMANDS = Arrays.asList(
             "status", "connect", "disconnect", "reconnect", "enable", "disable",
-            "mode", "recipe", "stop", "resume", "test", "trigger");
+            "mode", "recipe", "bridge", "stop", "resume", "test", "trigger");
 
     private static final Map<String, GameEventKind> TRIGGER_EVENTS = triggerEvents();
 
@@ -84,6 +84,9 @@ public final class ClassicCommands {
                 break;
             case "recipe":
                 recipe(client, out, args);
+                break;
+            case "bridge":
+                bridge(client, out, args);
                 break;
             case "test":
                 test(client, out, args);
@@ -142,6 +145,32 @@ public final class ClassicCommands {
         }
         applyProfile(client, cfg, new HapticConfig.Profile(selected, cfg.profile().hapticMode()));
         out.info("Recipe set to " + selected + ".");
+    }
+
+    private static void bridge(MinegasmClient client, Feedback out, String[] args) {
+        HapticConfig cfg = client.config().raw();
+        HapticConfig.Bridge b = cfg.bridge();
+        if (args.length < 2) {
+            out.info("Bridge: " + (b.enabled() ? "on" : "off")
+                    + " (" + b.transport() + " " + b.url() + "). Use: /minegasm bridge on|off");
+            return;
+        }
+        String arg = args[1].toLowerCase(Locale.ROOT);
+        boolean enable;
+        if (arg.equals("on") || arg.equals("enable") || arg.equals("true")) {
+            enable = true;
+        } else if (arg.equals("off") || arg.equals("disable") || arg.equals("false")) {
+            enable = false;
+        } else {
+            out.error("Use: /minegasm bridge on|off");
+            return;
+        }
+        client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
+                cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(),
+                new HapticConfig.Bridge(enable, b.url(), b.transport(), b.allowRemote())));
+        out.info("Bridge " + (enable ? "enabled" : "disabled")
+                + ". Restart Minecraft for it to take effect.");
     }
 
     /** The selectable recipe pack ids: the two built-ins plus every loaded file pack (ADR-017). */

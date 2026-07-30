@@ -223,6 +223,15 @@ public final class MinegasmMod {
                                         SharedSuggestionProvider.suggest(RECIPE_NAMES, builder))
                                 .executes(context -> recipeFromCommand(context.getSource(),
                                         StringArgumentType.getString(context, "recipe")))))
+                .then(Commands.literal("bridge")
+                        .executes(context -> {
+                            sendBridge(context.getSource());
+                            return 1;
+                        })
+                        .then(Commands.literal("on")
+                                .executes(context -> bridgeFromCommand(context.getSource(), true)))
+                        .then(Commands.literal("off")
+                                .executes(context -> bridgeFromCommand(context.getSource(), false))))
                 .then(Commands.literal("test")
                         .executes(context -> testFromCommand(context.getSource(), 25, 400, false))
                         .then(Commands.argument("strength-percent", IntegerArgumentType.integer(
@@ -347,6 +356,23 @@ public final class MinegasmMod {
                 cfg.profile().hapticMode()));
         source.sendSuccess(() -> Component.translatable("minegasm.command.recipe_set",
                 pack.name().toLowerCase(Locale.ROOT)), false);
+        return 1;
+    }
+
+    private void sendBridge(CommandSourceStack source) {
+        source.sendSuccess(() -> Component.translatable("minegasm.command.bridge_current",
+                client.config().raw().bridge().enabled() ? "on" : "off"), false);
+    }
+
+    private int bridgeFromCommand(CommandSourceStack source, boolean enable) {
+        HapticConfig cfg = client.config().raw();
+        HapticConfig.Bridge b = cfg.bridge();
+        client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
+                cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(),
+                new HapticConfig.Bridge(enable, b.url(), b.transport(), b.allowRemote())));
+        source.sendSuccess(() -> Component.translatable("minegasm.command.bridge_set",
+                enable ? "on" : "off"), false);
         return 1;
     }
 

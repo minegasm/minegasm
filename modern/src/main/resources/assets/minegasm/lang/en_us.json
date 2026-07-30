@@ -56,6 +56,8 @@
   "minegasm.settings.allow_remote": "Allow remote server: %s",
   "minegasm.settings.test_limit": "Normal test limit: %s",
   "minegasm.settings.unsafe_limit": "Unsafe test limit: %s",
+  "minegasm.settings.bridge": "Local bridge: %s",
+  "minegasm.settings.bridge_restart": "Local bridge: %s (restart)",
   "minegasm.settings.save": "Save",
 
   "minegasm.customization.button": "Customization...",
@@ -173,6 +175,8 @@
   "minegasm.command.recipe_current": "Minegasm recipe: %s.",
   "minegasm.command.recipe_set": "Minegasm recipe set to %s.",
   "minegasm.command.recipe_unknown": "Unknown Minegasm recipe: %s.",
+  "minegasm.command.bridge_current": "Minegasm bridge: %s.",
+  "minegasm.command.bridge_set": "Minegasm bridge %s. Restart Minecraft for it to take effect.",
   "minegasm.command.connection_busy": "Minegasm is already changing connection state.",
   "minegasm.command.connect_failed": "Minegasm connection failed: %s",
   "minegasm.command.test_sent": "Test sent to %s feature(s) at %s%% for %s ms.",
