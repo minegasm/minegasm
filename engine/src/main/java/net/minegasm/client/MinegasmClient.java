@@ -22,6 +22,8 @@ import net.minegasm.core.Priorities;
 import net.minegasm.device.DeviceRegistrySnapshot;
 import net.minegasm.device.HapticDevice;
 import net.minegasm.device.HapticFeature;
+import net.minegasm.bridge.BridgeTransport;
+import net.minegasm.bridge.TcpLineBridgeTransport;
 import net.minegasm.observe.ClientStateSnapshot;
 import net.minegasm.pack.PackLoader;
 import net.minegasm.pack.PackRegistry;
@@ -96,8 +98,39 @@ public final class MinegasmClient {
             errorHistory.add("[scene-packs] " + packError);
         }
         this.scenePacks = packs.registry();
-        this.runtime = new HapticRuntime(provider, clock, config::get, scenePacks);
+        this.runtime = new HapticRuntime(provider, clock, config::get, scenePacks, buildBridgeTransport());
         provider.setStatusListener(this::recordProviderError);
+    }
+
+    /**
+     * Build the outbound bridge transport when the bridge is enabled and its endpoint is allowed,
+     * otherwise null (no bridge backend). The endpoint must be loopback unless the user opted into
+     * remote, the same rule as the Buttplug server. Only the dependency-free TCP transport is built
+     * here; a modern-only WebSocket transport would be injected by that loader instead.
+     */
+    private BridgeTransport buildBridgeTransport() {
+        RuntimeConfig cfg = config.get();
+        if (!cfg.bridgeEnabled()) {
+            return null;
+        }
+        URI uri;
+        try {
+            uri = URI.create(cfg.bridgeUrl());
+        } catch (IllegalArgumentException bad) {
+            errorHistory.add("[bridge] invalid endpoint " + cfg.bridgeUrl());
+            return null;
+        }
+        if (!cfg.bridgeAllowRemote() && !isLoopback(uri)) {
+            errorHistory.add("[bridge] refusing non-loopback endpoint " + safeHost(uri)
+                    + " (enable 'allow remote')");
+            return null;
+        }
+        String transport = cfg.bridgeTransport();
+        if ("tcp".equals(transport)) {
+            return new TcpLineBridgeTransport();
+        }
+        errorHistory.add("[bridge] transport '" + transport + "' is not available in this build");
+        return null;
     }
 
     /**

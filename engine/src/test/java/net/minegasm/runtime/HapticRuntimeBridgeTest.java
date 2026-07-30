@@ -50,7 +50,8 @@ class HapticRuntimeBridgeTest {
         HapticConfig.Bridge bridge = HapticConfig.defaults().bridge();
         assertTrue(!bridge.enabled(), "bridge is off by default so existing configs are unaffected");
         assertTrue(!bridge.allowRemote());
-        assertTrue(bridge.url().startsWith("ws://127.0.0.1"), "default endpoint is loopback");
+        assertTrue(bridge.url().contains("127.0.0.1"), "default endpoint is loopback");
+        assertEquals("tcp", bridge.transport(), "tcp is the shared default transport");
     }
 
     private static final class NoopTransport implements BridgeTransport {

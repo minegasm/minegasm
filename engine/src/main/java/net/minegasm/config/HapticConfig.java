@@ -473,11 +473,14 @@ public final class HapticConfig implements ConfigValue {
     public static final class Bridge implements ConfigValue {
         private final boolean enabled;
         private final String url;
+        private final String transport;
         private final boolean allowRemote;
 
-        public Bridge(boolean enabled, String url, boolean allowRemote) {
+        public Bridge(boolean enabled, String url, String transport, boolean allowRemote) {
             this.enabled = enabled;
-            this.url = url == null || url.trim().isEmpty() ? "ws://127.0.0.1:12347" : url;
+            this.url = url == null || url.trim().isEmpty() ? "tcp://127.0.0.1:12347" : url;
+            this.transport = transport == null || transport.trim().isEmpty()
+                    ? "tcp" : transport.trim().toLowerCase(java.util.Locale.ROOT);
             this.allowRemote = allowRemote;
         }
 
@@ -489,12 +492,18 @@ public final class HapticConfig implements ConfigValue {
             return url;
         }
 
+        /** Which transport carries the bridge frames: {@code "tcp"} (default, both loaders) or another
+         *  the loader supports (e.g. a modern-only {@code "websocket"}). */
+        public String transport() {
+            return transport;
+        }
+
         public boolean allowRemote() {
             return allowRemote;
         }
 
         public static Bridge defaults() {
-            return new Bridge(false, "ws://127.0.0.1:12347", false);
+            return new Bridge(false, "tcp://127.0.0.1:12347", "tcp", false);
         }
 
         @Override
@@ -508,17 +517,19 @@ public final class HapticConfig implements ConfigValue {
             Bridge other = (Bridge) o;
             return enabled == other.enabled
                     && allowRemote == other.allowRemote
-                    && Objects.equals(url, other.url);
+                    && Objects.equals(url, other.url)
+                    && Objects.equals(transport, other.transport);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(enabled, url, allowRemote);
+            return Objects.hash(enabled, url, transport, allowRemote);
         }
 
         @Override
         public String toString() {
-            return "Bridge[enabled=" + enabled + ", url=" + url + ", allowRemote=" + allowRemote + "]";
+            return "Bridge[enabled=" + enabled + ", url=" + url + ", transport=" + transport
+                    + ", allowRemote=" + allowRemote + "]";
         }
     }
 

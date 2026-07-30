@@ -156,6 +156,10 @@ public final class RuntimeConfig {
         return config.bridge().url();
     }
 
+    public String bridgeTransport() {
+        return config.bridge().transport();
+    }
+
     public boolean bridgeAllowRemote() {
         return config.bridge().allowRemote();
     }
