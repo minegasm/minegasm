@@ -96,7 +96,8 @@ public final class DeviceEditorModel {
 
         return new HapticConfig(original.schemaVersion(), original.profile(), original.global(),
                 original.buttplug(), original.events(), original.outputPolicy(), newDevices,
-                newCalibrations, original.accumulation(), original.customIntensity());
+                newCalibrations, original.accumulation(), original.customIntensity(),
+                original.bridge());
     }
 
     /** Persist the edits through the shared client. */

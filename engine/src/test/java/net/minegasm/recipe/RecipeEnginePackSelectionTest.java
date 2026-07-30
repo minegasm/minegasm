@@ -82,7 +82,8 @@ class RecipeEnginePackSelectionTest {
         HapticConfig.Global g = new HapticConfig.Global(true, 1.0, 0.0, false, "STOP", true, "",
                 50, 2_000, 100, 10_000);
         HapticConfig cfg = new HapticConfig(1, profile, g, d.buttplug(), d.events(), d.outputPolicy(),
-                d.devices(), d.positionCalibrations(), d.accumulation(), d.customIntensity());
+                d.devices(), d.positionCalibrations(), d.accumulation(), d.customIntensity(),
+                d.bridge());
         return RuntimeConfig.of(cfg);
     }
 }

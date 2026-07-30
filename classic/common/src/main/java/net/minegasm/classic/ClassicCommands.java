@@ -162,7 +162,7 @@ public final class ClassicCommands {
                                       HapticConfig.Profile profile) {
         client.updateConfig(new HapticConfig(cfg.schemaVersion(), profile, cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity()));
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
     }
 
     private static String names(Enum<?>[] values) {

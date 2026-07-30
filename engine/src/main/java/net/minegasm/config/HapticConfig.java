@@ -66,22 +66,6 @@ public final class HapticConfig implements ConfigValue {
         this.bridge = bridge == null ? Bridge.defaults() : bridge;
     }
 
-    /** Convenience constructor without the bridge section; defaults it. Keeps existing call sites intact. */
-    public HapticConfig(
-            int schemaVersion,
-            Profile profile,
-            Global global,
-            Buttplug buttplug,
-            Map<String, EventSetting> events,
-            Map<String, OutputPolicy> outputPolicy,
-            Map<String, DeviceSetting> devices,
-            Map<String, PositionCalibration> positionCalibrations,
-            AccumulationParams accumulation,
-            CustomIntensities customIntensity) {
-        this(schemaVersion, profile, global, buttplug, events, outputPolicy, devices,
-                positionCalibrations, accumulation, customIntensity, null);
-    }
-
     private static <K, V> Map<K, V> unmodifiableCopy(Map<K, V> source) {
         return Collections.unmodifiableMap(new LinkedHashMap<>(source));
     }
@@ -545,7 +529,8 @@ public final class HapticConfig implements ConfigValue {
                 Collections.emptyMap(),
                 Collections.emptyMap(),
                 AccumulationParams.defaults(),
-                CustomIntensities.legacyDefaults());
+                CustomIntensities.legacyDefaults(),
+                Bridge.defaults());
     }
 
     private static Map<String, EventSetting> defaultEvents() {

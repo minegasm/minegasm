@@ -140,7 +140,8 @@ public final class CustomizationModel {
 
         return new HapticConfig(original.schemaVersion(), original.profile(), original.global(),
                 newButtplug, newEvents, newOutputPolicy, original.devices(),
-                original.positionCalibrations(), newAccumulation, newCustomIntensity);
+                original.positionCalibrations(), newAccumulation, newCustomIntensity,
+                original.bridge());
     }
 
     /** Persist the edits through the shared client. */

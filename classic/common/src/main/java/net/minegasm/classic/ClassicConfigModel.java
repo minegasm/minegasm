@@ -168,7 +168,8 @@ public final class ClassicConfigModel {
 
         return new HapticConfig(original.schemaVersion(), newIdentity, newGlobal, newButtplug,
                 original.events(), original.outputPolicy(), original.devices(),
-                original.positionCalibrations(), original.accumulation(), original.customIntensity());
+                original.positionCalibrations(), original.accumulation(), original.customIntensity(),
+                original.bridge());
     }
 
     /** Persist the edits through the shared client (which stops output on an enable->disable change). */

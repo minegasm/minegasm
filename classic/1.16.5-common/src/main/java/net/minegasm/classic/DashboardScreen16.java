@@ -218,7 +218,7 @@ public final class DashboardScreen16 extends Screen {
                         g.testMaxPercent(), g.testMaxDurationMs(),
                         g.unsafeTestMaxPercent(), g.unsafeTestMaxDurationMs()),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity());
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
         client.updateConfig(updated);
         rebuild();
     }

@@ -166,7 +166,7 @@ public final class MinegasmConfigScreen extends Screen {
                         g.testMaxPercent(), g.testMaxDurationMs(),
                         g.unsafeTestMaxPercent(), g.unsafeTestMaxDurationMs()),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity());
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
         client.updateConfig(updated);
         rebuildWidgets();
     }
@@ -188,7 +188,7 @@ public final class MinegasmConfigScreen extends Screen {
                 new HapticConfig.Buttplug(bp.serverUrl(), bp.autoConnect(), bp.autoScan(),
                         bp.allowRemoteServer(), bp.reconnect(), adapter),
                 cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
-                cfg.accumulation(), cfg.customIntensity());
+                cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
         client.updateConfig(updated);
         adapterRestartRequired = true;
         rebuildWidgets();

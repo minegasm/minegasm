@@ -238,7 +238,7 @@ public final class MinegasmSettingsScreen extends Screen {
                 new HapticConfig.Buttplug(url, autoConnect, autoScan, allowRemote,
                         bp.reconnect(), bp.client()),
                 cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
-                cfg.accumulation(), cfg.customIntensity());
+                cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
         client.updateConfig(updated);
         onClose();
     }

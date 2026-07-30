@@ -355,7 +355,7 @@ public final class MinegasmMod {
         HapticConfig cfg = client.config().raw();
         client.updateConfig(new HapticConfig(cfg.schemaVersion(), profile, cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity()));
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
     }
 
     private static java.util.List<String> lowerNames(Enum<?>[] values) {

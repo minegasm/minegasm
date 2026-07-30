@@ -33,7 +33,7 @@ class ConfigStoreTest {
                 40, 1_500, 80, 30_000);
         HapticConfig toSave = new HapticConfig(1, new HapticConfig.Profile("classic", "REACTION"),
                 enabled, cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity());
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
         store.save(toSave);
 
         ConfigStore.LoadResult result = store.load();
@@ -57,7 +57,7 @@ class ConfigStoreTest {
         // A config written before the mode rename stores the old name; it must load as the new mode.
         HapticConfig legacy = new HapticConfig(1, new HapticConfig.Profile("balanced", "MASOCHIST"),
                 cfg.global(), cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity());
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
         store.save(legacy);
 
         assertEquals(MinegasmMode.REACTION, store.load().config().profile().mode());
