@@ -35,6 +35,8 @@ public final class ClassicConfigScreen extends GuiScreen {
     private static final int ID_LEGACY = 8;
     private static final int ID_DONE = 9;
     private static final int ID_CLEAR_ERRORS = 10;
+    private static final int ID_CUSTOMIZATION = 11;
+    private static final int ID_DEVICE_EDITOR = 12;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
@@ -99,6 +101,9 @@ public final class ClassicConfigScreen extends GuiScreen {
         y += gap;
         buttonList.add(new GuiButton(ID_SETTINGS, leftX, y, columnWidth, h, "Settings..."));
         y += gap;
+        buttonList.add(new GuiButton(ID_CUSTOMIZATION, leftX, y, half, h, "Customization..."));
+        buttonList.add(new GuiButton(ID_DEVICE_EDITOR, leftX + half + 4, y, half, h, "Device editor..."));
+        y += gap;
         if (client.hasLegacyConfig()) {
             buttonList.add(new GuiButton(ID_LEGACY, leftX, y, columnWidth, h, "Import legacy config..."));
         }
@@ -148,6 +153,12 @@ public final class ClassicConfigScreen extends GuiScreen {
                 break;
             case ID_SETTINGS:
                 mc.displayGuiScreen(new ClassicSettingsScreen(this));
+                break;
+            case ID_CUSTOMIZATION:
+                mc.displayGuiScreen(new CustomizationScreen(this));
+                break;
+            case ID_DEVICE_EDITOR:
+                mc.displayGuiScreen(new DeviceEditorScreen(this));
                 break;
             case ID_LEGACY:
                 mc.displayGuiScreen(new ClassicLegacyImportScreen(this));

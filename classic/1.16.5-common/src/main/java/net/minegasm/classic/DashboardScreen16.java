@@ -129,6 +129,12 @@ public final class DashboardScreen16 extends Screen {
                 new TextComponent("Settings..."), b -> openSettings()));
         y += gap;
 
+        addButton(new Button(leftX, y, half, h,
+                new TextComponent("Customization..."), b -> openCustomization()));
+        addButton(new Button(leftX + half + 4, y, half, h,
+                new TextComponent("Device editor..."), b -> openDeviceEditor()));
+        y += gap;
+
         if (client.hasLegacyConfig()) {
             addButton(new Button(leftX, y, columnWidth, h,
                     new TextComponent("Import legacy config..."), b -> openLegacyImport()));
@@ -254,6 +260,14 @@ public final class DashboardScreen16 extends Screen {
 
     private void openSettings() {
         minecraft.setScreen(new SettingsScreen16(this, client));
+    }
+
+    private void openCustomization() {
+        minecraft.setScreen(new CustomizationScreen16(this, client));
+    }
+
+    private void openDeviceEditor() {
+        minecraft.setScreen(new DeviceEditorScreen16(this, client));
     }
 
     private void openLegacyImport() {

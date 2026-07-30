@@ -122,6 +122,12 @@ public final class MinegasmConfigScreen extends Screen {
                 b -> openSettings(), leftX, y, columnWidth, h));
         y += gap;
 
+        addRenderableWidget(button(Component.translatable("minegasm.customization.button"),
+                b -> openCustomization(), leftX, y, half, h));
+        addRenderableWidget(button(Component.translatable("minegasm.devices.editor.button"),
+                b -> openDeviceEditor(), leftX + half + 4, y, half, h));
+        y += gap;
+
         if (client.hasLegacyConfig()) {
             addRenderableWidget(button(Component.translatable("minegasm.legacy.button"),
                     b -> openLegacyImport(), leftX, y, columnWidth, h));
@@ -199,6 +205,22 @@ public final class MinegasmConfigScreen extends Screen {
         this.minecraft.gui.setScreen(new MinegasmSettingsScreen(this, client));
         //?} else {
         /*this.minecraft.setScreen(new MinegasmSettingsScreen(this, client));
+        *///?}
+    }
+
+    private void openCustomization() {
+        //? if >=26.2 {
+        this.minecraft.gui.setScreen(new MinegasmCustomizationScreen(this, client));
+        //?} else {
+        /*this.minecraft.setScreen(new MinegasmCustomizationScreen(this, client));
+        *///?}
+    }
+
+    private void openDeviceEditor() {
+        //? if >=26.2 {
+        this.minecraft.gui.setScreen(new MinegasmDeviceEditorScreen(this, client));
+        //?} else {
+        /*this.minecraft.setScreen(new MinegasmDeviceEditorScreen(this, client));
         *///?}
     }
 
