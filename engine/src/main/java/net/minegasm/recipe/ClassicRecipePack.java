@@ -1,6 +1,5 @@
 package net.minegasm.recipe;
 
-import net.minegasm.config.RecipePackId;
 import net.minegasm.core.CouplingMode;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticPrimitive;
@@ -28,8 +27,8 @@ public final class ClassicRecipePack implements RecipePack {
     private static final float BOOST = 0.20f;
 
     @Override
-    public RecipePackId id() {
-        return RecipePackId.CLASSIC;
+    public String id() {
+        return "classic";
     }
 
     @Override

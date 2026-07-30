@@ -1,6 +1,5 @@
 package net.minegasm.recipe;
 
-import net.minegasm.config.RecipePackId;
 import net.minegasm.core.CouplingMode;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticPrimitive;
@@ -24,8 +23,8 @@ public final class BalancedRecipePack implements RecipePack {
 
 
     @Override
-    public RecipePackId id() {
-        return RecipePackId.BALANCED;
+    public String id() {
+        return "balanced";
     }
 
     @Override
