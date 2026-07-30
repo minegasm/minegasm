@@ -53,9 +53,15 @@ public final class SceneTemplate {
      * two packs cannot collide.
      */
     public HapticScene materialize(String packId, GameEventKind kind, long nowNs) {
+        return materialize(packId, kind, nowNs, 1f, 1f);
+    }
+
+    /** Materialize, scaling each layer's amplitude by the user's volume and its strength response. */
+    public HapticScene materialize(String packId, GameEventKind kind, long nowNs, float userGain,
+                                   float strength) {
         List<HapticLayer> built = new ArrayList<>(layers.size());
         for (LayerTemplate layer : layers) {
-            built.add(layer.materialize());
+            built.add(layer.materialize(userGain, strength));
         }
         long expiresAtNs = nowNs + durationMs * 1_000_000L;
         return new HapticScene(packId + ":" + kind.name(), kind, priority, built, nowNs, expiresAtNs,

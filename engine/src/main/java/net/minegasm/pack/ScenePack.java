@@ -71,9 +71,17 @@ public final class ScenePack {
      * event wins; an event this pack does not cover returns empty so the caller can fall through.
      */
     public Optional<HapticScene> resolve(GameEventKind kind, long nowNs) {
+        return resolve(kind, nowNs, 1f, 1f);
+    }
+
+    /**
+     * Materialize the scene for {@code kind}, scaling each layer by the user's volume ({@code userGain})
+     * and the event's {@code strength} through the layer's strength response (brief 0003 §2.4).
+     */
+    public Optional<HapticScene> resolve(GameEventKind kind, long nowNs, float userGain, float strength) {
         for (PackTrigger trigger : triggers) {
             if (trigger.event() == kind) {
-                return Optional.of(trigger.scene().materialize(packId, kind, nowNs));
+                return Optional.of(trigger.scene().materialize(packId, kind, nowNs, userGain, strength));
             }
         }
         return Optional.empty();

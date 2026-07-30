@@ -125,8 +125,9 @@ public final class ScenePackCodec {
         int startOffsetMs = boundMs(optInt(o, "startOffsetMs", 0));
         int expiresAfterMs = boundMs(optInt(o, "expiresAfterMs", 0));
         String coalesceKey = optNullableString(o, "coalesceKey");
+        float strengthWeight = unit(o, "strengthWeight");
         return new LayerTemplate(layerId, role, primitive, allowed, delivery, coupling, priority,
-                startOffsetMs, expiresAfterMs, coalesceKey);
+                startOffsetMs, expiresAfterMs, coalesceKey, strengthWeight);
     }
 
     private static HapticPrimitive readPrimitive(JsonObject o) {
@@ -245,6 +246,9 @@ public final class ScenePackCodec {
         o.addProperty("expiresAfterMs", l.expiresAfterMs());
         if (l.coalesceKey() != null) {
             o.addProperty("coalesceKey", l.coalesceKey());
+        }
+        if (l.strengthWeight() > 0f) {
+            o.addProperty("strengthWeight", l.strengthWeight());
         }
         return o;
     }

@@ -40,8 +40,11 @@ class ScenePackCodecTest {
 
     private static ScenePack allPrimitivesPack() {
         List<LayerTemplate> layers = new ArrayList<>();
-        layers.add(layer("impulse", new HapticPrimitive.Impulse(0.5f, 200, 10, 40),
-                EnumSet.of(OutputKind.VIBRATE, OutputKind.OSCILLATE)));
+        // A non-zero strengthWeight so the Tier 2 field is exercised by the round trip.
+        layers.add(new LayerTemplate("impulse", HapticRole.IMPACT,
+                new HapticPrimitive.Impulse(0.5f, 200, 10, 40),
+                EnumSet.of(OutputKind.VIBRATE, OutputKind.OSCILLATE),
+                DeliveryMode.ALL_COMPATIBLE, CouplingMode.MAX, 100, 0, 3000, "cont", 0.5f));
         layers.add(layer("texture", new HapticPrimitive.Texture(0.75f, 300, 0.25f, 0.5f, 0.125f),
                 Collections.<OutputKind>emptySet()));
         layers.add(layer("rumble", new HapticPrimitive.Rumble(0.5f, 500, 0.25f, true),

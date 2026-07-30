@@ -7,16 +7,24 @@ import net.minegasm.core.HapticPrimitive;
 import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticRoute;
 import net.minegasm.core.OutputKind;
+import net.minegasm.util.HapticMath;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /**
  * Authoring form of one {@link HapticLayer} (brief 0003 §2.3): a role, one primitive, a
  * capability-only route (allowed output kinds plus delivery, never device- or feature-specific so it
- * stays shareable), coupling, priority, and timing expressed in milliseconds relative to the scene.
+ * stays shareable), coupling, priority, and timing in milliseconds relative to the scene.
+ *
+ * <p>{@code strengthWeight} in {@code [0, 1]} is the Tier 2 (brief §2.4) strength response: how much
+ * the layer's amplitude follows the triggering event's strength. 0 is a static Tier 1 layer (always
+ * full); 1 makes the layer fully proportional to strength; between, weak events are attenuated toward
+ * {@code 1 - weight}. The authored primitive level is the full-strength reference.
  */
 public final class LayerTemplate {
 
@@ -30,10 +38,19 @@ public final class LayerTemplate {
     private final int startOffsetMs;
     private final int expiresAfterMs;
     private final String coalesceKey;
+    private final float strengthWeight;
 
     public LayerTemplate(String layerId, HapticRole role, HapticPrimitive primitive,
                          Set<OutputKind> allowedOutputs, DeliveryMode delivery, CouplingMode coupling,
                          int priority, int startOffsetMs, int expiresAfterMs, String coalesceKey) {
+        this(layerId, role, primitive, allowedOutputs, delivery, coupling, priority, startOffsetMs,
+                expiresAfterMs, coalesceKey, 0f);
+    }
+
+    public LayerTemplate(String layerId, HapticRole role, HapticPrimitive primitive,
+                         Set<OutputKind> allowedOutputs, DeliveryMode delivery, CouplingMode coupling,
+                         int priority, int startOffsetMs, int expiresAfterMs, String coalesceKey,
+                         float strengthWeight) {
         if (layerId == null || layerId.trim().isEmpty()) {
             throw new IllegalArgumentException("layerId required");
         }
@@ -55,6 +72,7 @@ public final class LayerTemplate {
         this.startOffsetMs = startOffsetMs;
         this.expiresAfterMs = expiresAfterMs;
         this.coalesceKey = coalesceKey;
+        this.strengthWeight = HapticMath.clamp01(strengthWeight);
     }
 
     public String layerId() {
@@ -97,16 +115,72 @@ public final class LayerTemplate {
         return coalesceKey;
     }
 
-    /**
-     * Build the runtime layer. Timing is converted to nanoseconds with long arithmetic; a
-     * multi-second offset overflows a plain {@code int * 1_000_000}, so the {@code L} matters. An empty
-     * {@code allowedOutputs} lets {@link HapticRoute}'s constructor pick its buzz default.
-     */
+    public float strengthWeight() {
+        return strengthWeight;
+    }
+
+    /** Build the runtime layer at full volume and full strength (the authored reference). */
     public HapticLayer materialize() {
+        return materialize(1f, 1f);
+    }
+
+    /**
+     * Build the runtime layer, scaling amplitude by the user's volume and this layer's strength
+     * response. The factor is {@code userGain * ((1 - strengthWeight) + strengthWeight * strength)};
+     * only the primitive's level(s) are scaled, never its character or timing. Timing converts to
+     * nanoseconds with long arithmetic so a multi-second offset does not overflow, and an empty
+     * {@code allowedOutputs} lets {@link HapticRoute} pick its buzz default.
+     */
+    public HapticLayer materialize(float userGain, float strength) {
+        float factor = userGain * ((1f - strengthWeight) + strengthWeight * strength);
         HapticRoute route = new HapticRoute(allowedOutputs, Collections.<Integer>emptySet(),
                 Collections.emptySet(), Collections.emptySet(), delivery);
-        return new HapticLayer(layerId, role, primitive, route, coupling, priority,
+        return new HapticLayer(layerId, role, scale(primitive, factor), route, coupling, priority,
                 startOffsetMs * 1_000_000L, expiresAfterMs * 1_000_000L, coalesceKey);
+    }
+
+    /**
+     * Scale a primitive's amplitude by {@code factor}, leaving character and timing untouched. The
+     * trailing throw keeps this exhaustive so a new core primitive fails loudly rather than passing
+     * through unscaled (mirrors PrimitiveEvaluator).
+     */
+    private static HapticPrimitive scale(HapticPrimitive p, float factor) {
+        if (p instanceof HapticPrimitive.Impulse) {
+            HapticPrimitive.Impulse i = (HapticPrimitive.Impulse) p;
+            return new HapticPrimitive.Impulse(lvl(i.level(), factor), i.durationMs(), i.attackMs(),
+                    i.releaseMs());
+        } else if (p instanceof HapticPrimitive.Texture) {
+            HapticPrimitive.Texture t = (HapticPrimitive.Texture) p;
+            return new HapticPrimitive.Texture(lvl(t.level(), factor), t.durationMs(), t.grain(),
+                    t.density(), t.irregularity());
+        } else if (p instanceof HapticPrimitive.Rumble) {
+            HapticPrimitive.Rumble r = (HapticPrimitive.Rumble) p;
+            return new HapticPrimitive.Rumble(lvl(r.level(), factor), r.durationMs(), r.roughness(),
+                    r.decay());
+        } else if (p instanceof HapticPrimitive.Sweep) {
+            HapticPrimitive.Sweep s = (HapticPrimitive.Sweep) p;
+            return new HapticPrimitive.Sweep(lvl(s.from(), factor), lvl(s.to(), factor), s.durationMs(),
+                    s.easing());
+        } else if (p instanceof HapticPrimitive.BeatPattern) {
+            HapticPrimitive.BeatPattern bp = (HapticPrimitive.BeatPattern) p;
+            List<HapticPrimitive.Beat> beats = new ArrayList<>(bp.beats().size());
+            for (HapticPrimitive.Beat b : bp.beats()) {
+                beats.add(new HapticPrimitive.Beat(b.atMs(), lvl(b.level(), factor), b.durationMs()));
+            }
+            return new HapticPrimitive.BeatPattern(beats);
+        } else if (p instanceof HapticPrimitive.Hold) {
+            HapticPrimitive.Hold h = (HapticPrimitive.Hold) p;
+            return new HapticPrimitive.Hold(lvl(h.level(), factor), h.durationMs(), h.fadeInMs(),
+                    h.fadeOutMs());
+        } else if (p instanceof HapticPrimitive.Oscillation) {
+            HapticPrimitive.Oscillation o = (HapticPrimitive.Oscillation) p;
+            return new HapticPrimitive.Oscillation(lvl(o.level(), factor), o.periodMs(), o.durationMs());
+        }
+        throw new IllegalStateException("Unknown HapticPrimitive: " + p);
+    }
+
+    private static float lvl(float level, float factor) {
+        return HapticMath.clamp01(level * factor);
     }
 
     @Override
@@ -121,6 +195,7 @@ public final class LayerTemplate {
         return priority == other.priority
                 && startOffsetMs == other.startOffsetMs
                 && expiresAfterMs == other.expiresAfterMs
+                && Float.compare(strengthWeight, other.strengthWeight) == 0
                 && Objects.equals(layerId, other.layerId)
                 && role == other.role
                 && Objects.equals(primitive, other.primitive)
@@ -133,7 +208,7 @@ public final class LayerTemplate {
     @Override
     public int hashCode() {
         return Objects.hash(layerId, role, primitive, allowedOutputs, delivery, coupling, priority,
-                startOffsetMs, expiresAfterMs, coalesceKey);
+                startOffsetMs, expiresAfterMs, coalesceKey, strengthWeight);
     }
 
     @Override
@@ -141,6 +216,7 @@ public final class LayerTemplate {
         return "LayerTemplate[layerId=" + layerId + ", role=" + role + ", primitive=" + primitive
                 + ", allowedOutputs=" + allowedOutputs + ", delivery=" + delivery + ", coupling="
                 + coupling + ", priority=" + priority + ", startOffsetMs=" + startOffsetMs
-                + ", expiresAfterMs=" + expiresAfterMs + ", coalesceKey=" + coalesceKey + "]";
+                + ", expiresAfterMs=" + expiresAfterMs + ", coalesceKey=" + coalesceKey
+                + ", strengthWeight=" + strengthWeight + "]";
     }
 }

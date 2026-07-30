@@ -55,16 +55,37 @@ class FileRecipePackTest {
         assertFalse(pack.resolve(ctx(GameEventKind.ATTACK, 1.0f)).isPresent());
     }
 
+    @Test
+    void strengthWeightMakesAmplitudeFollowEventStrength() {
+        // weight 1 is fully proportional to strength; at half strength, half level.
+        FileRecipePack pack = packWith(new HapticPrimitive.Impulse(0.8f, 200, 10, 40), 1.0f);
+
+        HapticScene scene = pack.resolve(ctx(GameEventKind.HURT, 1.0f, 0.5f))
+                .orElseThrow(AssertionError::new);
+        HapticPrimitive.Impulse i = (HapticPrimitive.Impulse) scene.layers().get(0).primitive();
+
+        assertEquals(0.4f, i.level(), 1e-6f, "level follows strength when weight is 1");
+    }
+
     private static FileRecipePack packWith(HapticPrimitive primitive) {
+        return packWith(primitive, 0f);
+    }
+
+    private static FileRecipePack packWith(HapticPrimitive primitive, float strengthWeight) {
         LayerTemplate layer = new LayerTemplate("l", HapticRole.TEXTURE, primitive,
-                Collections.emptySet(), DeliveryMode.ALL_COMPATIBLE, CouplingMode.MAX, 0, 0, 300, null);
+                Collections.emptySet(), DeliveryMode.ALL_COMPATIBLE, CouplingMode.MAX, 0, 0, 300, null,
+                strengthWeight);
         SceneTemplate scene = new SceneTemplate(100, 300, null, Collections.singletonList(layer));
         return new FileRecipePack(new ScenePack(ScenePack.SCHEMA_VERSION, "my.pack", "", "", "",
                 Collections.singletonList(new PackTrigger(GameEventKind.HURT, scene))));
     }
 
     private static RecipeContext ctx(GameEventKind kind, float userGain) {
-        HapticIntent intent = new HapticIntent(kind, kind.key(), 1f, 1f, null, null,
+        return ctx(kind, userGain, 1f);
+    }
+
+    private static RecipeContext ctx(GameEventKind kind, float userGain, float strength) {
+        HapticIntent intent = new HapticIntent(kind, kind.key(), strength, strength, null, null,
                 Collections.<String>emptySet(), 1L, NOW);
         return new RecipeContext(intent, 1f, userGain, RuntimeConfig.defaults(), NOW);
     }
