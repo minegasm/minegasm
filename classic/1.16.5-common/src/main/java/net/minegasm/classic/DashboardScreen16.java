@@ -206,7 +206,7 @@ public final class DashboardScreen16 extends Screen {
     private void toggleEnabled() {
         HapticConfig cfg = client.config().raw();
         HapticConfig.Global g = cfg.global();
-        HapticConfig updated = new HapticConfig(cfg.schemaVersion(), cfg.identity(),
+        HapticConfig updated = new HapticConfig(cfg.schemaVersion(), cfg.profile(),
                 new HapticConfig.Global(!g.enabled(), g.intensity(), g.variation(),
                         g.fatigueProtection(), g.pauseBehavior(), g.stopOnWorldUnload(), g.panicKey(),
                         g.testMaxPercent(), g.testMaxDurationMs(),

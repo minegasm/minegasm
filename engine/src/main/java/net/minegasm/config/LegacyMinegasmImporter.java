@@ -82,7 +82,7 @@ public final class LegacyMinegasmImporter {
                 start.global().stopOnWorldUnload(), start.global().panicKey(),
                 start.global().testMaxPercent(), start.global().testMaxDurationMs(),
                 start.global().unsafeTestMaxPercent(), start.global().unsafeTestMaxDurationMs());
-        HapticConfig.Identity identity = new HapticConfig.Identity(
+        HapticConfig.Profile identity = new HapticConfig.Profile(
                 RecipePackId.CLASSIC.name().toLowerCase(java.util.Locale.ROOT), mode.name());
 
         HapticConfig result = new HapticConfig(

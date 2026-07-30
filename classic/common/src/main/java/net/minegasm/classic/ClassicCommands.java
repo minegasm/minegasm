@@ -109,7 +109,7 @@ public final class ClassicCommands {
     private static void mode(MinegasmClient client, Feedback out, String[] args) {
         HapticConfig cfg = client.config().raw();
         if (args.length < 2) {
-            out.info("Mode: " + cfg.identity().mode().name().toLowerCase(Locale.ROOT)
+            out.info("Mode: " + cfg.profile().mode().name().toLowerCase(Locale.ROOT)
                     + ". Options: " + names(MinegasmMode.values()));
             return;
         }
@@ -118,14 +118,14 @@ public final class ClassicCommands {
             out.error("Unknown mode '" + args[1] + "'. Options: " + names(MinegasmMode.values()));
             return;
         }
-        applyIdentity(client, cfg, new HapticConfig.Identity(cfg.identity().recipePack(), mode.name()));
+        applyProfile(client, cfg, new HapticConfig.Profile(cfg.profile().recipePack(), mode.name()));
         out.info("Mode set to " + mode.name().toLowerCase(Locale.ROOT) + ".");
     }
 
     private static void recipe(MinegasmClient client, Feedback out, String[] args) {
         HapticConfig cfg = client.config().raw();
         if (args.length < 2) {
-            out.info("Recipe: " + cfg.identity().recipePackId().name().toLowerCase(Locale.ROOT)
+            out.info("Recipe: " + cfg.profile().recipePackId().name().toLowerCase(Locale.ROOT)
                     + ". Options: " + names(RecipePackId.values()));
             return;
         }
@@ -134,15 +134,15 @@ public final class ClassicCommands {
             out.error("Unknown recipe '" + args[1] + "'. Options: " + names(RecipePackId.values()));
             return;
         }
-        applyIdentity(client, cfg, new HapticConfig.Identity(
-                pack.name().toLowerCase(Locale.ROOT), cfg.identity().compatibilityMode()));
+        applyProfile(client, cfg, new HapticConfig.Profile(
+                pack.name().toLowerCase(Locale.ROOT), cfg.profile().hapticMode()));
         out.info("Recipe set to " + pack.name().toLowerCase(Locale.ROOT) + ".");
     }
 
-    /** Persist a new identity (recipe pack + mode), preserving everything else in the config. */
-    private static void applyIdentity(MinegasmClient client, HapticConfig cfg,
-                                      HapticConfig.Identity identity) {
-        client.updateConfig(new HapticConfig(cfg.schemaVersion(), identity, cfg.global(),
+    /** Persist a new profile (recipe pack + mode), preserving everything else in the config. */
+    private static void applyProfile(MinegasmClient client, HapticConfig cfg,
+                                      HapticConfig.Profile profile) {
+        client.updateConfig(new HapticConfig(cfg.schemaVersion(), profile, cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
                 cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity()));
     }

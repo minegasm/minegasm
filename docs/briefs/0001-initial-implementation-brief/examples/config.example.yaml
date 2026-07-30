@@ -1,8 +1,8 @@
 schemaVersion: 1
 
-identity:
+profile:
   recipePack: balanced
-  compatibilityMode: HEDONIST
+  hapticMode: IMMERSION
 
 global:
   enabled: false

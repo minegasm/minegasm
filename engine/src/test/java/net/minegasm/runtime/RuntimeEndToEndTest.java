@@ -74,7 +74,7 @@ class RuntimeEndToEndTest {
     private void setStopOptions(boolean pause, boolean worldUnload) {
         var raw = cfg.raw();
         var global = raw.global();
-        cfg = RuntimeConfig.of(new HapticConfig(raw.schemaVersion(), raw.identity(),
+        cfg = RuntimeConfig.of(new HapticConfig(raw.schemaVersion(), raw.profile(),
                 new HapticConfig.Global(global.enabled(), global.intensity(), global.variation(),
                         global.fatigueProtection(),
                         pause ? PauseBehavior.STOP.name() : PauseBehavior.CONTINUE.name(),
@@ -88,7 +88,7 @@ class RuntimeEndToEndTest {
     private void setPauseBehavior(PauseBehavior behavior) {
         var raw = cfg.raw();
         var global = raw.global();
-        cfg = RuntimeConfig.of(new HapticConfig(raw.schemaVersion(), raw.identity(),
+        cfg = RuntimeConfig.of(new HapticConfig(raw.schemaVersion(), raw.profile(),
                 new HapticConfig.Global(global.enabled(), global.intensity(), global.variation(),
                         global.fatigueProtection(), behavior.name(),
                         global.stopOnWorldUnload(), global.panicKey(),

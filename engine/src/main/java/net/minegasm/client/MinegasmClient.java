@@ -169,7 +169,7 @@ public final class MinegasmClient {
         if (g.enabled() == enabled) {
             return false;
         }
-        HapticConfig updated = new HapticConfig(cfg.schemaVersion(), cfg.identity(),
+        HapticConfig updated = new HapticConfig(cfg.schemaVersion(), cfg.profile(),
                 new HapticConfig.Global(enabled, g.intensity(), g.variation(),
                         g.fatigueProtection(), g.pauseBehavior(), g.stopOnWorldUnload(), g.panicKey(),
                         g.testMaxPercent(), g.testMaxDurationMs(),

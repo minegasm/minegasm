@@ -21,7 +21,7 @@ public final class Configs {
         HapticConfig d = HapticConfig.defaults();
         var g = new HapticConfig.Global(false, 1.0, 0.0, false, "STOP", true, "",
                 50, 2_000, 100, 10_000);
-        return RuntimeConfig.of(rebuild(d, d.identity(), g));
+        return RuntimeConfig.of(rebuild(d, d.profile(), g));
     }
 
     /** Enabled config with experimental Position + HwPositionWithDuration outputs turned on. */
@@ -39,7 +39,7 @@ public final class Configs {
     private static RuntimeConfig build(MinegasmMode mode, RecipePackId pack, boolean enabled,
                                        Map<String, net.minegasm.config.OutputPolicy> extraPolicy) {
         HapticConfig d = HapticConfig.defaults();
-        var id = new HapticConfig.Identity(pack.name().toLowerCase(java.util.Locale.ROOT), mode.name());
+        var id = new HapticConfig.Profile(pack.name().toLowerCase(java.util.Locale.ROOT), mode.name());
         // Variation 0 and fatigue off for deterministic amplitudes in tests.
         var g = new HapticConfig.Global(enabled, 1.0, 0.0, false, "STOP", true, "",
                 50, 2_000, 100, 10_000);
@@ -50,7 +50,7 @@ public final class Configs {
         return RuntimeConfig.of(cfg);
     }
 
-    private static HapticConfig rebuild(HapticConfig d, HapticConfig.Identity id, HapticConfig.Global g) {
+    private static HapticConfig rebuild(HapticConfig d, HapticConfig.Profile id, HapticConfig.Global g) {
         return new HapticConfig(1, id, g, d.buttplug(), d.events(), d.outputPolicy(),
                 d.devices(), d.positionCalibrations(), d.accumulation(), d.customIntensity());
     }

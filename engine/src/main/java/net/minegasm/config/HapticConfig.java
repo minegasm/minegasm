@@ -21,7 +21,7 @@ public final class HapticConfig implements ConfigValue {
     public static final int CURRENT_SCHEMA_VERSION = 1;
 
     private final int schemaVersion;
-    private final Identity identity;
+    private final Profile profile;
     private final Global global;
     private final Buttplug buttplug;
     private final Map<String, EventSetting> events;
@@ -33,7 +33,7 @@ public final class HapticConfig implements ConfigValue {
 
     public HapticConfig(
             int schemaVersion,
-            Identity identity,
+            Profile profile,
             Global global,
             Buttplug buttplug,
             Map<String, EventSetting> events,
@@ -43,7 +43,7 @@ public final class HapticConfig implements ConfigValue {
             AccumulationParams accumulation,
             CustomIntensities customIntensity) {
         this.schemaVersion = schemaVersion <= 0 ? CURRENT_SCHEMA_VERSION : schemaVersion;
-        this.identity = identity == null ? Identity.defaults() : identity;
+        this.profile = profile == null ? Profile.defaults() : profile;
         this.global = global == null ? Global.defaults() : global;
         this.buttplug = buttplug == null ? Buttplug.defaults() : buttplug;
         this.events = events == null || events.isEmpty()
@@ -66,8 +66,8 @@ public final class HapticConfig implements ConfigValue {
         return schemaVersion;
     }
 
-    public Identity identity() {
-        return identity;
+    public Profile profile() {
+        return profile;
     }
 
     public Global global() {
@@ -112,7 +112,7 @@ public final class HapticConfig implements ConfigValue {
         }
         HapticConfig other = (HapticConfig) o;
         return schemaVersion == other.schemaVersion
-                && Objects.equals(identity, other.identity)
+                && Objects.equals(profile, other.profile)
                 && Objects.equals(global, other.global)
                 && Objects.equals(buttplug, other.buttplug)
                 && Objects.equals(events, other.events)
@@ -125,39 +125,39 @@ public final class HapticConfig implements ConfigValue {
 
     @Override
     public int hashCode() {
-        return Objects.hash(schemaVersion, identity, global, buttplug, events, outputPolicy, devices,
+        return Objects.hash(schemaVersion, profile, global, buttplug, events, outputPolicy, devices,
                 positionCalibrations, accumulation, customIntensity);
     }
 
     @Override
     public String toString() {
-        return "HapticConfig[schemaVersion=" + schemaVersion + ", identity=" + identity
+        return "HapticConfig[schemaVersion=" + schemaVersion + ", profile=" + profile
                 + ", global=" + global + ", buttplug=" + buttplug + ", events=" + events
                 + ", outputPolicy=" + outputPolicy + ", devices=" + devices
                 + ", positionCalibrations=" + positionCalibrations + ", accumulation=" + accumulation
                 + ", customIntensity=" + customIntensity + "]";
     }
 
-    /** Recipe pack + compatibility mode selection. */
-    public static final class Identity implements ConfigValue {
+    /** Recipe pack + haptic mode selection. */
+    public static final class Profile implements ConfigValue {
         private final String recipePack;
-        private final String compatibilityMode;
+        private final String hapticMode;
 
-        public Identity(String recipePack, String compatibilityMode) {
+        public Profile(String recipePack, String hapticMode) {
             this.recipePack = recipePack == null ? "balanced" : recipePack;
-            this.compatibilityMode = compatibilityMode == null ? "IMMERSION" : compatibilityMode;
+            this.hapticMode = hapticMode == null ? "IMMERSION" : hapticMode;
         }
 
         public String recipePack() {
             return recipePack;
         }
 
-        public String compatibilityMode() {
-            return compatibilityMode;
+        public String hapticMode() {
+            return hapticMode;
         }
 
-        public static Identity defaults() {
-            return new Identity("balanced", "IMMERSION");
+        public static Profile defaults() {
+            return new Profile("balanced", "IMMERSION");
         }
 
         public RecipePackId recipePackId() {
@@ -165,7 +165,7 @@ public final class HapticConfig implements ConfigValue {
         }
 
         public MinegasmMode mode() {
-            return MinegasmMode.fromString(compatibilityMode, MinegasmMode.IMMERSION);
+            return MinegasmMode.fromString(hapticMode, MinegasmMode.IMMERSION);
         }
 
         @Override
@@ -173,22 +173,22 @@ public final class HapticConfig implements ConfigValue {
             if (this == o) {
                 return true;
             }
-            if (!(o instanceof Identity)) {
+            if (!(o instanceof Profile)) {
                 return false;
             }
-            Identity other = (Identity) o;
+            Profile other = (Profile) o;
             return Objects.equals(recipePack, other.recipePack)
-                    && Objects.equals(compatibilityMode, other.compatibilityMode);
+                    && Objects.equals(hapticMode, other.hapticMode);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(recipePack, compatibilityMode);
+            return Objects.hash(recipePack, hapticMode);
         }
 
         @Override
         public String toString() {
-            return "Identity[recipePack=" + recipePack + ", compatibilityMode=" + compatibilityMode
+            return "Profile[recipePack=" + recipePack + ", hapticMode=" + hapticMode
                     + "]";
         }
     }
@@ -439,7 +439,7 @@ public final class HapticConfig implements ConfigValue {
     public static HapticConfig defaults() {
         return new HapticConfig(
                 CURRENT_SCHEMA_VERSION,
-                Identity.defaults(),
+                Profile.defaults(),
                 Global.defaults(),
                 Buttplug.defaults(),
                 defaultEvents(),

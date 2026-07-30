@@ -53,7 +53,7 @@ public final class ClassicConfigModel {
         this.fatigueProtection = g.fatigueProtection();
         this.pauseBehavior = g.pauseBehaviorMode();
         this.stopOnWorldUnload = g.stopOnWorldUnload();
-        HapticConfig.Identity id = original.identity();
+        HapticConfig.Profile id = original.profile();
         this.recipePack = id.recipePackId();
         this.mode = id.mode();
         HapticConfig.Buttplug b = original.buttplug();
@@ -144,7 +144,7 @@ public final class ClassicConfigModel {
                 testMaxPercent, testMaxDurationMs,
                 unsafeTestMaxPercent, unsafeTestMaxDurationMs);
 
-        HapticConfig.Identity newIdentity = new HapticConfig.Identity(
+        HapticConfig.Profile newIdentity = new HapticConfig.Profile(
                 recipePack.name().toLowerCase(Locale.ROOT), mode.name());
 
         HapticConfig.Buttplug b = original.buttplug();

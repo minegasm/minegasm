@@ -58,11 +58,11 @@ public final class RuntimeConfig {
     }
 
     public MinegasmMode mode() {
-        return config.identity().mode();
+        return config.profile().mode();
     }
 
     public RecipePackId recipePack() {
-        return config.identity().recipePackId();
+        return config.profile().recipePackId();
     }
 
     // --- events -----------------------------------------------------------------------------

@@ -52,8 +52,8 @@ public final class MinegasmSettingsScreen extends Screen {
         HapticConfig cfg = client.config().raw();
         intensity = cfg.global().intensity();
         variation = cfg.global().variation();
-        recipePack = cfg.identity().recipePackId();
-        mode = cfg.identity().mode();
+        recipePack = cfg.profile().recipePackId();
+        mode = cfg.profile().mode();
         fatigue = cfg.global().fatigueProtection();
         pauseBehavior = cfg.global().pauseBehaviorMode();
         stopOnWorldUnload = cfg.global().stopOnWorldUnload();
@@ -230,7 +230,7 @@ public final class MinegasmSettingsScreen extends Screen {
         var g = cfg.global();
         var bp = cfg.buttplug();
         HapticConfig updated = new HapticConfig(cfg.schemaVersion(),
-                new HapticConfig.Identity(recipePack.name().toLowerCase(Locale.ROOT), mode.name()),
+                new HapticConfig.Profile(recipePack.name().toLowerCase(Locale.ROOT), mode.name()),
                 new HapticConfig.Global(g.enabled(), intensity, variation, fatigue,
                         pauseBehavior.name(), stopOnWorldUnload, g.panicKey(),
                         testMaxPercent, testMaxDurationMs,

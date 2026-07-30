@@ -152,7 +152,7 @@ public final class MinegasmConfigScreen extends Screen {
     private void toggleEnabled() {
         HapticConfig cfg = client.config().raw();
         var g = cfg.global();
-        var updated = new HapticConfig(cfg.schemaVersion(), cfg.identity(),
+        var updated = new HapticConfig(cfg.schemaVersion(), cfg.profile(),
                 new HapticConfig.Global(!g.enabled(), g.intensity(), g.variation(),
                         g.fatigueProtection(), g.pauseBehavior(), g.stopOnWorldUnload(), g.panicKey(),
                         g.testMaxPercent(), g.testMaxDurationMs(),
@@ -176,7 +176,7 @@ public final class MinegasmConfigScreen extends Screen {
         HapticConfig cfg = client.config().raw();
         var bp = cfg.buttplug();
         String adapter = "native".equalsIgnoreCase(bp.client()) ? "buttplug4j" : "native";
-        var updated = new HapticConfig(cfg.schemaVersion(), cfg.identity(), cfg.global(),
+        var updated = new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
                 new HapticConfig.Buttplug(bp.serverUrl(), bp.autoConnect(), bp.autoScan(),
                         bp.allowRemoteServer(), bp.reconnect(), adapter),
                 cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),

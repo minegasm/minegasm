@@ -315,7 +315,7 @@ public final class MinegasmMod {
 
     private void sendMode(CommandSourceStack source) {
         source.sendSuccess(() -> Component.translatable("minegasm.command.mode_current",
-                client.config().raw().identity().mode().name().toLowerCase(Locale.ROOT)), false);
+                client.config().raw().profile().mode().name().toLowerCase(Locale.ROOT)), false);
     }
 
     private int modeFromCommand(CommandSourceStack source, String name) {
@@ -325,7 +325,7 @@ public final class MinegasmMod {
             return 0;
         }
         HapticConfig cfg = client.config().raw();
-        applyIdentity(new HapticConfig.Identity(cfg.identity().recipePack(), mode.name()));
+        applyProfile(new HapticConfig.Profile(cfg.profile().recipePack(), mode.name()));
         source.sendSuccess(() -> Component.translatable("minegasm.command.mode_set",
                 mode.name().toLowerCase(Locale.ROOT)), false);
         return 1;
@@ -333,7 +333,7 @@ public final class MinegasmMod {
 
     private void sendRecipe(CommandSourceStack source) {
         source.sendSuccess(() -> Component.translatable("minegasm.command.recipe_current",
-                client.config().raw().identity().recipePackId().name().toLowerCase(Locale.ROOT)), false);
+                client.config().raw().profile().recipePackId().name().toLowerCase(Locale.ROOT)), false);
     }
 
     private int recipeFromCommand(CommandSourceStack source, String name) {
@@ -343,17 +343,17 @@ public final class MinegasmMod {
             return 0;
         }
         HapticConfig cfg = client.config().raw();
-        applyIdentity(new HapticConfig.Identity(pack.name().toLowerCase(Locale.ROOT),
-                cfg.identity().compatibilityMode()));
+        applyProfile(new HapticConfig.Profile(pack.name().toLowerCase(Locale.ROOT),
+                cfg.profile().hapticMode()));
         source.sendSuccess(() -> Component.translatable("minegasm.command.recipe_set",
                 pack.name().toLowerCase(Locale.ROOT)), false);
         return 1;
     }
 
-    /** Persist a new identity (recipe pack + mode), preserving everything else in the config. */
-    private void applyIdentity(HapticConfig.Identity identity) {
+    /** Persist a new profile (recipe pack + mode), preserving everything else in the config. */
+    private void applyProfile(HapticConfig.Profile profile) {
         HapticConfig cfg = client.config().raw();
-        client.updateConfig(new HapticConfig(cfg.schemaVersion(), identity, cfg.global(),
+        client.updateConfig(new HapticConfig(cfg.schemaVersion(), profile, cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
                 cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity()));
     }
