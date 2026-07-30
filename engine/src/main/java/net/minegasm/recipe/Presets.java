@@ -19,29 +19,29 @@ public final class Presets {
     private static final Map<MinegasmMode, Preset> TABLE = build();
 
     public static Preset forMode(MinegasmMode mode) {
-        return TABLE.getOrDefault(mode, TABLE.get(MinegasmMode.NORMAL));
+        return TABLE.getOrDefault(mode, TABLE.get(MinegasmMode.IMMERSION));
     }
 
     private static Map<MinegasmMode, Preset> build() {
         Map<MinegasmMode, Preset> t = new EnumMap<>(MinegasmMode.class);
 
-        // NORMAL = legacy default: attack .60, mine .80, place .20, xp 1.0, harvest .10,
+        // ACTION = legacy default: attack .60, mine .80, place .20, xp 1.0, harvest .10,
         // fishing .50, advancement 1.0; hurt & vitality off.
-        t.put(MinegasmMode.NORMAL, preset(MinegasmMode.NORMAL,
+        t.put(MinegasmMode.ACTION, preset(MinegasmMode.ACTION,
                 0.60f, 0.00f, 0.80f, 0.20f, 1.00f, 0.10f, 0.50f, 0.00f, 1.00f));
 
-        // MASOCHIST: hurt 1.0, vitality .10 (critical); rewards off.
-        t.put(MinegasmMode.MASOCHIST, preset(MinegasmMode.MASOCHIST,
+        // REACTION: hurt 1.0, vitality .10 (critical); rewards off.
+        t.put(MinegasmMode.REACTION, preset(MinegasmMode.REACTION,
                 0.00f, 1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.00f));
 
-        // HEDONIST: broad: attack .60, hurt .10, mine .80, place .20, xp 1.0, harvest .20,
+        // IMMERSION: broad: attack .60, hurt .10, mine .80, place .20, xp 1.0, harvest .20,
         // fishing .50, vitality .10, advancement 1.0.
-        t.put(MinegasmMode.HEDONIST, preset(MinegasmMode.HEDONIST,
+        t.put(MinegasmMode.IMMERSION, preset(MinegasmMode.IMMERSION,
                 0.60f, 0.10f, 0.80f, 0.20f, 1.00f, 0.20f, 0.50f, 0.10f, 1.00f));
 
-        // ACCUMULATION: per-event base is unused (charge model drives amplitude); leave a nominal
+        // MOMENTUM: per-event base is unused (charge model drives amplitude); leave a nominal
         // enablement so contributing events are considered "on". Amplitude comes from the charge.
-        t.put(MinegasmMode.ACCUMULATION, preset(MinegasmMode.ACCUMULATION,
+        t.put(MinegasmMode.MOMENTUM, preset(MinegasmMode.MOMENTUM,
                 0.01f, 0.01f, 0.01f, 0.01f, 0.01f, 0.10f, 0.50f, 0.00f, 0.01f));
 
         // CUSTOM resolves base from config; table is empty.

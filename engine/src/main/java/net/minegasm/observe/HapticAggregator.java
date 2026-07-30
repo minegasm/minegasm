@@ -194,7 +194,7 @@ public final class HapticAggregator {
 
     private java.util.Optional<HapticIntent> vitality(StateTransitions t, RuntimeConfig config, long nowNs) {
         boolean critical = t.vitalityCritical();
-        boolean active = config.mode() == MinegasmMode.MASOCHIST ? critical : t.vitalityFull();
+        boolean active = config.mode() == MinegasmMode.REACTION ? critical : t.vitalityFull();
         boolean edge = active && !lastVitalityActive;
         boolean repeat = active && (nowNs - lastVitalityNs >= VITALITY_REPEAT_NS);
         lastVitalityActive = active;

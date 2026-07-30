@@ -1,7 +1,6 @@
 package net.minegasm.recipe;
 
 import net.minegasm.config.AccumulationParams;
-import net.minegasm.config.MinegasmMode;
 import net.minegasm.config.RecipePackId;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.core.CouplingMode;
@@ -41,7 +40,7 @@ public final class RecipeEngine implements RecipeResolver {
             return Optional.empty();
         }
 
-        if (config.mode() == MinegasmMode.ACCUMULATION) {
+        if (config.mode().isMomentum()) {
             return resolveAccumulation(intent, config);
         }
 
@@ -72,7 +71,7 @@ public final class RecipeEngine implements RecipeResolver {
 
     /** Produce the current accumulation scene after decaying to {@code nowNs} (no new contribution). */
     public Optional<HapticScene> tickAccumulation(RuntimeConfig config, long nowNs) {
-        if (!config.enabled() || config.mode() != MinegasmMode.ACCUMULATION) {
+        if (!config.enabled() || !config.mode().isMomentum()) {
             return Optional.empty();
         }
         accumulator.update(config.accumulation(), nowNs);

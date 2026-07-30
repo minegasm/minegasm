@@ -56,7 +56,7 @@ public final class LegacyMinegasmImporter {
         summary.put("enabled", Boolean.toString(enabled));
 
         // Mode. Imported configs replay through the Classic recipe pack for parity.
-        MinegasmMode mode = MinegasmMode.fromString(leaves.get("mode"), MinegasmMode.NORMAL);
+        MinegasmMode mode = MinegasmMode.fromString(leaves.get("mode"), MinegasmMode.ACTION);
         summary.put("mode", mode.name());
         summary.put("recipePack", RecipePackId.CLASSIC.name());
 

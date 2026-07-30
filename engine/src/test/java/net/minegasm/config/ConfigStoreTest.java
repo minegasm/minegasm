@@ -31,7 +31,7 @@ class ConfigStoreTest {
         HapticConfig cfg = HapticConfig.defaults();
         var enabled = new HapticConfig.Global(true, 0.5, 0.25, true, "STOP", true, "KEY_P",
                 40, 1_500, 80, 30_000);
-        HapticConfig toSave = new HapticConfig(1, new HapticConfig.Identity("classic", "MASOCHIST"),
+        HapticConfig toSave = new HapticConfig(1, new HapticConfig.Identity("classic", "REACTION"),
                 enabled, cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
                 cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity());
         store.save(toSave);
@@ -41,13 +41,26 @@ class ConfigStoreTest {
         assertFalse(result.recoveredFromCorruption());
         assertTrue(result.config().global().enabled());
         assertEquals(0.5, result.config().global().intensity(), 1e-9);
-        assertEquals(MinegasmMode.MASOCHIST, result.config().identity().mode());
+        assertEquals(MinegasmMode.REACTION, result.config().identity().mode());
         assertEquals(RecipePackId.CLASSIC, result.config().identity().recipePackId());
         assertEquals(40, result.config().global().testMaxPercent());
         assertEquals(1_500, result.config().global().testMaxDurationMs());
         assertEquals(80, result.config().global().unsafeTestMaxPercent());
         assertEquals(30_000, result.config().global().unsafeTestMaxDurationMs());
         assertEquals(toSave, result.config());
+    }
+
+    @Test
+    void legacyModeNameMigratesOnLoad(@TempDir Path dir) {
+        ConfigStore store = new ConfigStore(dir.resolve("config.json"));
+        HapticConfig cfg = HapticConfig.defaults();
+        // A config written before the mode rename stores the old name; it must load as the new mode.
+        HapticConfig legacy = new HapticConfig(1, new HapticConfig.Identity("balanced", "MASOCHIST"),
+                cfg.global(), cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity());
+        store.save(legacy);
+
+        assertEquals(MinegasmMode.REACTION, store.load().config().identity().mode());
     }
 
     @Test

@@ -16,8 +16,8 @@ class PresetTest {
     private final RuntimeConfig cfg = RuntimeConfig.defaults();
 
     @Test
-    void normalModeMatchesLegacy() {
-        Preset p = Presets.forMode(MinegasmMode.NORMAL);
+    void actionModeMatchesLegacy() {
+        Preset p = Presets.forMode(MinegasmMode.ACTION);
         assertEquals(0.60f, p.baseFor(GameEventKind.ATTACK, cfg));
         assertEquals(0.00f, p.baseFor(GameEventKind.HURT, cfg));
         assertEquals(0.80f, p.baseFor(GameEventKind.MINING_ACTIVE, cfg));
@@ -31,8 +31,8 @@ class PresetTest {
     }
 
     @Test
-    void masochistFocusesOnDamage() {
-        Preset p = Presets.forMode(MinegasmMode.MASOCHIST);
+    void reactionFocusesOnDamage() {
+        Preset p = Presets.forMode(MinegasmMode.REACTION);
         assertEquals(1.00f, p.baseFor(GameEventKind.HURT, cfg));
         assertEquals(0.10f, p.baseFor(GameEventKind.VITALITY, cfg));
         assertEquals(0.00f, p.baseFor(GameEventKind.ATTACK, cfg));
@@ -40,8 +40,8 @@ class PresetTest {
     }
 
     @Test
-    void hedonistIsBroad() {
-        Preset p = Presets.forMode(MinegasmMode.HEDONIST);
+    void immersionIsBroad() {
+        Preset p = Presets.forMode(MinegasmMode.IMMERSION);
         assertEquals(0.60f, p.baseFor(GameEventKind.ATTACK, cfg));
         assertEquals(0.10f, p.baseFor(GameEventKind.HURT, cfg));
         assertEquals(0.20f, p.baseFor(GameEventKind.HARVEST, cfg));

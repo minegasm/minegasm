@@ -46,7 +46,7 @@ class RuntimeEndToEndTest {
         server = new FakeButtplugServer().withDevices(vibe(0), vibe(1));
         provider = new ButtplugProvider(server, "test");
         provider.connect(URI.create("ws://127.0.0.1:12345")).toCompletableFuture().join();
-        cfg = Configs.enabled(MinegasmMode.MASOCHIST, RecipePackId.BALANCED);
+        cfg = Configs.enabled(MinegasmMode.REACTION, RecipePackId.BALANCED);
         rt = new HapticRuntime(provider, clock, () -> cfg);
     }
 

@@ -31,25 +31,25 @@ class RecipeEngineTest {
     }
 
     @Test
-    void hurtDisabledInNormalMode() {
-        RuntimeConfig normal = Configs.enabled(MinegasmMode.NORMAL, RecipePackId.BALANCED);
-        assertTrue(engine.resolve(intent(GameEventKind.HURT, 1f), normal).isEmpty(),
-                "hurt has base 0 in NORMAL and must not fire");
-        assertTrue(engine.resolve(intent(GameEventKind.ATTACK, 0.5f), normal).isPresent());
+    void hurtDisabledInActionMode() {
+        RuntimeConfig action = Configs.enabled(MinegasmMode.ACTION, RecipePackId.BALANCED);
+        assertTrue(engine.resolve(intent(GameEventKind.HURT, 1f), action).isEmpty(),
+                "hurt has base 0 in ACTION and must not fire");
+        assertTrue(engine.resolve(intent(GameEventKind.ATTACK, 0.5f), action).isPresent());
     }
 
     @Test
-    void masochistFeelsHurtNotAttack() {
-        RuntimeConfig maso = Configs.enabled(MinegasmMode.MASOCHIST, RecipePackId.BALANCED);
-        assertTrue(engine.resolve(intent(GameEventKind.HURT, 1f), maso).isPresent());
-        assertTrue(engine.resolve(intent(GameEventKind.ATTACK, 1f), maso).isEmpty());
+    void reactionFeelsHurtNotAttack() {
+        RuntimeConfig reaction = Configs.enabled(MinegasmMode.REACTION, RecipePackId.BALANCED);
+        assertTrue(engine.resolve(intent(GameEventKind.HURT, 1f), reaction).isPresent());
+        assertTrue(engine.resolve(intent(GameEventKind.ATTACK, 1f), reaction).isEmpty());
     }
 
     @Test
     void balancedHurtScaledByStrength() {
-        RuntimeConfig maso = Configs.enabled(MinegasmMode.MASOCHIST, RecipePackId.BALANCED);
-        HapticScene weak = engine.resolve(intent(GameEventKind.HURT, 0.1f), maso).orElseThrow();
-        HapticScene strong = engine.resolve(intent(GameEventKind.HURT, 1.0f), maso).orElseThrow();
+        RuntimeConfig reaction = Configs.enabled(MinegasmMode.REACTION, RecipePackId.BALANCED);
+        HapticScene weak = engine.resolve(intent(GameEventKind.HURT, 0.1f), reaction).orElseThrow();
+        HapticScene strong = engine.resolve(intent(GameEventKind.HURT, 1.0f), reaction).orElseThrow();
         float weakLevel = weak.layers().get(0).primitive().level();
         float strongLevel = strong.layers().get(0).primitive().level();
         assertTrue(strongLevel > weakLevel, "stronger damage should feel stronger");
@@ -57,7 +57,7 @@ class RecipeEngineTest {
 
     @Test
     void classicUsesFlatPlateauHold() {
-        RuntimeConfig classic = Configs.enabled(MinegasmMode.NORMAL, RecipePackId.CLASSIC);
+        RuntimeConfig classic = Configs.enabled(MinegasmMode.ACTION, RecipePackId.CLASSIC);
         Optional<HapticScene> scene = engine.resolve(intent(GameEventKind.ATTACK, 0.5f), classic);
         assertTrue(scene.isPresent());
         boolean hasHold = scene.get().layers().stream()
@@ -67,14 +67,14 @@ class RecipeEngineTest {
 
     @Test
     void classicSuppressesContinuousMining() {
-        RuntimeConfig classic = Configs.enabled(MinegasmMode.NORMAL, RecipePackId.CLASSIC);
+        RuntimeConfig classic = Configs.enabled(MinegasmMode.ACTION, RecipePackId.CLASSIC);
         assertTrue(engine.resolve(intent(GameEventKind.MINING_ACTIVE, 0.5f), classic).isEmpty(),
                 "legacy had no continuous mining texture");
     }
 
     @Test
     void continuousMiningSceneCarriesKey() {
-        RuntimeConfig balanced = Configs.enabled(MinegasmMode.HEDONIST, RecipePackId.BALANCED);
+        RuntimeConfig balanced = Configs.enabled(MinegasmMode.IMMERSION, RecipePackId.BALANCED);
         HapticScene mining = engine.resolve(intent(GameEventKind.MINING_ACTIVE, 0.5f), balanced).orElseThrow();
         assertTrue(mining.isContinuous(), "mining should be a continuous, latest-wins scene");
     }
@@ -89,8 +89,8 @@ class RecipeEngineTest {
 
     @Test
     void resolvedSceneUsesEventPriority() {
-        RuntimeConfig maso = Configs.enabled(MinegasmMode.MASOCHIST, RecipePackId.BALANCED);
-        HapticScene hurt = engine.resolve(intent(GameEventKind.HURT, 1f), maso).orElseThrow();
+        RuntimeConfig reaction = Configs.enabled(MinegasmMode.REACTION, RecipePackId.BALANCED);
+        HapticScene hurt = engine.resolve(intent(GameEventKind.HURT, 1f), reaction).orElseThrow();
         assertEquals(net.minegasm.core.Priorities.HURT, hurt.priority());
         assertFalse(hurt.layers().isEmpty());
     }

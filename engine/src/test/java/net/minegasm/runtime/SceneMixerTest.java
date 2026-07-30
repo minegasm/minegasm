@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SceneMixerTest {
 
     private static final long MS = 1_000_000L;
-    private final RuntimeConfig cfg = Configs.enabled(MinegasmMode.HEDONIST, RecipePackId.BALANCED);
+    private final RuntimeConfig cfg = Configs.enabled(MinegasmMode.IMMERSION, RecipePackId.BALANCED);
     private final FatigueGovernor governor = new FatigueGovernor();
 
     private HapticScene scene(String id, HapticLayer layer, long created, long expiry) {

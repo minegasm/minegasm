@@ -27,7 +27,7 @@ class LegacyMinegasmImporterTest {
         HapticConfig result = preview.result();
         assertEquals("ws://localhost:12345/buttplug", result.buttplug().serverUrl());
         assertTrue(result.global().enabled());
-        assertEquals(MinegasmMode.HEDONIST, result.identity().mode());
+        assertEquals(MinegasmMode.IMMERSION, result.identity().mode()); // legacy HEDONIST migrates
         // Imported configs replay through the Classic pack for faithful parity.
         assertEquals(RecipePackId.CLASSIC, result.identity().recipePackId());
         assertEquals(0.6, result.customIntensity().attack(), 1e-6);
@@ -52,7 +52,7 @@ class LegacyMinegasmImporterTest {
     @Test
     void previewSummaryIsHumanReadable() {
         var preview = LegacyMinegasmImporter.fromToml(TOML, HapticConfig.defaults());
-        assertEquals("HEDONIST", preview.summary().get("mode"));
+        assertEquals("IMMERSION", preview.summary().get("mode"));
         assertTrue(preview.summary().containsKey("serverUrl"));
     }
 

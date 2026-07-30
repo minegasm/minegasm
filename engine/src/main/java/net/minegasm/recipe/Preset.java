@@ -14,7 +14,7 @@ import java.util.Objects;
  * this event felt" (brief §3.3, §11.4). Base 0 means the event is disabled in this mode, mirroring
  * the legacy short-circuit where a zero base never fires.
  *
- * <p>CUSTOM and ACCUMULATION are resolved from config at runtime rather than from a fixed table.
+ * <p>CUSTOM and MOMENTUM are resolved from config at runtime rather than from a fixed table.
  */
 public final class Preset {
 

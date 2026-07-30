@@ -145,7 +145,7 @@ public final class HapticConfig implements ConfigValue {
 
         public Identity(String recipePack, String compatibilityMode) {
             this.recipePack = recipePack == null ? "balanced" : recipePack;
-            this.compatibilityMode = compatibilityMode == null ? "NORMAL" : compatibilityMode;
+            this.compatibilityMode = compatibilityMode == null ? "IMMERSION" : compatibilityMode;
         }
 
         public String recipePack() {
@@ -157,7 +157,7 @@ public final class HapticConfig implements ConfigValue {
         }
 
         public static Identity defaults() {
-            return new Identity("balanced", "NORMAL");
+            return new Identity("balanced", "IMMERSION");
         }
 
         public RecipePackId recipePackId() {
@@ -165,7 +165,7 @@ public final class HapticConfig implements ConfigValue {
         }
 
         public MinegasmMode mode() {
-            return MinegasmMode.fromString(compatibilityMode, MinegasmMode.NORMAL);
+            return MinegasmMode.fromString(compatibilityMode, MinegasmMode.IMMERSION);
         }
 
         @Override
