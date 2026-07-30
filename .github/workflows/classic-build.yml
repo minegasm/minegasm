@@ -42,31 +42,30 @@ jobs:
             jar="${jars[0]}"
             echo "Verifying $jar"
             # Use the JDK jar tool by absolute path; a bare `jar` is not always on PATH in later steps.
-            # Strip carriage returns: some runners return entry names with a trailing CR that is invisible
-            # in the log but defeats the `$`-anchored greps below, so a present class reads as missing.
-            entries="$("$JAVA_HOME/bin/jar" tf "$jar" | tr -d '\r')"
+            entries="$("$JAVA_HOME/bin/jar" tf "$jar")"
             if [ -z "$entries" ]; then
               echo "ERROR: could not list $jar with $JAVA_HOME/bin/jar" >&2
               exit 1
             fi
 
+            # Feed grep from a here-string, never `echo "$entries" | grep -q`. Under `bash -o pipefail`
+            # `grep -q` closes the pipe on its first match, the still-writing `echo` dies with SIGPIPE, and
+            # pipefail makes that the pipeline's status, so a real match is misread as failure. A
+            # here-string is not a pipeline, so the result reflects grep alone.
             # The mod entrypoint (Forge: MinegasmClassicMod, Fabric: MinegasmClassicClient) and engine.
-            if ! echo "$entries" | grep -qE '^net/minegasm/classic/(MinegasmClassicMod|MinegasmClassicClient)\.class$'; then
+            if ! grep -qE '^net/minegasm/classic/(MinegasmClassicMod|MinegasmClassicClient)\.class$' <<< "$entries"; then
               echo "ERROR: $jar is missing the mod entrypoint" >&2
               echo "--- net/minegasm/classic entries present in $jar: ---" >&2
-              echo "$entries" | grep -E '^net/minegasm/classic/' >&2 || echo "(none)" >&2
-              # Raw bytes of any entrypoint-like line, so a lingering hidden character is unmistakable.
-              echo "--- raw bytes of entrypoint line(s): ---" >&2
-              echo "$entries" | grep -E 'MinegasmClassic(Mod|Client)\.class' | od -c >&2 || true
+              grep -E '^net/minegasm/classic/' <<< "$entries" >&2 || echo "(none)" >&2
               exit 1
             fi
-            echo "$entries" | grep -q '^net/minegasm/core/' \
+            grep -q '^net/minegasm/core/' <<< "$entries" \
               || { echo "ERROR: $jar is missing the shared engine classes" >&2; exit 1; }
             # The Buttplug stack is shaded and relocated (no jar-in-jar on this Forge).
-            echo "$entries" | grep -q '^net/minegasm/shadow/buttplug4j/' \
+            grep -q '^net/minegasm/shadow/buttplug4j/' <<< "$entries" \
               || { echo "ERROR: $jar is missing the shaded buttplug4j classes" >&2; exit 1; }
             # Legacy FML cannot scan Java 11+ multi-release entries; they must be stripped.
-            if echo "$entries" | grep -q '^META-INF/versions/.*\.class$'; then
+            if grep -q '^META-INF/versions/.*\.class$' <<< "$entries"; then
               echo "ERROR: $jar still contains META-INF/versions class entries (legacy FML would reject it)" >&2
               exit 1
             fi

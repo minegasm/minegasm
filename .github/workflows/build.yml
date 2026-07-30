@@ -36,25 +36,27 @@ jobs:
 
           for artifact in "${artifacts[@]}"; do
             echo "Verifying $artifact"
-            # Strip carriage returns so a trailing CR on an entry name can't defeat the `$`-anchored greps.
-            entries="$(jar tf "$artifact" | tr -d '\r')"
-            echo "$entries" | grep -q '^META-INF/LICENSE-minegasm$' \
+            entries="$(jar tf "$artifact")"
+            # Feed grep from a here-string, never `echo "$entries" | grep -q`: under `bash -o pipefail`,
+            # `grep -q` closes the pipe on its first match and the still-writing producer dies with SIGPIPE,
+            # which pipefail turns into the pipeline's status, misreading a real match as failure.
+            grep -q '^META-INF/LICENSE-minegasm$' <<< "$entries" \
               || { echo "ERROR: $artifact is missing META-INF/LICENSE-minegasm" >&2; exit 1; }
             # Jar-in-jar bundling format differs by loader: Forge/NeoForge (Loom) writes a
             # jarjar/metadata.json manifest; Fabric records bundled jars in fabric.mod.json's "jars"
             # array instead. Both still place the actual nested jars under META-INF/jars/.
             case "$artifact" in
               *-fabric.jar)
-                unzip -p "$artifact" fabric.mod.json | grep -q '"jars"' \
+                grep -q '"jars"' <<< "$(unzip -p "$artifact" fabric.mod.json)" \
                   || { echo "ERROR: $artifact is missing a fabric.mod.json \"jars\" entry" >&2; exit 1; }
                 ;;
               *)
-                echo "$entries" | grep -q '^META-INF/jarjar/metadata.json$' \
+                grep -q '^META-INF/jarjar/metadata.json$' <<< "$entries" \
                   || { echo "ERROR: $artifact is missing META-INF/jarjar/metadata.json" >&2; exit 1; }
                 ;;
             esac
-            echo "$entries" | grep -qE '^META-INF/jars/buttplug4j-[0-9].*\.jar$' \
-              || { echo "ERROR: $artifact is missing a bundled buttplug4j jar. Actual META-INF/jars/ entries:"; echo "$entries" | grep '^META-INF/jars/' >&2; exit 1; }
+            grep -qE '^META-INF/jars/buttplug4j-[0-9].*\.jar$' <<< "$entries" \
+              || { echo "ERROR: $artifact is missing a bundled buttplug4j jar. Actual META-INF/jars/ entries:"; grep '^META-INF/jars/' <<< "$entries" >&2; exit 1; }
           done
 
           mkdir -p dist
