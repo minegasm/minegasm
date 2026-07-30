@@ -8,7 +8,11 @@ intensities) and `recipe/ClassicRecipePack` (durations/envelope), and snapshot-t
 
 ## Mode intensity table (0..1, normalized from legacy 0..100)
 
-| Event | NORMAL | MASOCHIST | HEDONIST | CUSTOM |
+The modes were renamed from the legacy set: ACTION (was Normal), REACTION (was Masochist), IMMERSION
+(was Hedonist), MOMENTUM (was Accumulation). CUSTOM is unchanged. The intensity values are the parity
+contract regardless of the name.
+
+| Event | ACTION | REACTION | IMMERSION | CUSTOM |
 |---|---:|---:|---:|---:|
 | attack | 0.60 | 0.00 | 0.60 | config |
 | hurt | 0.00 | 1.00 | 0.10 | config |
@@ -20,7 +24,7 @@ intensities) and `recipe/ClassicRecipePack` (durations/envelope), and snapshot-t
 | vitality | 0.00 | 0.10 | 0.10 | config |
 | advancement | 1.00 | 0.00 | 1.00 | config |
 
-A base of 0 disables the event in that mode (matching the legacy short-circuit). `ACCUMULATION` uses
+A base of 0 disables the event in that mode (matching the legacy short-circuit). `MOMENTUM` uses
 the charge model in `recipe/AccumulationProcessor` instead of this table.
 
 ## Classic envelope (legacy feel)
@@ -31,7 +35,7 @@ events, vibration-only, at the legacy durations:
 | Event | Plateau | Boost window | Notes |
 |---|---:|---:|---|
 | attack | 3.0 s | 1.0 s | |
-| hurt | 3.0 s | 1.0 s | off in NORMAL (base 0) |
+| hurt | 3.0 s | 1.0 s | off in ACTION (base 0) |
 | block break | 3.0 s | 1.0 s (ore only) | ore adds the boost window |
 | place | 3.0 s | — | |
 | xp | ~1–4 s | 1.0 s | legacy `ceil(ln(amount+0.5))` s, approximated from magnitude |
@@ -55,7 +59,7 @@ unbounded. Tunable in `accumulation` config.
 `LegacyMinegasmImporter` reads a legacy `minegasm-client.toml` (read-only), maps `serverUrl`,
 `vibrate`→enabled, `mode`, and the `*Intensity` values (accepting both 0..1 and 0..100 scales), and
 produces a **preview** plus a config that replays through the **Classic** pack for faithful
-behaviour. It never enables experimental outputs.
+behaviour. It maps gameplay tuning only and leaves output enablement at the defaults.
 
 ## Known deltas from legacy Minegasm (intentional)
 

@@ -41,7 +41,7 @@ public final class HapticLayer {
         this.layerId = layerId;
         this.role = role == null ? HapticRole.IMPACT : role;
         this.primitive = primitive;
-        this.route = route == null ? HapticRoute.vibrateAll() : route;
+        this.route = route == null ? HapticRoute.buzzAll() : route;
         this.coupling = coupling == null ? CouplingMode.MAX : coupling;
         this.priority = priority;
         this.startOffsetNs = startOffsetNs;

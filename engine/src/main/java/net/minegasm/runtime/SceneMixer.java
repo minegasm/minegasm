@@ -6,6 +6,7 @@ import net.minegasm.config.PositionCalibration;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.core.CouplingMode;
 import net.minegasm.core.HapticLayer;
+import net.minegasm.core.HapticPrimitive;
 import net.minegasm.core.HapticScene;
 import net.minegasm.core.OutputKind;
 import net.minegasm.device.DeviceRegistrySnapshot;
@@ -37,6 +38,9 @@ public final class SceneMixer {
             OutputKind.VIBRATE, OutputKind.HW_POSITION_WITH_DURATION, OutputKind.POSITION,
             OutputKind.OSCILLATE, OutputKind.ROTATE, OutputKind.CONSTRICT
     };
+
+    /** Shortest full out-and-back stroke period; also the move-duration floor. Anti-jackhammer. */
+    private static final long MIN_STROKE_PERIOD_MS = 700;
 
     private final List<HapticScene> discrete = new ArrayList<>();
     private final Map<String, HapticScene> continuous = new LinkedHashMap<>();
@@ -114,7 +118,7 @@ public final class SceneMixer {
                 if (level <= 0f) {
                     continue;
                 }
-                routeLayer(layer, level, snapshot, config, targets);
+                routeLayer(layer, level, nowNs - layerStart, snapshot, config, targets);
             }
         }
         return targets;
@@ -127,7 +131,8 @@ public final class SceneMixer {
         return all;
     }
 
-    private void routeLayer(HapticLayer layer, float level, DeviceRegistrySnapshot snapshot,
+    private void routeLayer(HapticLayer layer, float level, long elapsedNs,
+                            DeviceRegistrySnapshot snapshot,
                             RuntimeConfig config, Map<String, EndpointTarget> targets) {
         for (HapticDevice device : snapshot.all()) {
             DeviceSetting deviceSetting = config.deviceSetting(device.identityKey());
@@ -155,7 +160,7 @@ public final class SceneMixer {
                 if (capped <= 0f) {
                     continue;
                 }
-                EndpointTarget candidate = buildTarget(ref, kind, capped, layer, device, config);
+                EndpointTarget candidate = buildTarget(ref, kind, capped, elapsedNs, layer, device, config);
                 if (candidate == null) {
                     continue;
                 }
@@ -178,24 +183,61 @@ public final class SceneMixer {
         return null;
     }
 
-    private EndpointTarget buildTarget(FeatureRef ref, OutputKind kind, float level, HapticLayer layer,
-                                       HapticDevice device, RuntimeConfig config) {
+    private EndpointTarget buildTarget(FeatureRef ref, OutputKind kind, float level, long elapsedNs,
+                                       HapticLayer layer, HapticDevice device, RuntimeConfig config) {
         boolean exclusive = layer.coupling() == CouplingMode.EXCLUSIVE;
         if (kind == OutputKind.POSITION || kind == OutputKind.HW_POSITION_WITH_DURATION) {
-            PositionCalibration calib = config.calibration(device.identityKey()).orElse(null);
-            if (calib == null || !calib.enabled()) {
-                return null; // motion never moves before calibration + opt-in (brief §11.2)
-            }
-            float travel = (float) (level); // already a bounded travel fraction
+            // Motion works out of the box with a conservative safe default; an explicit, enabled
+            // calibration overrides it. Physical travel is bounded by gameplayTravelFraction (<= 0.20)
+            // and the [minimum, maximum] clamp regardless of the incoming level.
+            PositionCalibration calib = config.calibration(device.identityKey())
+                    .filter(PositionCalibration::enabled)
+                    .orElseGet(PositionCalibration::safeDefault);
             float direction = calib.invert() ? -1f : 1f;
-            float position = (float) HapticMath.clamp(
-                    calib.neutral() + direction * travel * calib.gameplayTravelFraction(),
+            float reach = (float) (level * calib.gameplayTravelFraction()); // bounded stroke depth
+            if (layer.primitive() instanceof HapticPrimitive.Oscillation) {
+                return strokeTarget(ref, kind, (HapticPrimitive.Oscillation) layer.primitive(),
+                        elapsedNs, calib, direction, reach, exclusive, layer);
+            }
+            // One-shot move for non-oscillation motion primitives.
+            float position = (float) HapticMath.clamp(calib.neutral() + direction * reach,
                     calib.minimum(), calib.maximum());
             Integer duration = kind.carriesDuration() ? layer.primitive().durationMs() : null;
             return new EndpointTarget(ref, kind, position, duration, layer.priority(), exclusive,
                     layer.role());
         }
         return new EndpointTarget(ref, kind, level, null, layer.priority(), exclusive, layer.role());
+    }
+
+    /**
+     * Rhythmic stroke waypoints from an {@link HapticPrimitive.Oscillation}. For
+     * {@code HwPositionWithDuration} it alternates between the two travel-window endpoints with a move
+     * duration of the remaining half-period, so the device interpolates a smooth out-and-back; for plain
+     * {@code Position} it emits the sampled sine position. The period is floored at
+     * {@link #MIN_STROKE_PERIOD_MS} so a device can never be driven faster than that.
+     */
+    private EndpointTarget strokeTarget(FeatureRef ref, OutputKind kind,
+                                        HapticPrimitive.Oscillation osc, long elapsedNs,
+                                        PositionCalibration calib, float direction, float reach,
+                                        boolean exclusive, HapticLayer layer) {
+        long period = Math.max(MIN_STROKE_PERIOD_MS, osc.periodMs());
+        double elapsedMs = elapsedNs / 1_000_000.0;
+        float high = (float) HapticMath.clamp(calib.neutral() + direction * reach,
+                calib.minimum(), calib.maximum());
+        float low = (float) HapticMath.clamp(calib.neutral() - direction * reach,
+                calib.minimum(), calib.maximum());
+        if (kind == OutputKind.HW_POSITION_WITH_DURATION) {
+            long half = Math.max(1, period / 2);
+            double phase = elapsedMs % period;
+            float target = phase < half ? high : low;
+            int duration = (int) Math.max(1, half - (phase % half));
+            return new EndpointTarget(ref, kind, target, duration, layer.priority(), exclusive,
+                    layer.role());
+        }
+        double sine = Math.sin(2.0 * Math.PI * (elapsedMs % period) / period);
+        float target = (float) HapticMath.clamp(calib.neutral() + direction * reach * (float) sine,
+                calib.minimum(), calib.maximum());
+        return new EndpointTarget(ref, kind, target, null, layer.priority(), exclusive, layer.role());
     }
 
     /** Resolve two targets on the same endpoint by exclusivity, then level, then priority. */

@@ -10,7 +10,7 @@ public enum DeliveryMode {
     BEST_PER_DEVICE,
     /** A single global endpoint, to avoid duplication. */
     BEST_GLOBAL,
-    /** Play only if the user enabled that layer/output class. Default for experimental motion. */
+    /** Play only if the user enabled that layer/output class. Default for supplemental motion. */
     SUPPLEMENTAL,
     /** Suppress weaker layers on the same endpoint. */
     EXCLUSIVE

@@ -57,14 +57,9 @@ class LegacyMinegasmImporterTest {
     }
 
     @Test
-    void doesNotEnableExperimentalOutputs() {
+    void keepsDefaultOutputPolicy() {
         var preview = LegacyMinegasmImporter.fromToml(TOML, HapticConfig.defaults());
-        // Position stays experimental-off; import never silently enables experimental output.
-        assertFalseEnabled(preview.result().outputPolicy().get("Position"));
-        assertFalseEnabled(preview.result().outputPolicy().get("HwPositionWithDuration"));
-    }
-
-    private static void assertFalseEnabled(OutputPolicy policy) {
-        assertTrue(policy == null || !policy.effectivelyEnabled());
+        // Import maps gameplay tuning only; output enablement is left at the defaults.
+        assertEquals(HapticConfig.defaults().outputPolicy(), preview.result().outputPolicy());
     }
 }

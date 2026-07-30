@@ -2,7 +2,6 @@ package net.minegasm.recipe;
 
 import net.minegasm.config.RecipePackId;
 import net.minegasm.core.CouplingMode;
-import net.minegasm.core.DeliveryMode;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticPrimitive;
 import net.minegasm.core.HapticPrimitive.Beat;
@@ -10,14 +9,11 @@ import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticRoute;
 import net.minegasm.core.HapticScene;
 import net.minegasm.core.MaterialFeel;
-import net.minegasm.core.OutputKind;
 import net.minegasm.util.HapticMath;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * The modern, shaped recipe pack (brief §8.3, appendix B). Short envelopes rather than long flat
@@ -26,10 +22,6 @@ import java.util.Set;
  */
 public final class BalancedRecipePack implements RecipePack {
 
-    /** Supplemental experimental motion route: rendered only if opted-in and calibrated. */
-    private static final HapticRoute MOTION = new HapticRoute(
-            EnumSet.of(OutputKind.HW_POSITION_WITH_DURATION, OutputKind.POSITION),
-            true, java.util.Collections.emptySet(), java.util.Collections.emptySet(), java.util.Collections.emptySet(), DeliveryMode.SUPPLEMENTAL);
 
     @Override
     public RecipePackId id() {
@@ -78,7 +70,6 @@ public final class BalancedRecipePack implements RecipePack {
         HapticPrimitive.Impulse impulse = new HapticPrimitive.Impulse(peak, dur, 6, Math.round(dur * 0.5f));
         List<HapticLayer> layers = new ArrayList<>();
         layers.add(vibe(ctx, "impact", HapticRole.IMPACT, impulse, CouplingMode.MAX));
-        layers.add(motion(ctx, "impact", scaledMotion(peak, 0.06f), dur));
         return Optional.of(Recipes.scene(ctx, layers));
     }
 
@@ -90,7 +81,6 @@ public final class BalancedRecipePack implements RecipePack {
         HapticPrimitive.Impulse impulse = new HapticPrimitive.Impulse(peak, dur, 8, 55);
         List<HapticLayer> layers = new ArrayList<>();
         layers.add(vibe(ctx, "impact", HapticRole.IMPACT, impulse, CouplingMode.MAX));
-        layers.add(motion(ctx, "impact", scaledMotion(peak, 0.16f), dur));
         return Optional.of(Recipes.scene(ctx, layers));
     }
 
@@ -102,7 +92,7 @@ public final class BalancedRecipePack implements RecipePack {
         HapticPrimitive.Rumble rumble = new HapticPrimitive.Rumble(after, 600, 0.6f, true);
         List<HapticLayer> layers = java.util.Arrays.asList(
                 vibe(ctx, "shock", HapticRole.IMPACT, impulse, CouplingMode.EXCLUSIVE),
-                Recipes.layer("explosion:after", HapticRole.IMPACT, rumble, HapticRoute.vibrateAll(),
+                Recipes.layer("explosion:after", HapticRole.IMPACT, rumble, HapticRoute.buzzAll(),
                         CouplingMode.MAX, RecipeTiming.forKind(ctx.intent().kind()).priority(),
                         Recipes.ms(shockMs), Recipes.ms(800), null));
         return Optional.of(Recipes.scene(ctx, "", layers, null, Recipes.ms(200 + 800)));
@@ -118,7 +108,7 @@ public final class BalancedRecipePack implements RecipePack {
         String key = ctx.intent().tags().stream().filter(t -> t.startsWith("pos:")).findFirst()
                 .map(t -> "mining:" + t).orElse("mining:active");
         HapticLayer layer = Recipes.layer("mining:texture", HapticRole.TEXTURE, texture,
-                HapticRoute.vibrateAll(), CouplingMode.MAX,
+                HapticRoute.buzzAll(), CouplingMode.MAX,
                 RecipeTiming.forKind(ctx.intent().kind()).priority(),
                 0, Recipes.ms(180), key);
         return Optional.of(Recipes.scene(ctx, "", java.util.Arrays.asList(layer), key, 0));
@@ -141,10 +131,9 @@ public final class BalancedRecipePack implements RecipePack {
             HapticPrimitive.BeatPattern accent = new HapticPrimitive.BeatPattern(java.util.Arrays.asList(
                     new Beat(dur + 40, HapticMath.clamp01(level * 0.8f), 45)));
             layers.add(Recipes.layer("break:oreAccent", HapticRole.REWARD, accent,
-                    HapticRoute.vibrateAll(), CouplingMode.MAX,
+                    HapticRoute.buzzAll(), CouplingMode.MAX,
                     RecipeTiming.forKind(ctx.intent().kind()).priority(), 0, Recipes.ms(200), null));
         }
-        layers.add(motion(ctx, "pop", scaledMotion(level, 0.08f), dur));
         return Optional.of(Recipes.scene(ctx, layers));
     }
 
@@ -229,7 +218,7 @@ public final class BalancedRecipePack implements RecipePack {
                 beats.add(new Beat(430, HapticMath.clamp01(base + 0.15f), 120));
                 layers.add(Recipes.layer("adv:rumble", HapticRole.REWARD,
                         new HapticPrimitive.Rumble(base * 0.5f, 250, 0.5f, true),
-                        HapticRoute.vibrateAll(), CouplingMode.MAX,
+                        HapticRoute.buzzAll(), CouplingMode.MAX,
                         net.minegasm.core.Priorities.ADVANCEMENT, Recipes.ms(560),
                         Recipes.ms(250), null));
                 expiry = Recipes.ms(900);
@@ -262,20 +251,8 @@ public final class BalancedRecipePack implements RecipePack {
                              HapticPrimitive primitive, CouplingMode coupling) {
         RecipeTiming timing = RecipeTiming.forKind(ctx.intent().kind());
         return Recipes.layer(ctx.intent().eventKey() + ":" + id, role, primitive,
-                HapticRoute.vibrateAll(), coupling, timing.priority(), 0,
+                HapticRoute.buzzAll(), coupling, timing.priority(), 0,
                 Math.max(Recipes.ms(primitive.durationMs()), timing.expiryNs()), null);
-    }
-
-    private HapticLayer motion(RecipeContext ctx, String id, HapticPrimitive primitive, int durMs) {
-        RecipeTiming timing = RecipeTiming.forKind(ctx.intent().kind());
-        return Recipes.layer(ctx.intent().eventKey() + ":motion:" + id, HapticRole.IMPACT, primitive,
-                MOTION, CouplingMode.MAX, timing.priority(), 0, Recipes.ms(Math.max(durMs, 120)), null);
-    }
-
-    /** An impulse used as a small calibrated motion segment (amplitude is a travel fraction). */
-    private HapticPrimitive scaledMotion(float level, float travelFraction) {
-        float amp = HapticMath.clamp01(level) * travelFraction;
-        return new HapticPrimitive.Impulse(amp, 120, 10, 40);
     }
 
     private static float clampRange(float v, float lo, float hi) {

@@ -7,7 +7,7 @@ import java.util.Objects;
 
 /**
  * A semantic, device-independent unit produced by the recipe resolver and mixed by the engine. One
- * scene may contain several layers (e.g. a vibration impulse plus an experimental motion segment).
+ * scene may contain several layers (e.g. a vibration impulse plus a motion segment).
  * Timing is monotonic (brief §5.2, §6.1).
  */
 public final class HapticScene {

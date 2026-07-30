@@ -92,11 +92,7 @@ public final class RuntimeConfig {
     }
 
     public boolean outputEnabled(OutputKind kind) {
-        return policy(kind).effectivelyEnabled();
-    }
-
-    public boolean outputExperimental(OutputKind kind) {
-        return policy(kind).experimental();
+        return policy(kind).enabled();
     }
 
     // --- devices ----------------------------------------------------------------------------

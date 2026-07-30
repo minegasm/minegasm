@@ -72,6 +72,7 @@ public final class HapticRuntime {
             tracker.reset();
             aggregator.reset();
             recipe.resetAccumulation();
+            recipe.resetStroke();
             tickBuffer.clear();
             return;
         }
@@ -83,6 +84,7 @@ public final class HapticRuntime {
                 tracker.reset();
                 aggregator.reset();
                 recipe.resetAccumulation();
+            recipe.resetStroke();
                 tickBuffer.clear();
                 gameActive = false;
             }
@@ -103,6 +105,8 @@ public final class HapticRuntime {
         }
         // Accumulation mode decays and refreshes even without new events.
         recipe.tickAccumulation(cfg, now).ifPresent(scene -> ingress.offer(scene, now));
+        // Rhythmic stroking for position devices decays and refreshes the same way (Balanced only).
+        recipe.tickStroke(cfg, now).ifPresent(scene -> ingress.offer(scene, now));
     }
 
     /** Run a single worker cycle now (used by the real loop and by tests). */

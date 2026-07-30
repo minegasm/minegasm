@@ -5,9 +5,10 @@ import net.minegasm.util.HapticMath;
 import java.util.Objects;
 
 /**
- * Per-feature calibration for experimental position output (brief §9.9, §11.2). All values are
- * normalized {@code [0, 1]} positions on the device's travel. Disabled by default; gameplay must
- * never move a position feature before calibration and explicit opt-in.
+ * Per-feature calibration for position (stroker) output (brief §9.9, §11.2). All values are
+ * normalized {@code [0, 1]} positions on the device's travel. Calibration is optional: gameplay moves a
+ * position feature within a conservative {@link #safeDefault()} when no enabled calibration is set, and
+ * an enabled calibration widens or reshapes that window.
  */
 public final class PositionCalibration implements ConfigValue {
 
@@ -74,6 +75,15 @@ public final class PositionCalibration implements ConfigValue {
 
     public static PositionCalibration disabled() {
         return new PositionCalibration(false, 0.20, 0.80, 0.50, false, 0.20, true);
+    }
+
+    /**
+     * Conservative motion used when the device has no explicit calibration: centered neutral, a narrow
+     * travel window, and the gameplay travel fraction already at its hard cap. Lets strokers move out of
+     * the box within safe bounds; an explicit calibration can widen or reshape it later.
+     */
+    public static PositionCalibration safeDefault() {
+        return new PositionCalibration(true, 0.20, 0.80, 0.50, false, 0.20, true);
     }
 
     /** Calibrated span available to gameplay (already capped). */

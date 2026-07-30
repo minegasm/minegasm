@@ -82,13 +82,13 @@ public final class ClassicRecipePack implements RecipePack {
 
         HapticPrimitive.Hold basePlateau = new HapticPrimitive.Hold(base, plateauMs, 0, 0);
         layers.add(Recipes.layer(ctx.intent().eventKey() + ":plateau", role, basePlateau,
-                HapticRoute.vibrateAll(), CouplingMode.MAX, priority, 0, Recipes.ms(plateauMs), null));
+                HapticRoute.buzzAll(), CouplingMode.MAX, priority, 0, Recipes.ms(plateauMs), null));
 
         if (boosted && boostMs > 0) {
             float boostLevel = HapticMath.clamp01(HapticMath.clamp01(ctx.modeBase() + BOOST) * ctx.userGain());
             HapticPrimitive.Hold boost = new HapticPrimitive.Hold(boostLevel, boostMs, 0, 0);
             layers.add(Recipes.layer(ctx.intent().eventKey() + ":boost", role, boost,
-                    HapticRoute.vibrateAll(), CouplingMode.MAX, priority, 0, Recipes.ms(boostMs), null));
+                    HapticRoute.buzzAll(), CouplingMode.MAX, priority, 0, Recipes.ms(boostMs), null));
         }
         return Optional.of(Recipes.scene(ctx, "", layers, null, Recipes.ms(plateauMs)));
     }

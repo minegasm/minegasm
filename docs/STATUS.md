@@ -256,9 +256,11 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
   older lines, per the split in `docs/TESTING.md`.
 - Manually confirm legacy TOML import in Minecraft with representative legacy configuration files.
 - Confirm multi-device behavior with physical devices if testing so far used Intiface simulators.
-- Test position/stroker and rotation output on suitable physical hardware; keep these outputs
-  experimental until their calibration and stop behavior are verified.
-- Per-device routing controls and position calibration UI remain follow-ups.
+- Test oscillator, rotator, position/stroker output on suitable physical hardware. These are now enabled
+  by default; strokers move within a conservative safe default (no calibration required), so verify the
+  travel bounds and stop behavior feel safe on real devices.
+- Per-device routing controls and a position calibration UI remain follow-ups (calibration is currently
+  optional refinement, editable only via the config file).
 - **Config-screen list clipping on the pre-1.20.2 lines (`1.20.1`, `1.19.2`).** Those Minecraft versions'
   `AbstractSelectionList` clips overflowing rows only via its built-in top/bottom "dirt" masks, which are
   sized from a screen-height constructor argument and therefore paint over the embedded device/error

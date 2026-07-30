@@ -8,6 +8,7 @@ import net.minegasm.config.HapticConfig;
 import net.minegasm.config.LegacyMinegasmImporter;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.config.TestOutputLimits;
+import net.minegasm.core.DeliveryMode;
 import net.minegasm.core.OutputKind;
 import net.minegasm.core.RawGameEvent;
 import net.minegasm.core.CouplingMode;
@@ -289,9 +290,16 @@ public final class MinegasmClient {
         runtime.lifecycle().clearPanic();
     }
 
+    /** Motion route for the test stroke; matches the recipe's stroke route (position/stroker features). */
+    private static final HapticRoute TEST_MOTION_ROUTE = new HapticRoute(
+            java.util.EnumSet.of(OutputKind.HW_POSITION_WITH_DURATION, OutputKind.POSITION),
+            java.util.Collections.emptySet(), java.util.Collections.emptySet(),
+            java.util.Collections.emptySet(), DeliveryMode.SUPPLEMENTAL);
+
     /**
-     * Fire a short, capped test pulse on every enabled {@code Vibrate} feature. The master enable
-     * and panic latch both gate this output. A scheduled {@code StopCmd} always ends the pulse.
+     * Fire a short, capped test on every enabled feature: a buzz on vibrate/oscillate/rotate features
+     * and a brief bounded test stroke on position/stroker features. The master enable and panic latch
+     * both gate this output. A scheduled {@code StopCmd} always ends the pulse.
      */
     public int testPulse(float level) {
         return testPulse(level, TEST_PULSE_MS);
@@ -307,25 +315,41 @@ public final class MinegasmClient {
         long boundedDurationMs = Math.max(TestOutputLimits.MIN_DURATION_MS,
                 Math.min(durationMs, TestOutputLimits.MAX_DURATION_MS));
         int targeted = 0;
+        boolean anyMotion = false;
         for (HapticDevice device : snapshot.all()) {
             if (!config.get().deviceSetting(device.identityKey()).enabled()) {
                 continue;
             }
             for (HapticFeature feature : device.features().values()) {
-                if (feature.supports(OutputKind.VIBRATE)) {
+                boolean buzz = feature.supports(OutputKind.VIBRATE)
+                        || feature.supports(OutputKind.OSCILLATE) || feature.supports(OutputKind.ROTATE);
+                boolean motion = feature.supports(OutputKind.POSITION)
+                        || feature.supports(OutputKind.HW_POSITION_WITH_DURATION);
+                if (buzz || motion) {
                     targeted++;
                 }
+                anyMotion |= motion;
             }
         }
         if (targeted > 0) {
             long nowNs = clock.nanoTime();
             long durationNs = boundedDurationMs * 1_000_000L;
-            HapticLayer layer = new HapticLayer("test:hold", HapticRole.IMPACT,
+            List<HapticLayer> layers = new ArrayList<>();
+            layers.add(new HapticLayer("test:hold", HapticRole.IMPACT,
                     new HapticPrimitive.Hold(capped, (int) boundedDurationMs, 0, 0),
-                    HapticRoute.vibrateAll(), CouplingMode.EXCLUSIVE, Priorities.CONTROL,
-                    0, durationNs, "test");
+                    HapticRoute.buzzAll(), CouplingMode.EXCLUSIVE, Priorities.CONTROL,
+                    0, durationNs, "test"));
+            if (anyMotion) {
+                // A clearly visible test stroke, bounded like all motion by the travel window downstream.
+                float strokeDepth = HapticMath.clamp01(Math.max(capped, 0.7f));
+                int periodMs = (int) Math.max(700L, boundedDurationMs);
+                layers.add(new HapticLayer("test:stroke", HapticRole.IMPACT,
+                        new HapticPrimitive.Oscillation(strokeDepth, periodMs, (int) boundedDurationMs),
+                        TEST_MOTION_ROUTE, CouplingMode.EXCLUSIVE, Priorities.CONTROL,
+                        0, durationNs, "test"));
+            }
             runtime.worker().offer(new HapticScene("test", GameEventKind.AMBIENT,
-                    Priorities.CONTROL, java.util.Collections.singletonList(layer), nowNs, nowNs + durationNs, "test"));
+                    Priorities.CONTROL, layers, nowNs, nowNs + durationNs, "test"));
         }
         return targeted;
     }

@@ -35,15 +35,11 @@
     "explosion": { "enabled": true, "multiplier": 1.0 }
   },
   "outputPolicy": {
-    "Vibrate": { "enabled": true, "experimental": false, "permanentlyUnsupported": false },
-    "Position": { "enabled": false, "experimental": true, "permanentlyUnsupported": false },
-    "HwPositionWithDuration": { "enabled": false, "experimental": true, "permanentlyUnsupported": false },
-    "Oscillate": { "enabled": false, "experimental": false, "permanentlyUnsupported": false },
-    "Rotate": { "enabled": false, "experimental": false, "permanentlyUnsupported": false },
-    "Constrict": { "enabled": false, "experimental": true, "permanentlyUnsupported": false },
-    "Temperature": { "enabled": false, "experimental": false, "permanentlyUnsupported": false },
-    "Led": { "enabled": false, "experimental": false, "permanentlyUnsupported": false },
-    "Spray": { "enabled": false, "experimental": false, "permanentlyUnsupported": true }
+    "Vibrate": { "enabled": true },
+    "Oscillate": { "enabled": true },
+    "Rotate": { "enabled": true },
+    "Position": { "enabled": true },
+    "HwPositionWithDuration": { "enabled": true }
   },
   "devices": {},
   "positionCalibrations": {},

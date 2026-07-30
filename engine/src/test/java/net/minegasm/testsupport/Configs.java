@@ -31,6 +31,11 @@ public final class Configs {
                 "HwPositionWithDuration", net.minegasm.config.OutputPolicy.on()));
     }
 
+    /** Enabled config with one output kind forced off, for policy-gating tests. */
+    public static RuntimeConfig withOutputOff(MinegasmMode mode, RecipePackId pack, String wireName) {
+        return build(mode, pack, true, Map.of(wireName, net.minegasm.config.OutputPolicy.off()));
+    }
+
     private static RuntimeConfig build(MinegasmMode mode, RecipePackId pack, boolean enabled,
                                        Map<String, net.minegasm.config.OutputPolicy> extraPolicy) {
         HapticConfig d = HapticConfig.defaults();

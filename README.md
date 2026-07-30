@@ -184,8 +184,8 @@ unless you explicitly opt in to remote (see `docs/SAFETY.md`).
 ## Safety
 
 Physical hardware, so the engine fails toward **stopped**: bounded queues, real-time expiry, a
-watchdog, universal stop on every lifecycle transition, conservative output caps, and experimental
-gating for non-vibration outputs. Details in `docs/SAFETY.md`.
+watchdog, universal stop on every lifecycle transition, conservative output caps, and bounded
+safe-default travel for motion outputs. Details in `docs/SAFETY.md`.
 
 ## License & provenance
 

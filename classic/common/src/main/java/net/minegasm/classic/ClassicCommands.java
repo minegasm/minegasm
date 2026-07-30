@@ -206,7 +206,7 @@ public final class ClassicCommands {
         }
         int targeted = client.testPulse(percent / 100f, durationMs);
         if (targeted == 0) {
-            out.error("No connected device has a vibrate feature to test.");
+            out.error("No connected device has a feature to test.");
             return;
         }
         out.info("Sent a " + percent + "% / " + durationMs + " ms test to " + targeted

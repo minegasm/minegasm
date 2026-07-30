@@ -19,7 +19,7 @@ uncertainty (brief §12).
 - **Watchdog** (`runtime.Watchdog`): polled from the client tick, an observer independent of the
   worker thread it watches, and forces a stop if the worker's last healthy cycle is stale (>2 s).
 - **Position endpoints are never zeroed on release**: a raw 0 would slam a stroker to the end of its
-  physical range, outside the calibrated window. Only vibration-like outputs (Vibrate, Oscillate,
+  physical range, outside its travel window. Only vibration-like outputs (Vibrate, Oscillate,
   Rotate, Constrict) get planned zeroes; position outputs hold where the envelope ended
   (`FeatureScheduler.needsZeroOnRelease`), and `StopCmd` covers emergencies.
 - **Bounded queues + real-time expiry**: no stale command is ever sent; nothing grows unbounded.
@@ -27,12 +27,18 @@ uncertainty (brief §12).
 
 ## Output caps and gating
 
-- Hard per-kind caps in `render.SafetyCaps` (Vibrate ≤ 1.0, Oscillate ≤ 0.5, Rotate ≤ 0.35, motion
-  travel ≤ 0.20) applied after all user scaling.
+- Hard per-kind caps in `render.SafetyCaps` (Vibrate ≤ 1.0, Oscillate ≤ 0.5, Rotate ≤ 0.35) applied
+  after all user scaling. Motion is not capped here; its bound is the travel window below.
 - Per-device and per-feature caps/multipliers, plus global intensity.
-- **Experimental gating**: `Position`/`HwPositionWithDuration` require explicit opt-in *and*
-  per-feature calibration before gameplay can move them (`SceneMixer.buildTarget`,
-  `config.PositionCalibration`). `Spray` is permanently unsupported and can never be routed.
+- **Bounded motion by default**: `Position`/`HwPositionWithDuration` (strokers) move within a
+  conservative safe default (centered neutral, narrow window) even with no calibration; an explicit
+  `config.PositionCalibration` can reshape it. Physical travel is bounded in `SceneMixer.buildTarget` by
+  the calibration's `gameplayTravelFraction` (≤ 0.20 of the span) and the `[minimum, maximum]` clamp, so
+  no config or shared profile can slam the device to its ends. `Spray` is unsupported and can never be
+  routed (it maps to `OutputKind.UNKNOWN`).
+- **Rhythmic stroking** (Balanced pack): gameplay activity drives a decaying charge that strokes the
+  device back and forth, fading when idle. The stroke period is floored (`SceneMixer.MIN_STROKE_PERIOD_MS`),
+  which caps how fast the device can be driven; depth stays within the travel window above.
 - **Fatigue protection** (default on): rolling budgets reduce low-priority texture/ambient output
   before ever dulling warnings (`runtime.FatigueGovernor`).
 

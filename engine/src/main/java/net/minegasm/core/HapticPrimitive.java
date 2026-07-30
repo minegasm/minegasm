@@ -362,6 +362,64 @@ public interface HapticPrimitive {
         }
     }
 
+    /**
+     * A continuous stroke for a position/motion output: a full out-and-back cycle every
+     * {@code periodMs}, repeating until {@code durationMs}. {@code level} is the stroke depth (0..1).
+     * Used only on the motion route; {@code SceneMixer.buildTarget} turns depth + period + elapsed time
+     * into position waypoints (endpoint alternation for {@code HwPositionWithDuration}, a sampled sweep
+     * for {@code Position}). Its instantaneous {@link #level()} is constant so the scene stays active;
+     * the position shaping comes from the period, not the sampled level.
+     */
+    final class Oscillation implements HapticPrimitive {
+        private final float level;
+        private final int periodMs;
+        private final int durationMs;
+
+        public Oscillation(float level, int periodMs, int durationMs) {
+            this.level = level;
+            this.periodMs = periodMs;
+            this.durationMs = durationMs;
+        }
+
+        @Override
+        public float level() {
+            return level;
+        }
+
+        @Override
+        public int durationMs() {
+            return durationMs;
+        }
+
+        public int periodMs() {
+            return periodMs;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Oscillation)) {
+                return false;
+            }
+            Oscillation other = (Oscillation) o;
+            return Float.compare(level, other.level) == 0 && periodMs == other.periodMs
+                    && durationMs == other.durationMs;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(level, periodMs, durationMs);
+        }
+
+        @Override
+        public String toString() {
+            return "Oscillation[level=" + level + ", periodMs=" + periodMs
+                    + ", durationMs=" + durationMs + "]";
+        }
+    }
+
     /** One beat within a {@link BeatPattern}: onset offset, level, and duration in ms. */
     final class Beat {
         private final int atMs;

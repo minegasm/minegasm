@@ -4,12 +4,14 @@ import net.minegasm.config.MinegasmMode;
 import net.minegasm.config.RecipePackId;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.core.CouplingMode;
+import net.minegasm.core.DeliveryMode;
 import net.minegasm.core.GameEventKind;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticPrimitive;
 import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticRoute;
 import net.minegasm.core.HapticScene;
+import net.minegasm.core.OutputKind;
 import net.minegasm.core.Priorities;
 import net.minegasm.device.DeviceRegistrySnapshot;
 import net.minegasm.render.EndpointTarget;
@@ -17,6 +19,8 @@ import net.minegasm.testsupport.Configs;
 import net.minegasm.testsupport.Devices;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -36,8 +40,42 @@ class SceneMixerTest {
 
     private HapticLayer vibeLayer(String id, float level, CouplingMode coupling, int priority) {
         var impulse = new HapticPrimitive.Impulse(level, 200, 8, 40);
-        return new HapticLayer(id, HapticRole.IMPACT, impulse, HapticRoute.vibrateAll(),
+        return new HapticLayer(id, HapticRole.IMPACT, impulse, HapticRoute.buzzAll(),
                 coupling, priority, 0, 250 * MS, null);
+    }
+
+    @Test
+    void hwPositionStrokeAlternatesEndpointsWithHalfPeriodDuration() {
+        // A continuous stroke (period 800ms) on a linear stroker must produce alternating endpoint
+        // waypoints with a half-period move duration, not a per-cycle crawl around center.
+        HapticRoute motion = new HapticRoute(
+                EnumSet.of(OutputKind.HW_POSITION_WITH_DURATION, OutputKind.POSITION),
+                Collections.emptySet(), Collections.emptySet(), Collections.emptySet(),
+                DeliveryMode.SUPPLEMENTAL);
+        HapticPrimitive.Oscillation osc = new HapticPrimitive.Oscillation(1.0f, 800, Integer.MAX_VALUE);
+        HapticLayer layer = new HapticLayer("stroke", HapticRole.TEXTURE, osc, motion,
+                CouplingMode.MAX, Priorities.MINING_TEXTURE, 0, 3_600_000L * MS, "stroke");
+        HapticScene strokeScene = new HapticScene("stroke", GameEventKind.AMBIENT,
+                Priorities.MINING_TEXTURE, List.of(layer), 0, 3_600_000L * MS, "stroke");
+        RuntimeConfig motionCfg = Configs.withMotion(MinegasmMode.IMMERSION, RecipePackId.BALANCED);
+        DeviceRegistrySnapshot snap = Devices.registryWith(Devices.hwPosition(0, "stroker"));
+
+        SceneMixer mixer = new SceneMixer();
+        mixer.add(strokeScene);
+        EndpointTarget atStart = only(mixer.render(snap, motionCfg, governor, false, 0));
+        mixer.clear();
+        mixer.add(strokeScene);
+        EndpointTarget atHalf = only(mixer.render(snap, motionCfg, governor, false, 400 * MS));
+
+        assertTrue(atStart.level() > 0.6f, "first half strokes toward the high bound");
+        assertTrue(atHalf.level() < 0.4f, "second half strokes toward the low bound");
+        assertEquals(400, atHalf.durationMs().intValue(),
+                "move duration is the half-period, not the scene length");
+    }
+
+    private EndpointTarget only(Map<String, EndpointTarget> targets) {
+        assertEquals(1, targets.size());
+        return targets.values().iterator().next();
     }
 
     @Test
@@ -55,9 +93,11 @@ class SceneMixerTest {
     void disabledOutputKindNotRendered() {
         SceneMixer mixer = new SceneMixer();
         mixer.add(scene("a", vibeLayer("l", 0.8f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
-        // Device only has Oscillate, which is disabled by default -> nothing routed.
+        // Device only has Oscillate; with Oscillate forced off in policy, nothing routes.
+        RuntimeConfig oscOff =
+                Configs.withOutputOff(MinegasmMode.IMMERSION, RecipePackId.BALANCED, "Oscillate");
         DeviceRegistrySnapshot oscOnly = Devices.registryWith(Devices.oscillateOnly(0, "osc"));
-        assertTrue(mixer.render(oscOnly, cfg, governor, false, 20 * MS).isEmpty());
+        assertTrue(mixer.render(oscOnly, oscOff, governor, false, 20 * MS).isEmpty());
     }
 
     @Test

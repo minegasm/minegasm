@@ -36,27 +36,18 @@ events:
   explosion:    { enabled: true,  multiplier: 1.00 }
 
 outputPolicy:
+  # Only the kinds a recipe route can target need an entry; others are never driven.
+  # Strokers (Position / HwPositionWithDuration) are enabled but only move once calibrated.
   Vibrate:
     enabled: true
-  Position:
-    enabled: false
-    experimental: true
-  HwPositionWithDuration:
-    enabled: false
-    experimental: true
   Oscillate:
-    enabled: false
+    enabled: true
   Rotate:
-    enabled: false
-  Constrict:
-    enabled: false
-  Temperature:
-    enabled: false
-  Led:
-    enabled: false
-  Spray:
-    enabled: false
-    permanentlyUnsupported: true
+    enabled: true
+  Position:
+    enabled: true
+  HwPositionWithDuration:
+    enabled: true
 
 devices:
   # Saved keys are best-effort identities, never raw DeviceIndex values.

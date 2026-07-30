@@ -468,16 +468,14 @@ public final class HapticConfig implements ConfigValue {
 
     private static Map<String, OutputPolicy> defaultOutputPolicy() {
         Map<String, OutputPolicy> m = new LinkedHashMap<>();
+        // Only the kinds a recipe route can target need an entry; the rest are never chosen anyway.
+        // Oscillators and rotators are continuous, vibrate-equivalent outputs. Strokers (position) are
+        // enabled too, but only move once the device is calibrated (SceneMixer.buildTarget).
         m.put(OutputKind.VIBRATE.wireName(), OutputPolicy.on());
-        m.put(OutputKind.POSITION.wireName(), OutputPolicy.experimentalOff());
-        m.put(OutputKind.HW_POSITION_WITH_DURATION.wireName(), OutputPolicy.experimentalOff());
-        m.put(OutputKind.OSCILLATE.wireName(), OutputPolicy.off());
-        m.put(OutputKind.ROTATE.wireName(), OutputPolicy.off());
-        m.put(OutputKind.CONSTRICT.wireName(), OutputPolicy.experimentalOff());
-        m.put(OutputKind.TEMPERATURE.wireName(), OutputPolicy.off());
-        m.put(OutputKind.LED.wireName(), OutputPolicy.off());
-        // Spray: permanently unsupported, can never be enabled (brief non-goal, ADR-008).
-        m.put("Spray", OutputPolicy.forbidden());
+        m.put(OutputKind.OSCILLATE.wireName(), OutputPolicy.on());
+        m.put(OutputKind.ROTATE.wireName(), OutputPolicy.on());
+        m.put(OutputKind.POSITION.wireName(), OutputPolicy.on());
+        m.put(OutputKind.HW_POSITION_WITH_DURATION.wireName(), OutputPolicy.on());
         return Collections.unmodifiableMap(m);
     }
 }

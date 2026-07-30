@@ -34,6 +34,8 @@ public final class PrimitiveEvaluator {
             return beat((HapticPrimitive.BeatPattern) primitive, ms);
         } else if (primitive instanceof HapticPrimitive.Hold) {
             return hold((HapticPrimitive.Hold) primitive, ms);
+        } else if (primitive instanceof HapticPrimitive.Oscillation) {
+            return oscillation((HapticPrimitive.Oscillation) primitive, ms);
         }
         throw new IllegalStateException("Unknown HapticPrimitive: " + primitive);
     }
@@ -127,6 +129,11 @@ public final class PrimitiveEvaluator {
             return scale(h.level(), (dur - ms) / h.fadeOutMs());
         }
         return h.level();
+    }
+
+    private static float oscillation(HapticPrimitive.Oscillation o, double ms) {
+        // Constant depth while active; SceneMixer.buildTarget derives the swept position from the period.
+        return ms >= o.durationMs() ? 0f : o.level();
     }
 
     private static float scale(float level, double factor) {

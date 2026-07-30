@@ -16,7 +16,6 @@ import java.util.Set;
 public final class HapticRoute {
 
     private final Set<OutputKind> allowedOutputs;
-    private final boolean requiresExperimentalOptIn;
     private final Set<Integer> includedDeviceIndexes;
     private final Set<FeatureRef> includedFeatures;
     private final Set<FeatureRef> excludedFeatures;
@@ -24,15 +23,13 @@ public final class HapticRoute {
 
     public HapticRoute(
             Set<OutputKind> allowedOutputs,
-            boolean requiresExperimentalOptIn,
             Set<Integer> includedDeviceIndexes,
             Set<FeatureRef> includedFeatures,
             Set<FeatureRef> excludedFeatures,
             DeliveryMode deliveryMode) {
         this.allowedOutputs = allowedOutputs == null || allowedOutputs.isEmpty()
-                ? EnumSet.of(OutputKind.VIBRATE)
+                ? EnumSet.of(OutputKind.VIBRATE, OutputKind.OSCILLATE, OutputKind.ROTATE)
                 : Collections.unmodifiableSet(EnumSet.copyOf(allowedOutputs));
-        this.requiresExperimentalOptIn = requiresExperimentalOptIn;
         this.includedDeviceIndexes = includedDeviceIndexes == null
                 ? Collections.emptySet()
                 : Collections.unmodifiableSet(new LinkedHashSet<>(includedDeviceIndexes));
@@ -47,10 +44,6 @@ public final class HapticRoute {
 
     public Set<OutputKind> allowedOutputs() {
         return allowedOutputs;
-    }
-
-    public boolean requiresExperimentalOptIn() {
-        return requiresExperimentalOptIn;
     }
 
     public Set<Integer> includedDeviceIndexes() {
@@ -69,19 +62,14 @@ public final class HapticRoute {
         return deliveryMode;
     }
 
-    /** The common case: vibration to all compatible features, no experimental gating. */
-    public static HapticRoute vibrateAll() {
-        return new HapticRoute(EnumSet.of(OutputKind.VIBRATE), false,
-                Collections.emptySet(), Collections.emptySet(), Collections.emptySet(),
-                DeliveryMode.ALL_COMPATIBLE);
-    }
-
-    /** Vibration everywhere plus experimental motion as a supplemental layer. */
-    public static HapticRoute vibrateAllPlusMotion() {
+    /**
+     * The common case: a continuous "buzz" to all compatible features. Prefers vibration, but drives an
+     * oscillator or rotator where that is what the device has. No experimental gating.
+     */
+    public static HapticRoute buzzAll() {
         return new HapticRoute(
-                EnumSet.of(OutputKind.VIBRATE, OutputKind.HW_POSITION_WITH_DURATION,
-                        OutputKind.POSITION),
-                false, Collections.emptySet(), Collections.emptySet(), Collections.emptySet(),
+                EnumSet.of(OutputKind.VIBRATE, OutputKind.OSCILLATE, OutputKind.ROTATE),
+                Collections.emptySet(), Collections.emptySet(), Collections.emptySet(),
                 DeliveryMode.ALL_COMPATIBLE);
     }
 
@@ -108,8 +96,7 @@ public final class HapticRoute {
             return false;
         }
         HapticRoute other = (HapticRoute) o;
-        return requiresExperimentalOptIn == other.requiresExperimentalOptIn
-                && Objects.equals(allowedOutputs, other.allowedOutputs)
+        return Objects.equals(allowedOutputs, other.allowedOutputs)
                 && Objects.equals(includedDeviceIndexes, other.includedDeviceIndexes)
                 && Objects.equals(includedFeatures, other.includedFeatures)
                 && Objects.equals(excludedFeatures, other.excludedFeatures)
@@ -118,14 +105,14 @@ public final class HapticRoute {
 
     @Override
     public int hashCode() {
-        return Objects.hash(allowedOutputs, requiresExperimentalOptIn, includedDeviceIndexes,
+        return Objects.hash(allowedOutputs, includedDeviceIndexes,
                 includedFeatures, excludedFeatures, deliveryMode);
     }
 
     @Override
     public String toString() {
-        return "HapticRoute[allowedOutputs=" + allowedOutputs + ", requiresExperimentalOptIn="
-                + requiresExperimentalOptIn + ", includedDeviceIndexes=" + includedDeviceIndexes
+        return "HapticRoute[allowedOutputs=" + allowedOutputs
+                + ", includedDeviceIndexes=" + includedDeviceIndexes
                 + ", includedFeatures=" + includedFeatures + ", excludedFeatures=" + excludedFeatures
                 + ", deliveryMode=" + deliveryMode + "]";
     }
