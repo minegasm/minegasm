@@ -24,6 +24,8 @@ import net.minegasm.device.HapticDevice;
 import net.minegasm.device.HapticFeature;
 import net.minegasm.observe.ClientStateSnapshot;
 import net.minegasm.pack.PackLoader;
+import net.minegasm.pack.PackRegistry;
+import net.minegasm.pack.ScenePackInfo;
 import net.minegasm.runtime.HapticRuntime;
 import net.minegasm.time.Clock;
 import net.minegasm.util.HapticMath;
@@ -65,7 +67,7 @@ public final class MinegasmClient {
     private final Clock clock;
     private final AtomicBoolean shutdown = new AtomicBoolean();
     private final boolean firstRun;
-    private final int scenePackCount;
+    private final PackRegistry scenePacks;
     private final List<String> errorHistory = new ArrayList<>();
     private static final int MAX_ERROR_HISTORY = 50;
     private static final DateTimeFormatter ERROR_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -93,8 +95,8 @@ public final class MinegasmClient {
         for (String packError : packs.errors()) {
             errorHistory.add("[scene-packs] " + packError);
         }
-        this.scenePackCount = packs.loaded();
-        this.runtime = new HapticRuntime(provider, clock, config::get, packs.registry());
+        this.scenePacks = packs.registry();
+        this.runtime = new HapticRuntime(provider, clock, config::get, scenePacks);
         provider.setStatusListener(this::recordProviderError);
     }
 
@@ -105,7 +107,12 @@ public final class MinegasmClient {
 
     /** Number of scene packs successfully loaded from the packs folder at startup. */
     public int scenePackCount() {
-        return scenePackCount;
+        return scenePacks.size();
+    }
+
+    /** The loaded scene packs as display summaries, for a pack-manager UI or command (brief 0003 §2.7). */
+    public List<ScenePackInfo> scenePacks() {
+        return ScenePackInfo.from(scenePacks);
     }
 
     public void start() {

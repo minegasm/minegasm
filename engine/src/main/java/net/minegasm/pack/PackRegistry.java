@@ -1,5 +1,7 @@
 package net.minegasm.pack;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -23,6 +25,11 @@ public final class PackRegistry {
     /** The pack with this id, if one is loaded. A null id yields empty. */
     public Optional<ScenePack> find(String id) {
         return id == null ? Optional.<ScenePack>empty() : Optional.ofNullable(byId.get(id));
+    }
+
+    /** Every loaded pack, in load order, for listing in a UI. */
+    public Collection<ScenePack> all() {
+        return Collections.unmodifiableCollection(byId.values());
     }
 
     public boolean isEmpty() {

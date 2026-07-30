@@ -35,6 +35,7 @@ class PackLoaderTest {
 
         assertEquals(1, result.loaded(), "the good pack loads despite the bad one");
         assertTrue(result.registry().find("good.pack").isPresent());
+        assertEquals(1, result.registry().all().size(), "listing shows exactly the loaded pack");
         assertEquals(1, result.errors().size());
         assertTrue(result.errors().get(0).contains("bad.json"), "the bad file is named in the error");
     }
