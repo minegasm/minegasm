@@ -8,12 +8,13 @@ living design docs (`docs/ARCHITECTURE.md`, `docs/adr/`, …) that describe *how
 
 Minegasm is a full rewrite of the original Minegasm mod into a client-side, multi-device haptic
 feedback engine for Minecraft Java Edition, driving Buttplug v4 devices through a local Intiface
-server. The project's shape comes from a single planning document so far, the initial implementation
-brief (0001): a semantic intent → scene → mixer → device pipeline, running on NeoForge, Fabric, and
-Forge across several Minecraft versions, reproducing the legacy mod's triggers and modes on a new
-engine rather than forking its code. As new briefs are accepted, update this section to reflect the
-current standing direction across all of them; the per-brief write-ups under the index below cover
-what each one specifically added or changed.
+server. The project's shape comes from the initial implementation brief (0001): a semantic intent →
+scene → mixer → device pipeline, running on NeoForge, Fabric, and Forge across several Minecraft
+versions, reproducing the legacy mod's triggers and modes on a new engine rather than forking its
+code. A second brief (0002) is proposed but not yet accepted or built; it sets out a direction for
+expanding beyond Buttplug into a multi-backend engine. As new briefs are accepted, update this
+section to reflect the current standing direction across all of them; the per-brief write-ups under
+the index below cover what each one specifically added or changed.
 
 ## Convention
 
@@ -34,6 +35,7 @@ what each one specifically added or changed.
 | # | Brief | Date | Status |
 |---|---|---|---|
 | 0001 | [Initial implementation brief](0001-initial-implementation-brief/MINEGASM_NEXT_IMPLEMENTATION_BRIEF.md) | 16 Jul 2026 | Accepted, implemented |
+| 0002 | [Haptic backend expansion](0002-haptic-backend-expansion.md) | 28 Jul 2026 | Proposed |
 
 ### 0001: Initial implementation brief
 
