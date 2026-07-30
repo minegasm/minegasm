@@ -11,10 +11,14 @@ feedback engine for Minecraft Java Edition, driving Buttplug v4 devices through 
 server. The project's shape comes from the initial implementation brief (0001): a semantic intent →
 scene → mixer → device pipeline, running on NeoForge, Fabric, and Forge across several Minecraft
 versions, reproducing the legacy mod's triggers and modes on a new engine rather than forking its
-code. A second brief (0002) is proposed but not yet accepted or built; it sets out a direction for
-expanding beyond Buttplug into a multi-backend engine. As new briefs are accepted, update this
-section to reflect the current standing direction across all of them; the per-brief write-ups under
-the index below cover what each one specifically added or changed.
+code. Brief 0003 (accepted) extends that direction: recipes and scenes become shareable, data-driven
+packs, and the engine gains a backend-neutral seam so one scene fans out to multiple backends with the
+load on the body governed centrally. Brief 0002 remains proposed as the broader provider roadmap
+(bHaptics, local bridge, XToys, audio, and more) that 0003 builds on and references rather than
+replaces. One decision that grew out of the seam, supporting opt-in electrostim, is accepted in
+ADR-016. As new briefs are accepted, update this section to reflect the current standing direction
+across all of them; the per-brief write-ups under the index below cover what each one specifically
+added or changed.
 
 ## Convention
 
@@ -36,6 +40,7 @@ the index below cover what each one specifically added or changed.
 |---|---|---|---|
 | 0001 | [Initial implementation brief](0001-initial-implementation-brief/MINEGASM_NEXT_IMPLEMENTATION_BRIEF.md) | 16 Jul 2026 | Accepted, implemented |
 | 0002 | [Haptic backend expansion](0002-haptic-backend-expansion.md) | 28 Jul 2026 | Proposed |
+| 0003 | [Shareable haptics and multi-backend output](0003-shareable-haptics-and-multi-backend.md) | 30 Jul 2026 | Accepted |
 
 ### 0001: Initial implementation brief
 
@@ -48,3 +53,15 @@ decisions, and coding guidelines, alongside examples and diagram assets.
 > "Minegasm Next". The project is now named **`minegasm`** (package `net.minegasm`, AGPL-3.0); the
 > original mod is referred to as *legacy Minegasm* (`com.therainbowville.minegasm`, source in the
 > `minegasm-legacy` repo). See `docs/adr/ADR-001-rewrite-and-license.md`.
+
+### 0003: Shareable haptics and multi-backend output
+
+Accepted. Makes recipes and scenes into shareable data: the existing device-independent
+scene/layer/primitive model gets a JSON pack format (reusing the config Gson infrastructure), a
+file-based `RecipePack`, a loader with import safety, and authoring UI, shipped static-first and then
+parameterized. It also realizes 0002's backend-neutral seam concretely: the fan-out point is the
+`HapticScene`, the existing Buttplug worker becomes one backend behind a `HapticBackend` interface, and
+a coordinator fans scenes to every enabled backend. Mixing, fatigue, and aggregate safety are governed
+centrally because the body is one system, with per-backend and per-modality caps underneath. It builds
+on and references 0002 for the provider roadmap rather than replacing it; the related opt-in
+electrostim decision is accepted separately in ADR-016.
