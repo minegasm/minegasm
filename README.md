@@ -15,10 +15,13 @@ user-visible triggers, modes, and config migration on a new semantic haptic engi
 
 1. Observes gameplay on the client thread (works on multiplayer servers that don't have the mod).
 2. Turns short-lived events and continuous player state into device-independent **intents**.
-3. Resolves intents into semantic **scenes** via a recipe pack (Classic parity or Balanced modern).
+3. Resolves intents into semantic **scenes** via a recipe pack (Classic parity, Balanced modern, or a
+   shareable **scene pack** loaded from a file).
 4. Mixes scenes with priority, expiry, ducking, coalescing, and fatigue protection.
-5. Renders scenes to every enabled compatible Buttplug **feature** and schedules feature-level
-   `OutputCmd`s on a dedicated worker, using **monotonic real time** instead of tick counts.
+5. Fans each scene out to every enabled **backend**: Buttplug renders to each compatible device
+   **feature** and schedules feature-level `OutputCmd`s on a dedicated worker (**monotonic real time**
+   instead of tick counts), and an optional **local bridge** streams the same scenes to a user-run
+   adapter.
 6. Applies the configured pause/world-exit policy and always stops on disconnect, shutdown,
    watchdog, or panic.
 
@@ -31,6 +34,10 @@ Devices are reached via the **buttplug4j** client (`4.0.278`, v4 feature-based s
 dependency-free JDK WebSocket provider as a fallback/test backend, selectable with the
 `buttplug.client` config key (`buttplug4j` | `native`). See `docs/adr/ADR-006-buttplug-v4-external-provider.md`.
 
+Beyond Buttplug, an optional **local bridge** sends the same scenes as JSON over loopback TCP to an
+adapter you run, the extension point for non-Buttplug outputs (DIY hardware, other services). It is off
+by default and dependency-free on every loader; see `docs/bridge/PROTOCOL.md`.
+
 Fresh installs automatically connect to local Intiface and start scanning. Haptic feedback remains
 disabled until the user explicitly enables it; a first-run toast explains this opt-in. Existing
 configuration files are not migrated or overwritten by these defaults.
@@ -42,7 +49,9 @@ contributors, including anyone new to Minecraft modding, should start with `docs
 
 This repository is built to the initial brief, archived verbatim in
 [`docs/briefs/0001-initial-implementation-brief/`](docs/briefs/) including its appendices, examples,
-and assets (see `docs/briefs/README.md` for the planning-doc convention).
+and assets (see `docs/briefs/README.md` for the planning-doc convention). Brief 0003 (accepted) has
+since added shareable, file-based **scene packs**, a backend-neutral seam that fans one scene out to
+multiple **backends**, and an optional **local bridge**; see `CHANGELOG.md` and `docs/STATUS.md`.
 **Known gap:** the nearby-explosion event is fully implemented (intents, recipes, settings, manual
 `/minegasm trigger`) but isn't yet raised automatically by gameplay. Every other listed trigger,
 including advancement (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`), now fires

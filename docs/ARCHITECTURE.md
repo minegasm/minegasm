@@ -1,23 +1,27 @@
 # Architecture
 
-Four layers with strict dependency direction. Only the observation layer may touch Minecraft; only
-the provider layer may touch the WebSocket/JSON. The domain and runtime are pure and unit-tested.
+Layers with strict dependency direction. Only the observation layer may touch Minecraft; each output
+backend owns its own transport (the Buttplug WebSocket, or the bridge's TCP). The domain, runtime, and
+backends are pure and unit-tested.
 
 ```
-Minecraft client                         (net.minegasm.neoforge)
-  └─ MinecraftSampler ─┐  raw events + ClientStateSnapshot
-                       ▼
+Minecraft client                         (net.minegasm.<loader>)
+  └─ sampler ─┐  raw events + ClientStateSnapshot
+              ▼
 Observation            (net.minegasm.observe)
   TickEventBuffer, StateTracker → StateTransitions, HapticAggregator → HapticIntent
-                       ▼
-Recipe / domain        (net.minegasm.recipe, net.minegasm.core)
-  RecipeEngine + Presets + {Classic,Balanced}RecipePack → HapticScene
-                       ▼  (bounded SceneIngressQueue, cross-thread)
-Runtime                (net.minegasm.runtime, net.minegasm.render)
-  SceneMixer → EndpointTarget → FeatureScheduler → OutputCommand   (HapticWorker, monotonic clock)
-                       ▼
-Provider               (net.minegasm.buttplug)
-  ButtplugProvider → ButtplugCodec → ButtplugTransport → Intiface → devices
+              ▼
+Recipe / domain        (net.minegasm.recipe, net.minegasm.core, net.minegasm.pack)
+  RecipeEngine + Presets + {Classic,Balanced}RecipePack or a FileRecipePack (shareable scene packs)
+      → HapticScene
+              ▼
+Backends               (net.minegasm.backend)
+  BackendCoordinator fans each HapticScene to every enabled HapticBackend:
+    ├─ ButtplugBackend  (wraps the worker: bounded SceneIngressQueue, monotonic HapticWorker)
+    │     SceneMixer → EndpointTarget → FeatureScheduler → OutputCommand   (net.minegasm.runtime/render)
+    │       → ButtplugProvider → ButtplugCodec → ButtplugTransport → Intiface → devices
+    └─ BridgeBackend    (net.minegasm.bridge)
+          BridgeCodec → OutboundQueue → BridgeTransport (TCP) → local adapter
 ```
 
 ## Threading (brief §6)
@@ -45,11 +49,17 @@ Provider               (net.minegasm.buttplug)
 
 - Priorities: `core/Priorities`. Per-event priority + expiry: `recipe/RecipeTiming`.
 - Mode intensities: `recipe/Presets` (legacy parity table).
-- Recipes: `recipe/ClassicRecipePack` (flat plateau parity) and `recipe/BalancedRecipePack` (shaped).
+- Recipes: `recipe/ClassicRecipePack` (flat plateau parity), `recipe/BalancedRecipePack` (shaped), and
+  `recipe/FileRecipePack` (a loaded `pack/ScenePack`, selected by id, ADR-017).
 - Output caps: `render/SafetyCaps`. Fatigue budgets: `runtime/FatigueGovernor`.
 
 ## Extension seams
 
+- `HapticBackend`: add an output backend (the Buttplug worker, the bridge, a future one) behind the
+  `BackendCoordinator`; scenes fan out to every enabled backend (brief 0003 §3.2, ADR-018).
+- `BridgeTransport`: swap the bridge's transport (TCP by default, a future WebSocket/OSC) without
+  touching the backend or codec.
 - `ButtplugTransport`: swap the JDK WebSocket for a client library without touching the engine.
-- `RecipePack`: add packs without changing acquisition or scheduling.
-- `MinecraftSampler`: the only class that changes between Minecraft versions (Stonecutter guards).
+- `RecipePack`: add built-in packs, or load shareable scene packs from disk (`pack/PackLoader`),
+  without changing acquisition or scheduling.
+- The Minecraft sampler: the only class that changes between Minecraft versions (Stonecutter guards).

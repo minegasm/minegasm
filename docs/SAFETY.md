@@ -44,10 +44,16 @@ uncertainty (brief §12).
 
 ## Network
 
-- **Loopback by default** (`ws://127.0.0.1:12345`). `MinegasmClient.connect` refuses non-loopback
-  URLs unless the user explicitly enables remote servers.
-- Inbound frame size is capped (`WebSocketTransport`), malformed frames/ranges are rejected, unknown
-  output types are represented but never executed, and there is no inbound listening server.
+- **Loopback by default.** The Buttplug server (`ws://127.0.0.1:12345`) and the optional local bridge
+  (`tcp://127.0.0.1:12347`) both default to loopback, and `MinegasmClient` refuses a non-loopback
+  endpoint for either unless the user explicitly enables remote for it.
+- **Both connections are outbound; there is no inbound listening server.** The bridge dials out to a
+  user-run adapter; it never accepts connections.
+- Inbound Buttplug frame size is capped (`WebSocketTransport`), malformed frames/ranges are rejected,
+  and unknown output types are represented but never executed.
+- The bridge is **off by default** and only vibration-class scenes flow over it today; electrical
+  stimulation is not part of the shipped output model and is gated behind a separate opt-in and safety
+  review (`docs/adr/ADR-016-electrostim-opt-in-modality.md`).
 
 ## Privacy
 

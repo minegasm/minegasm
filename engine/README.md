@@ -1,8 +1,9 @@
 # Minegasm engine
 
-The loader- and Minecraft-independent core: domain model, recipes, config, mixer/scheduler/worker, and
-the Buttplug providers. No `net.minecraft` / `org.lwjgl` / Forge imports anywhere in here. This is the
-shared brain both products build on:
+The loader- and Minecraft-independent core: domain model, recipes and shareable scene packs, config,
+mixer/scheduler/worker, the backend seam (Buttplug provider and the local bridge), and their
+transports. No `net.minecraft` / `org.lwjgl` / Forge imports anywhere in here. This is the shared brain
+both products build on:
 
 - **Modern** (in `modern/`: Stonecutter + Loom, MC 1.19.2-26.x) compiles this source in-place via a
   `srcDir` pointing here.
@@ -20,5 +21,6 @@ the JUnit console jar. No Gradle or Minecraft needed.
 
 ## Layout
 
-`core · recipe · config · runtime · render · observe · buttplug · device · time · util · client · tools`
-under `src/main/java/net/minegasm/`, with the unit tests under `src/test/java/net/minegasm/`.
+`core · recipe · pack · config · runtime · render · observe · backend · buttplug · bridge · device ·
+time · util · client · tools` under `src/main/java/net/minegasm/`, with the unit tests under
+`src/test/java/net/minegasm/`.

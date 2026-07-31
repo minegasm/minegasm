@@ -1,6 +1,6 @@
 # Implementation status
 
-Current implementation and verification status for Minegasm `1.0.0-beta.1`. Automated tests,
+Current implementation and verification status for the Minegasm `1.0.0` beta line. Automated tests,
 live Intiface tests, in-game tests, and physical-device tests are reported separately so that a
 successful simulator or unit test is not presented as broader hardware validation.
 
@@ -146,12 +146,34 @@ The automated suite covers:
 - native-provider and buttplug4j integration against the real buttplug4j `4.0.278` API;
 - configuration round trips, corrupt-file recovery, atomic saves, first-run defaults, and legacy
   Minegasm TOML import with non-overwriting pre-import backups;
+- config-section preservation across in-memory rebuilds, so a new section (like the bridge) is never
+  dropped by an unrelated edit;
+- scene-pack round-tripping (all seven primitives), fail-closed import, strength-scaled
+  materialization, disk loading with per-file isolation, and file-pack selection by id;
+- the backend coordinator's scene fan-out and concurrent, isolated stop; the bridge's device-neutral
+  codec, bounded one-in-flight send queue with stop ordering, and backend gating; and the TCP bridge
+  transport against a real loopback socket;
 - end-to-end intent-to-device behavior, including output to every compatible device feature.
 
 The native codec's message shapes were also checked field-by-field against the official
 `buttplugio/buttplug` Rust implementation and buttplug4j `4.0.278` message classes. This confirmed
 the v4 index-keyed `Devices` and `DeviceFeatures` objects, feature indices and descriptions, and
 externally tagged output descriptors.
+
+## Shareable packs, backends, and the local bridge
+
+The engine for these is unit-tested as listed above. Beyond the unit suite:
+
+- The **local bridge** has been exercised end to end against the reference adapter
+  (`docs/bridge/reference-adapter.py`), confirming connect, line-framed `effect`/`stop` delivery, and
+  rejection of an unknown protocol version.
+- The **pack-manager screen** (modern), the classic recipe/pack and `/minegasm bridge` commands, and
+  the bridge **enable toggle** compile on every loader and are installed for testing. In-game
+  walkthroughs of those screens are pending, like the rest of the preflight checklist.
+
+One known parity gap: the modern `/minegasm recipe` command still selects only the two built-in packs
+(it routes through the enum), while classic's command and the modern settings screen can select file
+packs. File-pack selection via the modern command is a follow-up.
 
 ## Live Intiface verification
 

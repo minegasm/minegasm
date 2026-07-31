@@ -146,16 +146,21 @@ you can follow a single mining action through the code:
    placement, fishing bite). The sampler is the *only* part that differs per Minecraft version.
 2. **Intent** (`observe` -> `core`). The observation layer turns raw events and state transitions into
    device-independent **intents** (an abstract "this should feel like a sharp impact of strength X").
-3. **Recipe / scene** (`recipe`, `core`). A **recipe pack** (Classic-parity or Balanced) resolves intents
-   into **scenes**: timed, prioritized bundles of haptic **layers** and **primitives**. Behaviour lives in
-   data here, not in `if` branches (see `recipe/Presets`, `recipe/ClassicRecipePack`).
-4. **Runtime / mix** (`runtime`, `render`). A single **haptic worker** thread mixes overlapping scenes by
-   priority, applies expiry, fatigue protection, and safety caps, and schedules per-feature
-   `OutputCommand`s. Everything is timed with `System.nanoTime()` via a `Clock`, not tick counts, so it
-   behaves the same under lag.
-5. **Provider** (`buttplug`). The provider encodes commands into the Buttplug protocol and sends them over
-   a WebSocket to Intiface, which drives the device. The default backend is the `buttplug4j` library; a
-   dependency-free JDK-WebSocket backend also exists.
+3. **Recipe / scene** (`recipe`, `core`, `pack`). A **recipe pack** resolves intents into **scenes**:
+   timed, prioritized bundles of haptic **layers** and **primitives**. The built-ins are Classic-parity
+   and Balanced; a **file pack** (`pack/ScenePack`, loaded from disk) renders a user-authored, shareable
+   scene set the same way. Behaviour lives in data here, not in `if` branches (see `recipe/Presets`,
+   `recipe/ClassicRecipePack`, `recipe/FileRecipePack`).
+4. **Backends / mix** (`backend`, `runtime`, `render`, `bridge`). The `BackendCoordinator` fans each
+   scene to every enabled **backend**. The `ButtplugBackend` wraps the single **haptic worker** thread,
+   which mixes overlapping scenes by priority, applies expiry, fatigue protection, and safety caps, and
+   schedules per-feature `OutputCommand`s. Everything is timed with `System.nanoTime()` via a `Clock`,
+   not tick counts, so it behaves the same under lag.
+5. **Output**. The `ButtplugBackend`'s provider encodes commands into the Buttplug protocol and sends
+   them over a WebSocket to Intiface (default backend `buttplug4j`, with a dependency-free JDK-WebSocket
+   fallback). The optional `BridgeBackend` instead serializes each scene to JSON and sends it over TCP to
+   a local adapter the user runs (`docs/bridge/PROTOCOL.md`), the extension point for non-Buttplug
+   outputs.
 
 `client/MinegasmClient` is the loader-independent facade that ties this together. The Minecraft layer
 constructs one, feeds it snapshots and events each tick, and calls `panic()`, `connect()`, etc. from key
