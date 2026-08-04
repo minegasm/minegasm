@@ -12,7 +12,8 @@ All notable changes to Minegasm are documented in this file. The format follows
 - **Shareable scene packs.** Recipe packs can now be authored as data: a JSON pack file maps game
   events to scene templates in the existing scene/layer/primitive vocabulary. Packs load from
   `<config>/minegasm/scene-packs/` and are selectable by id alongside the built-in Classic and Balanced
-  packs (settings screen on modern, `/minegasm recipe <id>` on classic). Import is fail-closed and
+  packs. Every selection surface offers the full list and stores the raw id: the pack-manager and
+  settings screens on modern, and `/minegasm recipe <id>` on both loaders. Import is fail-closed and
   clamps every value through the engine's caps, so a shared pack can never exceed them; a per-layer
   strength response lets a pack follow event strength. See brief 0003 §2 and
   `docs/adr/ADR-017-string-recipe-pack-identity.md`.

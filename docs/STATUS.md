@@ -167,13 +167,14 @@ The engine for these is unit-tested as listed above. Beyond the unit suite:
 - The **local bridge** has been exercised end to end against the reference adapter
   (`docs/bridge/reference-adapter.py`), confirming connect, line-framed `effect`/`stop` delivery, and
   rejection of an unknown protocol version.
-- The **pack-manager screen** (modern), the classic recipe/pack and `/minegasm bridge` commands, and
-  the bridge **enable toggle** compile on every loader and are installed for testing. In-game
-  walkthroughs of those screens are pending, like the rest of the preflight checklist.
+- The **pack-manager screen** (modern), the modern and classic `/minegasm recipe` and `/minegasm
+  bridge` commands, and the bridge **enable toggle** compile on every loader and are installed for
+  testing. In-game walkthroughs of those screens are pending, like the rest of the preflight checklist.
 
-One known parity gap: the modern `/minegasm recipe` command still selects only the two built-in packs
-(it routes through the enum), while classic's command and the modern settings screen can select file
-packs. File-pack selection via the modern command is a follow-up.
+Recipe-pack selection is now consistent across surfaces: the modern `/minegasm recipe` command, its
+settings-screen toggle, the pack-manager screen, and the classic command all offer the two built-ins
+plus every loaded file pack, and all persist the choice as its raw id (ADR-017) rather than collapsing
+a file pack back to a built-in.
 
 ## Live Intiface verification
 

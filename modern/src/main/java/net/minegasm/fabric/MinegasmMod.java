@@ -6,7 +6,6 @@ import net.minegasm.core.GameEventKind;
 import net.minegasm.core.RawGameEvent;
 import net.minegasm.config.HapticConfig;
 import net.minegasm.config.MinegasmMode;
-import net.minegasm.config.RecipePackId;
 import net.minegasm.config.TestOutputLimits;
 import net.minegasm.neoforge.McCompat;
 import net.minegasm.neoforge.MinecraftSampler;
@@ -74,7 +73,6 @@ public final class MinegasmMod implements ClientModInitializer {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<String, GameEventKind> TRIGGER_EVENTS = triggerEvents();
     private static final java.util.List<String> MODE_NAMES = lowerNames(MinegasmMode.values());
-    private static final java.util.List<String> RECIPE_NAMES = lowerNames(RecipePackId.values());
 
     // The live client, published for the optional ModMenu integration (a separate `modmenu`
     // entrypoint ModMenu instantiates on its own, so it cannot reach the instance field). Written
@@ -206,7 +204,7 @@ public final class MinegasmMod implements ClientModInitializer {
                         })
                         .then(ClientCommands.argument("recipe", StringArgumentType.word())
                                 .suggests((context, builder) ->
-                                        SharedSuggestionProvider.suggest(RECIPE_NAMES, builder))
+                                        SharedSuggestionProvider.suggest(recipeOptions(), builder))
                                 .executes(context -> recipeFromCommand(context.getSource(),
                                         StringArgumentType.getString(context, "recipe")))))
                 .then(ClientCommands.literal("bridge")
@@ -312,21 +310,42 @@ public final class MinegasmMod implements ClientModInitializer {
 
     private void sendRecipe(FabricClientCommandSource source) {
         source.sendFeedback(Component.translatable("minegasm.command.recipe_current",
-                client.config().raw().profile().recipePackId().name().toLowerCase(Locale.ROOT)));
+                client.config().raw().profile().recipePack()));
     }
 
     private int recipeFromCommand(FabricClientCommandSource source, String name) {
-        RecipePackId pack = RecipePackId.fromString(name, null);
-        if (pack == null) {
+        String selected = matchRecipe(name);
+        if (selected == null) {
             source.sendError(Component.translatable("minegasm.command.recipe_unknown", name));
             return 0;
         }
         HapticConfig cfg = client.config().raw();
-        applyProfile(new HapticConfig.Profile(pack.name().toLowerCase(Locale.ROOT),
-                cfg.profile().hapticMode()));
-        source.sendFeedback(Component.translatable("minegasm.command.recipe_set",
-                pack.name().toLowerCase(Locale.ROOT)));
+        applyProfile(new HapticConfig.Profile(selected, cfg.profile().hapticMode()));
+        source.sendFeedback(Component.translatable("minegasm.command.recipe_set", selected));
         return 1;
+    }
+
+    // The selectable recipe pack ids: the two built-ins plus every loaded file pack (ADR-017).
+    private java.util.List<String> recipeOptions() {
+        java.util.List<String> options = new java.util.ArrayList<>();
+        options.add("classic");
+        options.add("balanced");
+        for (net.minegasm.pack.ScenePackInfo info : client.scenePacks()) {
+            if (!options.contains(info.id())) {
+                options.add(info.id());
+            }
+        }
+        return options;
+    }
+
+    // Resolve a requested pack id against the selectable options, case-insensitively.
+    private String matchRecipe(String name) {
+        for (String option : recipeOptions()) {
+            if (option.equalsIgnoreCase(name)) {
+                return option;
+            }
+        }
+        return null;
     }
 
     private void sendBridge(FabricClientCommandSource source) {
