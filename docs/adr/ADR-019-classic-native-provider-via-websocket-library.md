@@ -44,7 +44,7 @@ libraries.
 - Classic jars carry one more relocated dependency. It replaces nothing (buttplug4j is still the
   default and still bundled), so the jar grows; `native` is the lighter runtime only once selected,
   since buttplug4j's Jetty/Jackson stack is then unused.
-- The frame cap is configured on the library (`maxFrameSize`) rather than enforced by hand, so it
-  depends on Java-WebSocket honouring it through its decode and reassembly path. A loopback test
-  exercising connect, send, receive, and oversize rejection is the intended verification; it is not in
-  place yet, so at first landing the transport is compile- and shade-verified only.
+- The frame cap is configured on the library (`maxFrameSize`) rather than enforced by hand. A loopback
+  test in the `1.12.2-forge` test source set exercises connect, send, receive, and oversize-frame
+  rejection, confirming the cap fires on the decode path rather than only that the setter exists.
+  Physical hardware is still untested.

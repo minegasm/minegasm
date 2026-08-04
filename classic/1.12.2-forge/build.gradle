@@ -56,6 +56,16 @@ dependencies {
     // The native provider's WebSocket client (ADR-019). slf4j is already shaded via buttplug4j, so
     // Java-WebSocket rides on that rather than pulling its own copy.
     shade('org.java-websocket:Java-WebSocket:1.5.7') { transitive = false }
+    // Loopback test for ClassicWebSocketTransport (shared source in common); Java-WebSocket's server
+    // drives the client end to end. The shade bucket does not reach the test runtime classpath here, so
+    // the library is declared for the test directly.
+    testImplementation 'org.java-websocket:Java-WebSocket:1.5.7'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+
+test {
+    useJUnitPlatform()
 }
 
 shadowJar {

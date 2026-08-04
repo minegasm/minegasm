@@ -184,9 +184,9 @@ internals have not been diffed for parity yet. Both dashboards now carry the ada
 `buttplug4j`): modern's `native` is the dependency-free JDK WebSocket, and classic's is a bundled
 Java-WebSocket transport, since classic's Java 8 target has no built-in WebSocket client
 (`docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`). The default stays `buttplug4j`
-on both. The classic transport compiles and shades correctly and the inbound frame cap is configured
-via the library's `maxFrameSize`, but its runtime behaviour (handshake, framing, send/receive, cap) has
-not been exercised yet, against a loopback server or real hardware.
+on both. A loopback test covers the classic transport's connect, send, receive, and oversize-frame
+rejection, so its inbound `maxFrameSize` cap is confirmed to fire rather than only configured. It has
+not been exercised against real hardware.
 
 ## Live Intiface verification
 
