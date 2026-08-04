@@ -14,10 +14,10 @@ pwsh .localbuild/build.ps1 -Test
 
 Covers: normalization/curves, recipes/presets (legacy parity), aggregation (hurt merge, XP coalesce,
 mining, vitality, fishing), mixer/scheduler (routing, caps, ducking, timing gap, **registry-generation
-invalidation**, held-endpoint stop), provider connection-failure recovery, the Buttplug v4 codec (shapes validated against the buttplug Rust
-source + buttplug4j 4.0.278), config/migration/import, and an end-to-end pipeline (hurt → every device,
-pause stop/continue/freeze-resume behavior). Also compiles the buttplug4j provider against the real library.
-The current result and test totals are reported by Gradle and CI.
+invalidation**, held-endpoint stop), provider connection-failure recovery, the Buttplug v4 codec (shapes
+validated against the buttplug Rust source + buttplug4j 4.0.278), config/migration/import, and an
+end-to-end pipeline (hurt → every device, pause stop/continue/freeze-resume). Also compiles the
+buttplug4j provider against the real library.
 
 ## Level 1: build the mod (Gradle + NeoForge, Java 25)
 

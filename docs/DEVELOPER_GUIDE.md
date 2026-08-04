@@ -1,12 +1,8 @@
 # Developer guide: contributing to Minegasm
 
-This guide is for a Java developer who has never touched Minecraft or its modding scene. By the end you
-should understand what this mod does, how the codebase is laid out and why, how to build and run each
-part, and how to make and test a change. It links out to the deeper docs (`ARCHITECTURE.md`,
-`TESTING.md`, the ADRs) rather than repeating them.
-
-You do need to be comfortable with Java and Gradle. You do not need any Minecraft-modding background;
-the next section is a crash course.
+For a Java/Gradle developer with no Minecraft-modding background. It links out to the deeper docs
+(`ARCHITECTURE.md`, `TESTING.md`, the ADRs) rather than repeating them. Section 2 is a modding crash
+course.
 
 ## Table of contents
 
@@ -44,19 +40,16 @@ If you have modded before, skim this. If not, read it; the rest of the guide ass
 
 ### The game runs on a loop
 
-Minecraft runs a **client** (what the player sees) and, in multiplayer, a separate **server**. Both run a
-**tick** loop at 20 ticks per second. A mod hooks into that loop to run code every tick. Minegasm samples
-the player's state once per client tick and reacts. Single-player is really an integrated server plus a
-client in one process; our mod only ever runs on the client side.
+Minecraft runs a **client** and, in multiplayer, a separate **server**, both on a **tick** loop at 20
+ticks/second. Minegasm samples the player's state once per client tick and reacts. Single-player is an
+integrated server plus a client in one process; our mod only runs client-side.
 
 ### Minecraft's code was obfuscated, so mods use "mappings"
 
-For most of Minecraft's history Mojang shipped the game with obfuscated names (`net.minecraft.class_1234`,
-methods like `func_71165_d`). To write readable mod code, toolchains apply **mappings** that rename things
-to human names. That changed recently: the 25w snapshots that led into 26.x ship with Mojang's own real
-names, so there is nothing to deobfuscate on 26.x and nothing to reobfuscate when you release. Every
-version this project targets *except* 26.x is still obfuscated and still needs mappings. There are several
-mapping sets, and which one you see depends on the version and toolchain:
+Mojang historically shipped obfuscated names (`net.minecraft.class_1234`, `func_71165_d`); toolchains
+apply **mappings** to rename them to human names. 26.x ships with Mojang's real names, so there is
+nothing to deobfuscate or reobfuscate there. Every targeted version *except* 26.x still needs mappings.
+Which set you see depends on the version and toolchain:
 
 - **MCP / SRG (searge)**: the old Forge-era names (`ClientPlayerEntity`, `func_71165_d`). Used by the
   legacy Classic versions here.
@@ -65,12 +58,10 @@ mapping sets, and which one you see depends on the version and toolchain:
   build.
 - **Intermediary / Yarn**: Fabric's stable mapping set.
 
-The important consequence: **the same Minecraft class has different names in different versions**, which
-is why the code that touches Minecraft is written per version. On the obfuscated versions, when your mod
-is packaged for release it is **reobfuscated** back to the names the shipped game uses, so it loads in
-production; the build does this for you (`remapJar`). On 26.x the mapped names already are the shipped
-names, so that step is a no-op. Section 11 walks the whole spread of versions and loaders with 26.x as the
-baseline.
+Consequence: **the same Minecraft class has different names in different versions**, which is why the
+Minecraft-facing code is written per version. On obfuscated versions the build **reobfuscates** the jar
+back to the shipped names on release (`remapJar`); on 26.x that step is a no-op. Section 11 maps the
+whole spread with 26.x as the baseline.
 
 ### Mod loaders
 
@@ -87,11 +78,10 @@ show screens. That per-loader glue is small; the bulk of the logic is loader-ind
 
 ### Mixins
 
-Sometimes a loader gives you no clean hook for what you need, and you have to modify Minecraft's own
-bytecode at load time. **Mixin** is the library that does this: you write a small class that "injects"
-into a target method. We use exactly one mixin, on 1.16.5 Forge, because that version has no event for
-client-only commands (see `classic/1.16.5-forge/.../mixin/LocalPlayerChatMixin.java`). Mixins are powerful
-and fragile; prefer a normal API hook whenever one exists.
+**Mixin** modifies Minecraft's bytecode at load time when no clean hook exists. We use exactly one, on
+1.16.5 Forge, which has no event for client-only commands
+(`classic/1.16.5-forge/.../mixin/LocalPlayerChatMixin.java`). Prefer a normal API hook whenever one
+exists.
 
 ### Resource files you will meet
 
@@ -113,32 +103,31 @@ minegasm/
   docs/  .localbuild/  (repo-level)
 ```
 
-The single most important idea in the whole project: **almost all of the logic lives in `engine/`, which
-knows nothing about Minecraft.** It observes an abstract "client state snapshot" and emits abstract
-"events," turns those into device commands, and talks to Intiface. The Minecraft-facing code is a thin
-adapter that feeds the engine and drives its key bindings, commands, and config screen.
+The single most important idea: **almost all logic lives in `engine/`, which knows nothing about
+Minecraft.** It observes an abstract client-state snapshot, emits abstract events, turns those into
+device commands, and talks to Intiface. The Minecraft-facing code is a thin adapter feeding the engine
+and driving its key bindings, commands, and config screen.
 
-Why three modules instead of one:
+Why three modules:
 
-- **`engine/` is Java 8 source.** The legacy Minecraft versions run on a Java 8 JVM, and Java 8 cannot
-  load Java 17 features like records. So the shared brain is written in plain Java 8 (no records, no
-  `var`, no `sealed`, no Java 9+ APIs) and both products compile the exact same source.
+- **`engine/` is Java 8 source.** The legacy versions run on a Java 8 JVM, which cannot load records and
+  other Java 17 features. The shared brain is plain Java 8 (no records, `var`, `sealed`, or Java 9+
+  APIs), compiled identically by both products.
 - **Modern and Classic cannot be one Gradle build.** Modern needs Gradle 9 / Java 25 (Stonecutter);
-  Classic needs Gradle 8.8 on a JDK 21 daemon (unimined). They are two independent builds linked only by
-  sharing the `engine/` source through a Gradle `srcDir`.
-- **Classic spans four Minecraft versions and two loaders** as separate subprojects
-  (`1.7.10-forge`, `1.8.9-forge`, `1.12.2-forge`, `1.16.5-forge`, `1.16.5-fabric`), because the
-  preprocessor the modern build uses (Stonecutter) conflicts with unimined on the Gradle version. Each
-  subproject is its own single-version build; they share the engine and a small `common/` of
-  Minecraft-free glue.
+  Classic needs Gradle 8.8 on a JDK 21 daemon (unimined). Two independent builds, linked only by sharing
+  `engine/` through a Gradle `srcDir`.
+- **Classic spans four versions and two loaders** as separate subprojects (`1.7.10-forge`, `1.8.9-forge`,
+  `1.12.2-forge`, `1.16.5-forge`, `1.16.5-fabric`), because Stonecutter conflicts with unimined on the
+  Gradle version. Each is its own single-version build, sharing the engine and a small Minecraft-free
+  `common/`.
 
 `classic/PORTING.md` documents, in a table, every place the Minecraft API differs across the Classic
 versions. Read it before touching any Classic Minecraft code.
 
 ## 4. The haptic pipeline, end to end
 
-`docs/ARCHITECTURE.md` has the authoritative diagram and invariants. Here is the same flow in words, so
-you can follow a single mining action through the code:
+`docs/ARCHITECTURE.md` has the authoritative diagram and invariants. The same flow in words, following a
+single mining action through the code:
 
 1. **Observe** (`engine/observe`, fed by the per-version sampler in the Minecraft layer). Once per client
    tick the sampler reads the player and world and produces a `ClientStateSnapshot` (health, food, XP,
@@ -178,12 +167,12 @@ You will need:
     JDK 21 daemon via `classic/gradle/gradle-daemon-jvm.properties`, so its `./gradlew` selects or
     provisions JDK 21 regardless of your `JAVA_HOME`.
   - Engine-only fast loop: any recent JDK.
-- **An IDE**: IntelliJ IDEA is the norm for Minecraft mods. Import `modern/` and `classic/` as separate
-  Gradle projects (they are separate builds). `engine/` opens as plain Java.
-- **Intiface Central** (from intiface.com) for the real device path. You do not need hardware: Intiface
-  has a built-in device simulator.
+- **An IDE**: IntelliJ IDEA is the norm. Import `modern/` and `classic/` as separate Gradle projects;
+  `engine/` opens as plain Java.
+- **Intiface Central** (intiface.com) for the real device path. No hardware needed: it has a device
+  simulator.
 
-First network-dependent build is slow; it downloads Minecraft, the loader, and the mappings.
+The first build is slow; it downloads Minecraft, the loader, and the mappings.
 
 ## 6. Building and running
 
@@ -198,8 +187,7 @@ and the JUnit console jar. From the repo root:
 pwsh .localbuild/build.ps1 -Test
 ```
 
-This compiles `engine/` and runs its 18 test files. Use it whenever your change is inside `engine/`; it is
-seconds, not minutes.
+Compiles `engine/` and runs its test files in seconds. Use it for any `engine/` change.
 
 ### The modern mod (Stonecraft + NeoForge/Fabric/Forge, Java 25)
 
@@ -221,13 +209,12 @@ cd classic
 
 `installJars` reads `classic/mods-install.env` (gitignored; copy `mods-install.env.example`), one
 `<subproject>=<mods folder>` line per instance, and copies each reobfuscated jar into the matching
-Minecraft instance's `mods` folder, clearing any previous Minegasm jar for that version+loader first. That
-is the fastest way to test in-game across versions.
+instance's `mods` folder, clearing the previous Minegasm jar for that version+loader first.
 
-To run a specific Classic version in-game you need a Minecraft launcher (PrismLauncher works well) with an
-instance for that version and loader. Note the runtime prerequisites: **1.16.5 Fabric** needs Fabric API +
-Mod Menu installed; **1.16.5 Forge** needs MixinBootstrap for the `/minegasm` command (key bindings and
-the config screen work without it).
+To run a Classic version in-game you need a launcher (PrismLauncher works well) with an instance for that
+version and loader. Runtime prerequisites: **1.16.5 Fabric** needs Fabric API + Mod Menu; **1.16.5
+Forge** needs MixinBootstrap for the `/minegasm` command (key bindings and the config screen work
+without it).
 
 ## 7. Testing your changes
 
@@ -334,15 +321,10 @@ classic/
 
 ## 11. Loaders and Minecraft versions, with 26.x as the reference
 
-This project spans two loader families and nine version/loader combinations. The Minecraft-facing code
-looks different in each, which is intimidating until you pick a fixed point and read everything else as a
-delta from it. Use **26.x** as that fixed point. It ships with Mojang's own unobfuscated names and the
-newest APIs, so its code is the most readable and the closest to current Minecraft documentation. Learn
-what 26.x looks like, then learn each older line as "here is what changes."
-
-For the legacy trio (1.7.10 / 1.8.9 / 1.12.2) the exhaustive, cell-by-cell matrix lives in
-`classic/PORTING.md`. This section is the wider map: it includes the modern versions and the 1.16.5
-middle ground, and it explains the *kinds* of things that move, so the matrix makes sense.
+This project spans two loader families and nine version/loader combinations. Pick **26.x** as the fixed
+point (Mojang's unobfuscated names, newest APIs, most readable) and read every older line as a delta
+from it. `classic/PORTING.md` has the exhaustive cell-by-cell matrix for the legacy trio; this section
+is the wider map, covering the modern versions and 1.16.5 and the *kinds* of things that move.
 
 ### The lay of the land
 
@@ -480,5 +462,5 @@ version and fix up the names using `classic/PORTING.md`. When a mapped name is u
 - `engine/README.md` - the standalone engine and its fast test loop.
 - The root `README.md` - user-facing overview and the build/run quickstart.
 
-Welcome aboard. Start in `engine/`, run the fast test loop, and read one ADR; that is the shortest path to
-being productive here.
+Start in `engine/`, run the fast test loop, and read one ADR; that is the shortest path to being
+productive here.

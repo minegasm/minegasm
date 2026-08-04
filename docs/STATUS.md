@@ -1,8 +1,8 @@
 # Implementation status
 
-Current implementation and verification status for the Minegasm `1.0.0` beta line. Automated tests,
-live Intiface tests, in-game tests, and physical-device tests are reported separately so that a
-successful simulator or unit test is not presented as broader hardware validation.
+Implementation and verification status for the Minegasm `1.0.0` beta line. Automated, live-Intiface,
+in-game, and physical-device results are reported separately, so a passing simulator or unit test is
+not read as hardware validation.
 
 ## Automated verification
 
@@ -167,10 +167,9 @@ The engine for these is unit-tested as listed above. Beyond the unit suite:
 - The **local bridge** has been exercised end to end against the reference adapter
   (`docs/bridge/reference-adapter.py`), confirming connect, line-framed `effect`/`stop` delivery, and
   rejection of an unknown protocol version.
-- The **pack-manager screen** (now on both loaders), the modern and classic `/minegasm recipe` and
-  `/minegasm bridge` commands, and the bridge **enable toggle** (now in both settings screens) compile
-  on every loader and version and are installed for testing. In-game walkthroughs of those screens are
-  pending, like the rest of the preflight checklist.
+- The **pack-manager screen** (both loaders), the modern and classic `/minegasm recipe` and `/minegasm
+  bridge` commands, and the bridge **enable toggle** (both settings screens) compile on every loader and
+  version. In-game walkthroughs of these are pending, like the rest of the preflight checklist.
 
 Recipe-pack selection is consistent across both loaders. Each has one pack picker, the dashboard's
 Scene Packs screen, reached from the dashboard or from the settings recipe row; both loaders also take
@@ -178,15 +177,14 @@ Scene Packs screen, reached from the dashboard or from the settings recipe row; 
 the choice as its raw id (ADR-017). The picker writes immediately, and the staged settings screen
 re-reads the id at save time so it never reverts a pack chosen from the picker.
 
-The config menus otherwise match across loaders in navigation: the same dashboard, and Settings, Scene
-Packs, Customization, Device editor, and Legacy import sub-screens. The Customization and Device-editor
-internals have not been diffed for parity yet. Both dashboards now carry the adapter toggle (native vs
-`buttplug4j`): modern's `native` is the dependency-free JDK WebSocket, and classic's is a bundled
-Java-WebSocket transport, since classic's Java 8 target has no built-in WebSocket client
-(`docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`). The default stays `buttplug4j`
-on both. A loopback test covers the classic transport's connect, send, receive, and oversize-frame
-rejection, so its inbound `maxFrameSize` cap is confirmed to fire rather than only configured. It has
-not been exercised against real hardware.
+The config menus match across loaders: the same dashboard and Settings, Scene Packs, Customization,
+Device editor, and Legacy import sub-screens (Customization and Device editor share the engine models
+`CustomizationModel`/`DeviceEditorModel`, so their rows match too). Both dashboards carry the adapter
+toggle (native vs `buttplug4j`): modern's `native` is the dependency-free JDK WebSocket, classic's a
+bundled Java-WebSocket transport, since classic's Java 8 target has no built-in WebSocket client
+(`docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`). Default stays `buttplug4j` on
+both. A loopback test covers the classic transport's connect/send/receive and oversize-frame rejection,
+confirming the inbound `maxFrameSize` cap fires; it has not been run against real hardware.
 
 ## Live Intiface verification
 

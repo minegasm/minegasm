@@ -47,22 +47,19 @@ contributors, including anyone new to Minecraft modding, should start with `docs
 
 ## Project status
 
-This repository is built to the initial brief, archived verbatim in
-[`docs/briefs/0001-initial-implementation-brief/`](docs/briefs/) including its appendices, examples,
-and assets (see `docs/briefs/README.md` for the planning-doc convention). Brief 0003 (accepted) has
-since added shareable, file-based **scene packs**, a backend-neutral seam that fans one scene out to
-multiple **backends**, and an optional **local bridge**; see `CHANGELOG.md` and `docs/STATUS.md`.
-**Known gap:** the nearby-explosion event is fully implemented (intents, recipes, settings, manual
-`/minegasm trigger`) but isn't yet raised automatically by gameplay. Every other listed trigger,
-including advancement (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`), now fires
-automatically. See `CHANGELOG.md` and `docs/STATUS.md` for details.
-The two pre-brief ideation prototypes (codename *Feelcraft*) are kept under
-[`prototypes/`](prototypes/) for historical reference. The **pure engine** (loader- and
-Minecraft-independent) is implemented and covered by a JUnit suite; the **NeoForge and Fabric
-observation/UI layers** are written against the 26.x API and compiled by the Gradle+Stonecraft
-toolchain (`docs/adr/ADR-012-add-fabric-loader.md`). Forge builds on both Minecraft lines too, unblocked
-by pinning Architectury Loom 1.17.491 (`docs/adr/ADR-011-add-forge-loader.md`). See `docs/STATUS.md` for
-exactly what's verified versus what still needs the Minecraft toolchain and hardware.
+Built to the initial brief, archived verbatim in
+[`docs/briefs/0001-initial-implementation-brief/`](docs/briefs/) with its appendices and assets
+(`docs/briefs/README.md` covers the planning-doc convention). Brief 0003 (accepted) added file-based
+**scene packs**, a backend-neutral seam that fans one scene out to multiple **backends**, and an
+optional **local bridge**. **Known gap:** the nearby-explosion event is fully implemented (intents,
+recipes, settings, manual `/minegasm trigger`) but not yet raised automatically; every other trigger,
+including advancement (`docs/adr/ADR-014-advancement-acquisition-via-client-listener.md`), fires
+automatically. The two pre-brief prototypes (codename *Feelcraft*) are kept under
+[`prototypes/`](prototypes/). The **pure engine** is covered by a JUnit suite; the loader UI layers
+compile against the 26.x API via Gradle+Stonecutter (`docs/adr/ADR-012-add-fabric-loader.md`), and
+Forge builds too, unblocked by pinning Architectury Loom 1.17.491
+(`docs/adr/ADR-011-add-forge-loader.md`). See `CHANGELOG.md` and `docs/STATUS.md` for what's verified
+versus pending.
 
 | Layer | Package | Built & tested here? |
 |---|---|---|
@@ -91,13 +88,11 @@ cd modern
 ```
 
 The registered variants are 26.2/26.1.2/1.21.1 × neoforge/fabric/forge, plus 1.20.1 and 1.19.2 ×
-fabric/forge. **`26.2` and `26.1.2` are the current main release lines**; the rest were added later
-and get lighter test coverage (see `docs/TESTING.md`). NeoForge is not *built* for 1.20.1: its first release for that line shipped under legacy
-`net.neoforged:forge` coordinates (which this tooling can't resolve) with the old `net.minecraftforge`
-API. The modern NeoForge surface only arrived in 1.20.2+. It needs no separate build, though.
-NeoForge 1.20.1 is a near-verbatim Forge fork that loads the **Forge jar** directly (see "Using it
-in-game"), the same way Quilt runs the Fabric jar. NeoForge is not built for 1.19.2 either; it did not
-exist yet (NeoForge's first release was 1.20.1), so 1.19.2 is Fabric and Forge only.
+fabric/forge. **`26.2` and `26.1.2` are the current main release lines**; the rest were added later and
+get lighter test coverage (see `docs/TESTING.md`). NeoForge is not built for 1.20.1 (its first 1.20.1
+release used legacy `net.neoforged:forge` coordinates this tooling can't resolve) or 1.19.2 (NeoForge
+didn't exist yet). Neither needs a separate build: NeoForge 1.20.1 loads the **Forge jar** directly (see
+"Using it in-game"), like Quilt runs the Fabric jar.
 
 Artifacts are one jar per variant, e.g. `minegasm-1.0.0+mc26.2-neoforge.jar` or
 `minegasm-1.0.0+mc1.20.1-fabric.jar`. Requires a JDK toolchain (25 for the 26.x lines, 21 for 1.21.1,
@@ -110,12 +105,11 @@ otherwise warns is unsupported.
 
 ### Minegasm Classic (unimined + Forge on 1.7.10 / 1.8.9 / 1.12.2, Java 8)
 
-The legacy Minecraft versions live in a **separate build** under `classic/`, not as Stonecutter
-variants. They sit below the modern toolchain's floor and run on [unimined](https://github.com/unimined/Unimined),
-which needs **Gradle 8.8 on a JDK 21 daemon** (Gradle 8.8 does not run on Java 25, the default for the
-modern build). The `classic/` build pins its own Gradle wrapper and, via
-`classic/gradle/gradle-daemon-jvm.properties`, its own JDK 21 daemon, so its `./gradlew` works
-regardless of your `JAVA_HOME`. Run it from inside `classic/`:
+The legacy versions live in a **separate build** under `classic/` on
+[unimined](https://github.com/unimined/Unimined), which needs **Gradle 8.8 on a JDK 21 daemon** (Gradle
+8.8 does not run on Java 25). It pins its own wrapper and, via
+`classic/gradle/gradle-daemon-jvm.properties`, a JDK 21 daemon, so `./gradlew` works regardless of
+`JAVA_HOME`. Run it from `classic/`:
 
 ```bash
 cd classic
@@ -143,7 +137,7 @@ pwsh .localbuild/build.ps1 -Test
 
 This excludes `net.minegasm.neoforge` and the loader entrypoints (`net.minegasm.neoforge.MinegasmMod`,
 `net.minegasm.fabric.MinegasmMod`, `net.minegasm.forge.MinegasmMod`), which need the Minecraft
-classpath. Gradle and CI report the current result and test totals.
+classpath.
 
 **Testing the real device path** (Intiface, no Minecraft or hardware needed) and the full in-game
 checklist are described in **`docs/TESTING.md`**, including a standalone `intifaceProbe` harness (run
@@ -160,13 +154,10 @@ runs the probes sequentially, because Intiface may reject simultaneous client co
    `0.77.0+1.19.2`) in the same `mods` folder. It's a required dependency, declared in
    `fabric.mod.json` but never bundled into the Minegasm jar, the same as with any other Fabric mod
    that uses it.
-   On **Quilt**, install the same **Fabric** jar and the same **Fabric API** mod: Quilt Loader reads
-   its `fabric.mod.json` and loads it directly, and the mod uses no loader-specific API beyond Fabric
-   API, so it runs as-is. There is no separate Quilt build.
-   On **NeoForge 1.20.1**, install the same **Forge** jar (`…+mc1.20.1-forge.jar`): NeoForge 1.20.1 is a
-   near-verbatim Forge fork that registers the `forge` mod, and the 1.20.1 Forge build is compiled to
-   load across the whole 1.20.1 Forge/NeoForge line, so it runs as-is. There is no separate NeoForge
-   1.20.1 build. (This applies only to 1.20.1; the 26.x/1.21.1 lines have their own NeoForge builds.)
+   On **Quilt**, install the same **Fabric** jar and **Fabric API**: Quilt Loader reads its
+   `fabric.mod.json` and loads it as-is (no separate Quilt build). On **NeoForge 1.20.1**, install the
+   same **Forge** jar (`…+mc1.20.1-forge.jar`), which is built to load across the whole 1.20.1
+   Forge/NeoForge line (no separate NeoForge 1.20.1 build; the 26.x/1.21.1 lines have their own).
 3. Launch Minecraft with the mod. On NeoForge, open the config screen from the mods list; on Fabric,
    bind and press **Open Minegasm settings** (Controls → Minegasm), or install
    **[ModMenu](https://modrinth.com/mod/modmenu)** to get a mods-list entry there too (optional; the
