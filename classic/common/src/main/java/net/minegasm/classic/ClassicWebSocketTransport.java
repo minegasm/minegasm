@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 public final class ClassicWebSocketTransport implements ButtplugTransport {
 
     private static final int MAX_FRAME_BYTES = 1 << 20; // 1 MiB, matching modern's MAX_FRAME_CHARS
+    private static final int CONNECT_TIMEOUT_MS = 5000; // matches modern's WebSocketTransport
 
     private final AtomicReference<WebSocketClient> socket = new AtomicReference<WebSocketClient>();
     private volatile Consumer<String> onMessage = m -> { };
@@ -41,7 +42,8 @@ public final class ClassicWebSocketTransport implements ButtplugTransport {
 
         final CompletableFuture<Void> ready = new CompletableFuture<Void>();
         Draft draft = new Draft_6455(Collections.<IExtension>emptyList(), MAX_FRAME_BYTES);
-        WebSocketClient client = new WebSocketClient(uri, draft) {
+        WebSocketClient client = new WebSocketClient(uri, draft,
+                Collections.<String, String>emptyMap(), CONNECT_TIMEOUT_MS) {
             @Override
             public void onOpen(ServerHandshake handshake) {
                 ready.complete(null);
