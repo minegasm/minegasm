@@ -168,15 +168,22 @@ The engine for these is unit-tested as listed above. Beyond the unit suite:
   (`docs/bridge/reference-adapter.py`), confirming connect, line-framed `effect`/`stop` delivery, and
   rejection of an unknown protocol version.
 - The **pack-manager screen** (now on both loaders), the modern and classic `/minegasm recipe` and
-  `/minegasm bridge` commands, and the bridge **enable toggle** compile on every loader and version and
-  are installed for testing. In-game walkthroughs of those screens are pending, like the rest of the
-  preflight checklist.
+  `/minegasm bridge` commands, and the bridge **enable toggle** (now in both settings screens) compile
+  on every loader and version and are installed for testing. In-game walkthroughs of those screens are
+  pending, like the rest of the preflight checklist.
 
 Recipe-pack selection is consistent across both loaders. Each has one pack picker, the dashboard's
 Scene Packs screen, reached from the dashboard or from the settings recipe row; both loaders also take
 `/minegasm recipe <id>`. Every surface lists the two built-ins plus each loaded file pack and persists
 the choice as its raw id (ADR-017). The picker writes immediately, and the staged settings screen
 re-reads the id at save time so it never reverts a pack chosen from the picker.
+
+The config menus otherwise match across loaders in navigation: the same dashboard, and Settings, Scene
+Packs, Customization, Device editor, and Legacy import sub-screens. The Customization and Device-editor
+internals have not been diffed for parity yet. One control differs: the modern dashboard has an adapter
+toggle (native vs `buttplug4j`), and classic does not, because the native provider's transport is built
+on `java.net.http.WebSocket` (Java 11+) and classic runs on Java 8, so classic ships only `buttplug4j`.
+Closing this would take a dependency-free Java 8 WebSocket transport in the engine (follow-up).
 
 ## Live Intiface verification
 

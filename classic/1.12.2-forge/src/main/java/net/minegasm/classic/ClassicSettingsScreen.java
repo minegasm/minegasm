@@ -33,6 +33,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
     private static final int ID_UNSAFETEST = 12;
     private static final int ID_SAVE = 13;
     private static final int ID_CANCEL = 14;
+    private static final int ID_BRIDGE = 15;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
@@ -48,6 +49,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
     private GuiButton allowRemoteBtn;
     private GuiButton normalTestBtn;
     private GuiButton unsafeTestBtn;
+    private GuiButton bridgeBtn;
     private GuiSlider intensitySlider;
     private GuiSlider variationSlider;
     private GuiTextField serverField;
@@ -95,6 +97,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
         allowRemoteBtn = addButton(new GuiButton(ID_ALLOWREMOTE, rx, y0 + 3 * dy, 150, 20, allowRemoteLabel()));
         normalTestBtn = addButton(new GuiButton(ID_NORMALTEST, rx, y0 + 4 * dy, 150, 20, normalTestLabel()));
         unsafeTestBtn = addButton(new GuiButton(ID_UNSAFETEST, rx, y0 + 5 * dy, 150, 20, unsafeTestLabel()));
+        bridgeBtn = addButton(new GuiButton(ID_BRIDGE, rx, y0 + 6 * dy, 150, 20, bridgeLabel()));
 
         addButton(new GuiButton(ID_SAVE, width / 2 - 100, height - 26, 98, 20, "Save"));
         addButton(new GuiButton(ID_CANCEL, width / 2 + 2, height - 26, 98, 20, "Cancel"));
@@ -148,6 +151,10 @@ public final class ClassicSettingsScreen extends GuiScreen {
             case ID_UNSAFETEST:
                 model.cycleUnsafeTestLimit();
                 unsafeTestBtn.displayString = unsafeTestLabel();
+                break;
+            case ID_BRIDGE:
+                model.bridgeEnabled = !model.bridgeEnabled;
+                bridgeBtn.displayString = bridgeLabel();
                 break;
             case ID_SAVE:
                 String url = serverField.getText().trim();
@@ -245,6 +252,12 @@ public final class ClassicSettingsScreen extends GuiScreen {
     private String unsafeTestLabel() {
         return "Unsafe cap: " + model.unsafeTestMaxPercent + "% / "
                 + (model.unsafeTestMaxDurationMs / 1000.0) + "s";
+    }
+
+    private String bridgeLabel() {
+        // The bridge backend is built at startup, so a changed value needs a restart to take effect.
+        boolean changed = model.bridgeEnabled != client.config().raw().bridge().enabled();
+        return "Bridge: " + onOff(model.bridgeEnabled) + (changed ? " (restart)" : "");
     }
 
     private static String onOff(boolean value) {

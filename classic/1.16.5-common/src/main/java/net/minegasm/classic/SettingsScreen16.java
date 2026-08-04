@@ -103,6 +103,10 @@ public final class SettingsScreen16 extends Screen {
             model.cycleUnsafeTestLimit();
             b.setMessage(unsafeTestLabel());
         }));
+        addButton(new Button(rx, y0 + 6 * dy, 150, 20, bridgeLabel(), b -> {
+            model.bridgeEnabled = !model.bridgeEnabled;
+            b.setMessage(bridgeLabel());
+        }));
 
         addButton(new Button(width / 2 - 100, height - 26, 98, 20, new TextComponent("Save"), b -> {
             String url = serverField.getValue().trim();
@@ -183,6 +187,13 @@ public final class SettingsScreen16 extends Screen {
     private Component unsafeTestLabel() {
         return new TextComponent("Unsafe cap: " + model.unsafeTestMaxPercent + "% / "
                 + (model.unsafeTestMaxDurationMs / 1000.0) + "s");
+    }
+
+    private Component bridgeLabel() {
+        // The bridge backend is built at startup, so a changed value needs a restart to take effect.
+        boolean changed = model.bridgeEnabled != client.config().raw().bridge().enabled();
+        return new TextComponent("Bridge: " + onOff(model.bridgeEnabled)
+                + (changed ? " (restart)" : ""));
     }
 
     private static String onOff(boolean value) {

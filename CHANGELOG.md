@@ -27,7 +27,7 @@ All notable changes to Minegasm are documented in this file. The format follows
   services). Off by default, outbound and loopback-only (remote behind an explicit opt-in), with a
   bounded, one-in-flight send queue and a first-class stop. It works on every loader, Classic included,
   because the transport is plain Java 8 TCP; a `bridge.transport` selector leaves room for other
-  transports. Toggle it from the settings screen (modern) or `/minegasm bridge on|off` (all loaders).
+  transports. Toggle it from the settings screen (both loaders) or `/minegasm bridge on|off`.
   Wire protocol and a dependency-free reference adapter under `docs/bridge/`. See brief 0002 §4.3 and
   brief 0003 §3.4.
 
