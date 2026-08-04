@@ -61,8 +61,8 @@ public final class HapticRuntime {
 
     /**
      * @param bridgeTransport an outbound bridge transport to fan scenes to a local adapter, or null for
-     *     no bridge. The loader injects it only when the bridge is enabled and its endpoint passed the
-     *     loopback/remote check, so a null transport here means "no bridge backend" (brief 0003 §3.4).
+     *     no bridge (the loader injects it only when the bridge is enabled and passed the loopback/remote
+     *     check; brief 0003 §3.4).
      */
     public HapticRuntime(HapticProvider provider, Clock clock, Supplier<RuntimeConfig> config,
                          PackRegistry packs, BridgeTransport bridgeTransport) {

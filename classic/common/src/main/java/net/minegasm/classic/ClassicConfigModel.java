@@ -13,13 +13,11 @@ import java.net.URI;
  * {@link HapticConfig} and the per-version {@code GuiScreen}. Minecraft-free, so all three versions share
  * it; the screens only render widgets bound to these fields and call {@link #apply(MinegasmClient)}.
  *
- * <p>The set of settings mirrors the modern config screen: master enable, intensity, variation, recipe
- * pack, compatibility mode, fatigue protection, pause behavior, stop-on-world-unload, the Buttplug server
- * URL, auto-connect, auto-scan, and allow-remote. Like modern, it does not toggle individual gameplay
- * events; the recipe pack and mode select those. Per-event settings, and everything else the screen does
- * not show, are preserved from the original config in {@link #toConfig()}: it keeps the whole original and
- * swaps in only these fields, so a save can never drop config the screen does not model (checked by an
- * MC-free round-trip test).
+ * <p>The settings mirror the modern config screen (enable, intensity, variation, recipe pack, mode,
+ * fatigue, pause behavior, stop-on-unload, server URL, auto-connect, auto-scan, allow-remote), and like
+ * modern it does not toggle individual events. Everything the screen does not model, including per-event
+ * settings, is preserved: {@link #toConfig()} keeps the whole original and swaps in only these fields, so
+ * a save cannot drop unmodeled config (MC-free round-trip test).
  */
 public final class ClassicConfigModel {
 

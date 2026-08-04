@@ -9,26 +9,18 @@ import java.net.URI;
 
 /**
  * The local-bridge backend (brief 0002 §4.3, 0003 §3.4): fans each scene out as a versioned JSON
- * message to a user-run adapter over an outbound, loopback-by-default connection. It is the extension
- * point for integrations that do not justify code in the mod (XToys, DIY hardware, and eventually
- * OpenShock). The concrete socket lives behind {@link BridgeTransport} in the loader layer; this class
- * is Java 8 and library-free.
+ * message to a user-run adapter over an outbound, loopback-by-default connection. The extension point
+ * for integrations that do not justify code in the mod (XToys, DIY hardware, eventually OpenShock). The
+ * socket lives behind {@link BridgeTransport} in the loader layer; this class is Java 8 and library-free.
  *
- * <p><b>Governance scope (v1).</b> The coordinator fans out raw, pre-mix scenes: mixing, fatigue, and
- * {@code SafetyCaps} currently live inside the Buttplug worker, not centrally (brief 0003 §3.3). So the
- * bridge emits ungoverned, unmixed scenes, which is acceptable for vibration-class adapters but nothing
- * stronger. Lifting the central mixer/governor/body-budget up to the coordinator (§3.3) is a hard
- * prerequisite before any electrostim adapter rides this bridge: ADR-016 requires shock to be governed
- * against the central body budget, so a coarse ungoverned v1 must never become the shock path.
- *
- * <p><b>Bounded, but not coalesced (v1).</b> Outbound frames go through a bounded, one-in-flight
- * {@link OutboundQueue} that drops the oldest when full, so a burst cannot grow memory and a stop-all
- * cannot be overtaken by a queued effect. What it does not yet do is coalesce: because raw pre-mix scenes
- * are fanned out, continuous scenes (mining texture, accumulation, stroke) are re-offered every client
- * tick, so the bridge enqueues a near-identical full-scene frame per continuous scene per tick. The
- * Buttplug path avoids that because {@code SceneMixer} coalesces by {@code continuousKey}; the scene-level
- * central-governance lift (ADR-018) provides the same coalescing to the bridge for free, so
- * per-{@code continuousKey} coalescing is deferred to it rather than duplicated here.
+ * <p><b>v1 scope.</b> The coordinator fans out raw, pre-mix scenes: mixing, fatigue, and
+ * {@code SafetyCaps} live in the Buttplug worker, not centrally (brief 0003 §3.3). So the bridge emits
+ * ungoverned, unmixed scenes, fine for vibration-class adapters but nothing stronger; lifting the central
+ * mixer/governor/body-budget up (§3.3, ADR-018) is a hard prerequisite before any electrostim adapter
+ * rides this bridge (ADR-016 requires shock governed against the central body budget). Outbound frames go
+ * through a bounded, one-in-flight {@link OutboundQueue} that drops oldest when full, so a burst cannot
+ * grow memory and a stop cannot be overtaken. It does not yet coalesce continuous scenes (re-offered each
+ * tick); the same §3.3 lift provides that for free.
  */
 public final class BridgeBackend implements HapticBackend {
 

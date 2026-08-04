@@ -4,19 +4,14 @@ import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
 
 /**
- * One output backend behind the engine's device-neutral seam (brief 0003 §3.2). The fan-out currency
- * is the device-independent {@link HapticScene}: everything a backend needs to render an effect its own
- * way lives in the scene, so Buttplug, a future spatial backend, or a bridge each implement this and
- * are swapped in without touching observation, intents, or recipes.
+ * One output backend behind the engine's device-neutral seam (brief 0003 §3.2). The fan-out currency is
+ * the device-independent {@link HapticScene}, so Buttplug, a future spatial backend, or a bridge each
+ * implement this and swap in without touching observation, intents, or recipes. {@link ButtplugBackend}
+ * is the first, wrapping the existing worker; the {@link BackendCoordinator} owns every enabled backend.
  *
- * <p>{@link ButtplugBackend} is the first implementation and wraps the existing worker unchanged. The
- * {@link BackendCoordinator} owns every enabled backend and fans scenes and stops across them.
- *
- * <p>{@code submit} and {@code stop} must be non-blocking to the caller. {@code stop} must also take
- * effect synchronously (when it returns, output is stopping and no later cycle can reassert it), the
- * way {@code HapticProvider} already works: the in-memory clear happens inline and any hardware or
- * network I/O is dispatched off the caller's thread inside the backend. A backend that cannot honor
- * that isolates its own slow work rather than blocking the caller or the other backends.
+ * <p>{@code submit} and {@code stop} must be non-blocking to the caller, and {@code stop} must take
+ * effect synchronously (when it returns, output is stopping and no later cycle can reassert it): the
+ * in-memory clear happens inline, any hardware/network I/O off the caller's thread inside the backend.
  */
 public interface HapticBackend extends AutoCloseable {
 

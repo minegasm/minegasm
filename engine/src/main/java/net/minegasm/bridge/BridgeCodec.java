@@ -13,12 +13,11 @@ import net.minegasm.pack.PrimitiveJson;
  * Serializes the bridge wire protocol (brief 0002 §4.3): a small, versioned JSON message per outbound
  * event. Two message types, {@code effect} (a scene fired) and {@code stop} (a first-class stop-all).
  *
- * <p>An {@code effect} carries the scene's device-neutral content: its id, event kind, priority, a
- * time-to-live, and its layers (role, timing, and the primitive via the shared {@link PrimitiveJson}).
- * It deliberately omits the layer route and allowed output kinds, those are Buttplug's verb set, not
- * device-neutral, so an adapter is never handed Buttplug-specific routing. Every effect carries
- * {@code ttlMs} so an adapter can self-expire the effect if the connection drops, output never depends
- * on a later stop message arriving.
+ * <p>An {@code effect} carries the scene's device-neutral content (id, event kind, priority, TTL, and
+ * layers via the shared {@link PrimitiveJson}). It omits the layer route and output kinds, which are
+ * Buttplug's verb set, so an adapter is never handed Buttplug-specific routing. Every effect carries
+ * {@code ttlMs} so an adapter self-expires if the connection drops; output never depends on a later stop
+ * arriving.
  */
 public final class BridgeCodec {
 

@@ -51,11 +51,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Loader-independent client glue: owns the config, provider, and haptic runtime, and exposes a small
- * surface the Minecraft layer drives (tick, record event, connect, panic). Contains no Minecraft or
- * WebSocket-library types, so it is unit-testable and reusable if another loader is added later
- * (brief §5.1). The Minecraft observation adapter feeds it {@link ClientStateSnapshot}s and
- * {@link RawGameEvent}s.
+ * Loader-independent client glue: owns the config, provider, and haptic runtime, and exposes the small
+ * surface the Minecraft layer drives (tick, record event, connect, panic). No Minecraft or
+ * WebSocket-library types, so it is unit-testable (brief §5.1). The observation adapter feeds it
+ * {@link ClientStateSnapshot}s and {@link RawGameEvent}s.
  */
 public final class MinegasmClient {
 
@@ -76,10 +75,9 @@ public final class MinegasmClient {
     private String lastRecordedError;
 
     /**
-     * Inject a specific provider backend. The Minecraft bootstrap uses this to select the buttplug4j
-     * client ({@code Buttplug4jProvider}) or the JDK-native provider per config (brief §9.2). The
-     * concrete JDK-WebSocket transport lives in the loader layer, so this engine module stays free of
-     * {@code java.net.http} and compiles as Java 8 for the Classic build.
+     * Inject a provider backend; the bootstrap selects buttplug4j or native per config (brief §9.2). The
+     * concrete WebSocket transport lives in the loader layer, keeping this engine module free of
+     * {@code java.net.http} and Java 8-compilable for Classic.
      */
     public MinegasmClient(Path configFile, HapticProvider provider, Clock clock) {
         this.clock = clock;
@@ -103,10 +101,9 @@ public final class MinegasmClient {
     }
 
     /**
-     * Build the outbound bridge transport when the bridge is enabled and its endpoint is allowed,
-     * otherwise null (no bridge backend). The endpoint must be loopback unless the user opted into
-     * remote, the same rule as the Buttplug server. Only the dependency-free TCP transport is built
-     * here; a modern-only WebSocket transport would be injected by that loader instead.
+     * Build the outbound bridge transport when the bridge is enabled and its endpoint allowed, else null.
+     * The endpoint must be loopback unless the user opted into remote (same rule as the Buttplug server).
+     * Only the dependency-free TCP transport is built here.
      */
     private BridgeTransport buildBridgeTransport() {
         RuntimeConfig cfg = config.get();
@@ -135,9 +132,8 @@ public final class MinegasmClient {
 
     /**
      * Folder holding user scene packs: {@code <config-base>/scene-packs} next to the config file, where
-     * {@code <config-base>} is the config file name without its extension (brief 0003 §2.5). For a
-     * config at {@code config/minegasm.json} this is {@code config/minegasm/scene-packs}, a namespaced
-     * subfolder rather than dropping packs loose in the shared config directory.
+     * {@code <config-base>} is the config file name without its extension (brief 0003 §2.5). For
+     * {@code config/minegasm.json} this is {@code config/minegasm/scene-packs}.
      */
     private Path packsDir() {
         Path file = configStore.file().toAbsolutePath();

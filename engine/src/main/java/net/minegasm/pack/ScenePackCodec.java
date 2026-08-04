@@ -22,21 +22,18 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Reads and writes {@link ScenePack} JSON (brief 0003 §2.2). A shared pack is untrusted input, so
- * import fails closed: malformed JSON, an unknown {@code schemaVersion}, a missing required member, a
- * wrong-typed value, or an unknown primitive {@code type} all raise {@link PackFormatException} rather
- * than loading a partial or degraded pack. Optional metadata and unknown extra members are tolerated
- * for forward compatibility.
+ * Reads and writes {@link ScenePack} JSON (brief 0003 §2.2). A shared pack is untrusted input, so import
+ * fails closed: malformed JSON, an unknown {@code schemaVersion}, a missing member, a wrong-typed value,
+ * or an unknown primitive {@code type} raise {@link PackFormatException} rather than loading a partial
+ * pack. Optional metadata and unknown extra members are tolerated for forward compatibility.
  *
- * <p>Values are clamped on the way in, levels to {@code [0, 1]} and durations/offsets to a sane bound,
- * so a file can never smuggle an out-of-range value into a scene. Per-output-kind ceilings are not
- * re-applied here: a materialized pack scene is a plain {@link net.minegasm.core.HapticScene} that
- * renders through the identical mixer/scheduler/{@code SafetyCaps} path as the built-in packs, so it
- * cannot exceed those ceilings.
+ * <p>Values are clamped on the way in (levels to {@code [0, 1]}, durations/offsets to a sane bound), so
+ * a file cannot smuggle an out-of-range value into a scene. A materialized pack is a plain
+ * {@link net.minegasm.core.HapticScene} that renders through the same mixer/scheduler/{@code SafetyCaps}
+ * path as the built-ins, so per-kind ceilings still apply.
  *
- * <p>The parsing uses the JSON tree ({@link JsonObject}) and the value model's own constructors rather
- * than reflective field binding, so it is correct on the old Gson bundled with older Minecraft and
- * needs no all-args-constructor adapter.
+ * <p>Parsing uses the JSON tree and the value model's constructors, not reflective field binding, so it
+ * is correct on the old Gson bundled with older Minecraft.
  */
 public final class ScenePackCodec {
 
