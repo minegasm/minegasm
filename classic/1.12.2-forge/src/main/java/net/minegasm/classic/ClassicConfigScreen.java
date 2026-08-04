@@ -1,6 +1,7 @@
 package net.minegasm.classic;
 
 import net.minegasm.buttplug.ConnectionState;
+import net.minegasm.config.HapticConfig;
 import net.minegasm.device.HapticDevice;
 import net.minegasm.client.MinegasmClient;
 
@@ -19,7 +20,8 @@ import java.util.Locale;
  * scan/refresh, test, an always-visible stop/resume, a live device list and provider-error history on the
  * right, and buttons through to the {@link ClassicSettingsScreen} and the {@link ClassicLegacyImportScreen}.
  * Actions run live against the shared {@link MinegasmClient}; the deferred knobs live on the settings
- * sub-screen. There is no adapter toggle: Classic only ships the buttplug4j provider.
+ * sub-screen. The adapter toggle switches the Buttplug backend between buttplug4j and the native
+ * WebSocket provider (ADR-019), the same control the modern dashboard has.
  *
  * <p>1.8.9 and 1.7.10 have their own sibling dashboards; the GuiScreen/GuiButton widgets differ enough
  * across the three lines that they are not shared.
@@ -39,6 +41,7 @@ public final class ClassicConfigScreen extends GuiScreen {
     private static final int ID_CUSTOMIZATION = 11;
     private static final int ID_DEVICE_EDITOR = 12;
     private static final int ID_SCENE_PACKS = 13;
+    private static final int ID_ADAPTER = 14;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
@@ -49,7 +52,9 @@ public final class ClassicConfigScreen extends GuiScreen {
     private GuiButton refreshBtn;
     private GuiButton testBtn;
     private GuiButton panicBtn;
+    private GuiButton adapterBtn;
     private GuiButton clearErrorsBtn;
+    private boolean adapterRestartRequired;
 
     private int leftX;
     private int rightX;
@@ -85,6 +90,8 @@ public final class ClassicConfigScreen extends GuiScreen {
         errorHeight = Math.max(28, height - 144);
 
         enabledBtn = addButton(new GuiButton(ID_ENABLED, leftX, y, columnWidth, h, enabledLabel()));
+        y += gap;
+        adapterBtn = addButton(new GuiButton(ID_ADAPTER, leftX, y, columnWidth, h, adapterLabel()));
         y += gap;
         connectBtn = addButton(new GuiButton(ID_CONNECT, leftX, y, columnWidth, h, connectLabel()));
         y += gap;
@@ -152,6 +159,9 @@ public final class ClassicConfigScreen extends GuiScreen {
                 break;
             case ID_SCENE_PACKS:
                 mc.displayGuiScreen(new ClassicScenePackScreen(this));
+                break;
+            case ID_ADAPTER:
+                toggleAdapter();
                 break;
             case ID_CUSTOMIZATION:
                 mc.displayGuiScreen(new CustomizationScreen(this));
@@ -296,6 +306,29 @@ public final class ClassicConfigScreen extends GuiScreen {
         model.apply(client);
     }
 
+    /** Flip the Buttplug backend between buttplug4j and native, preserving everything else. The change
+     *  takes effect on the next launch, so the button shows a restart hint once toggled. */
+    private void toggleAdapter() {
+        HapticConfig cfg = client.config().raw();
+        HapticConfig.Buttplug b = cfg.buttplug();
+        String next = "native".equalsIgnoreCase(b.client()) ? "buttplug4j" : "native";
+        client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
+                new HapticConfig.Buttplug(b.serverUrl(), b.autoConnect(), b.autoScan(),
+                        b.allowRemoteServer(), b.reconnect(), next),
+                cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
+                cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
+        adapterRestartRequired = true;
+        if (adapterBtn != null) {
+            adapterBtn.displayString = adapterLabel();
+        }
+    }
+
+    private String adapterLabel() {
+        String current = "native".equalsIgnoreCase(client.config().raw().buttplug().client())
+                ? "native" : "buttplug4j";
+        return "Adapter: " + current + (adapterRestartRequired ? " (restart)" : "");
+    }
+
     private void refreshActionButtons() {
         ConnectionState state = client.status().state();
         boolean connected = state != ConnectionState.DISCONNECTED;
@@ -306,6 +339,9 @@ public final class ClassicConfigScreen extends GuiScreen {
 
         if (enabledBtn != null) {
             enabledBtn.displayString = enabledLabel();
+        }
+        if (adapterBtn != null) {
+            adapterBtn.displayString = adapterLabel();
         }
         if (connectBtn != null) {
             connectBtn.displayString = connectLabel();

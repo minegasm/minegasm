@@ -30,6 +30,12 @@ All notable changes to Minegasm are documented in this file. The format follows
   transports. Toggle it from the settings screen (both loaders) or `/minegasm bridge on|off`.
   Wire protocol and a dependency-free reference adapter under `docs/bridge/`. See brief 0002 §4.3 and
   brief 0003 §3.4.
+- **Native Buttplug provider on classic.** The `native` client backend (an alternative to `buttplug4j`
+  that avoids its Jetty/Jackson stack) now works on the classic loaders too, and both dashboards carry
+  the adapter toggle. Classic's Java 8 target has no built-in WebSocket client, so `native` there is a
+  bundled, relocated Java-WebSocket transport rather than modern's JDK `java.net.http.WebSocket`; the
+  inbound frame cap is configured the same way. Default stays `buttplug4j`. See
+  `docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`.
 
 ## [1.0.0-beta.2] - 2026-07-23
 

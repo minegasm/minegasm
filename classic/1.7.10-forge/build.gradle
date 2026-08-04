@@ -47,6 +47,9 @@ configurations {
 dependencies {
     shade 'com.google.code.gson:gson:2.11.0'
     shade 'io.github.blackspherefollower:buttplug4j.connectors.jetty.websocket.client:4.0.278'
+    // The native provider's WebSocket client (ADR-019). slf4j is already shaded via buttplug4j, so
+    // Java-WebSocket rides on that rather than pulling its own copy.
+    shade('org.java-websocket:Java-WebSocket:1.5.7') { transitive = false }
 }
 
 shadowJar {
@@ -62,6 +65,7 @@ shadowJar {
     relocate 'org.eclipse.jetty', 'net.minegasm.shadow.jetty'
     relocate 'com.fasterxml.jackson', 'net.minegasm.shadow.jackson'
     relocate 'org.slf4j', 'net.minegasm.shadow.slf4j'
+    relocate 'org.java_websocket', 'net.minegasm.shadow.javawebsocket'
 }
 
 unimined.minecraft {

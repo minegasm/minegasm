@@ -4,7 +4,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
-import net.minegasm.buttplug.b4j.Buttplug4jProvider;
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.time.SystemClock;
 
@@ -17,8 +16,9 @@ import java.nio.file.Path;
  * Minecraft-facing work (client tick sampling, keybindings, commands, chat) to a per-version
  * {@link ClassicClientHandler}. That handler has the same fully-qualified name in both the 1.8.9 and
  * 1.12.2 source trees but a different body, because the client API diverges sharply between them
- * (player/world field names, hit-result and block-position packages, text-component types). Classic
- * connects through buttplug4j; the JDK-WebSocket transport is a modern-only backend and is absent here.
+ * (player/world field names, hit-result and block-position packages, text-component types). The
+ * Buttplug backend comes from {@link ClassicProviderFactory}: buttplug4j by default, or the bundled
+ * Java-WebSocket native transport when configured (ADR-019).
  *
  * <p>1.7.10 gets a sibling entrypoint under {@code cpw.mods.fml}; 1.8.9 shares this
  * {@code net.minecraftforge.fml} shape. The version-agnostic command parsing lives in
@@ -37,7 +37,7 @@ public final class MinegasmClassicMod {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         Path configFile = event.getModConfigurationDirectory().toPath().resolve("minegasm.json");
-        this.client = new MinegasmClient(configFile, new Buttplug4jProvider("Minegasm"),
+        this.client = new MinegasmClient(configFile, ClassicProviderFactory.create(configFile),
                 SystemClock.INSTANCE);
         ClassicClientHolder.set(client);
     }

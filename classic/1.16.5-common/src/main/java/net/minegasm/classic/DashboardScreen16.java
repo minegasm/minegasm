@@ -24,8 +24,9 @@ import java.util.Locale;
  * mirrors the modern dashboard: master enable, connect/disconnect, scan/refresh, test, an always-visible
  * stop/resume, a live device list and provider-error history on the right, and buttons through to the
  * settings sub-screen and the legacy import. Actions run live against the shared {@link MinegasmClient};
- * the deferred knobs live on {@link SettingsScreen16}. There is no adapter toggle here: Classic only
- * ships the buttplug4j provider.
+ * the deferred knobs live on {@link SettingsScreen16}. The adapter toggle switches the Buttplug backend
+ * between buttplug4j and the native WebSocket provider (ADR-019), the same control the modern dashboard
+ * has.
  */
 public final class DashboardScreen16 extends Screen {
 
@@ -44,6 +45,7 @@ public final class DashboardScreen16 extends Screen {
     private int errorTop;
     private int errorHeight;
 
+    private boolean adapterRestartRequired;
     private long observedGeneration = -1;
     private ConnectionState observedState;
     private boolean observedEnabled;
@@ -95,6 +97,9 @@ public final class DashboardScreen16 extends Screen {
         // Left column: live controls.
         addButton(new Button(leftX, y, columnWidth, h,
                 new TextComponent("Haptics: " + onOff(enabled)), b -> toggleEnabled()));
+        y += gap;
+        addButton(new Button(leftX, y, columnWidth, h,
+                new TextComponent(adapterLabel()), b -> toggleAdapter()));
         y += gap;
 
         ProviderStatus status = client.status();
@@ -223,6 +228,27 @@ public final class DashboardScreen16 extends Screen {
                 cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
         client.updateConfig(updated);
         rebuild();
+    }
+
+    /** Flip the Buttplug backend between buttplug4j and native, preserving everything else. The change
+     *  takes effect on the next launch, so the button shows a restart hint once toggled. */
+    private void toggleAdapter() {
+        HapticConfig cfg = client.config().raw();
+        HapticConfig.Buttplug b = cfg.buttplug();
+        String next = "native".equalsIgnoreCase(b.client()) ? "buttplug4j" : "native";
+        client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
+                new HapticConfig.Buttplug(b.serverUrl(), b.autoConnect(), b.autoScan(),
+                        b.allowRemoteServer(), b.reconnect(), next),
+                cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
+                cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
+        adapterRestartRequired = true;
+        rebuild();
+    }
+
+    private String adapterLabel() {
+        String current = "native".equalsIgnoreCase(client.config().raw().buttplug().client())
+                ? "native" : "buttplug4j";
+        return "Adapter: " + current + (adapterRestartRequired ? " (restart)" : "");
     }
 
     private void toggleConnection() {

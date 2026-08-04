@@ -180,10 +180,13 @@ re-reads the id at save time so it never reverts a pack chosen from the picker.
 
 The config menus otherwise match across loaders in navigation: the same dashboard, and Settings, Scene
 Packs, Customization, Device editor, and Legacy import sub-screens. The Customization and Device-editor
-internals have not been diffed for parity yet. One control differs: the modern dashboard has an adapter
-toggle (native vs `buttplug4j`), and classic does not, because the native provider's transport is built
-on `java.net.http.WebSocket` (Java 11+) and classic runs on Java 8, so classic ships only `buttplug4j`.
-Closing this would take a dependency-free Java 8 WebSocket transport in the engine (follow-up).
+internals have not been diffed for parity yet. Both dashboards now carry the adapter toggle (native vs
+`buttplug4j`): modern's `native` is the dependency-free JDK WebSocket, and classic's is a bundled
+Java-WebSocket transport, since classic's Java 8 target has no built-in WebSocket client
+(`docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`). The default stays `buttplug4j`
+on both. The classic transport compiles and shades correctly and the inbound frame cap is configured
+via the library's `maxFrameSize`, but its runtime behaviour (handshake, framing, send/receive, cap) has
+not been exercised yet, against a loopback server or real hardware.
 
 ## Live Intiface verification
 

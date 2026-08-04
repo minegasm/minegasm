@@ -1,6 +1,5 @@
 package net.minegasm.classic;
 
-import net.minegasm.buttplug.b4j.Buttplug4jProvider;
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.time.SystemClock;
 
@@ -47,7 +46,7 @@ public final class MinegasmClassicMod {
             return; // client-only mod; do nothing on a dedicated server
         }
         Path configFile = FMLPaths.CONFIGDIR.get().resolve("minegasm.json");
-        this.client = new MinegasmClient(configFile, new Buttplug4jProvider("Minegasm"),
+        this.client = new MinegasmClient(configFile, ClassicProviderFactory.create(configFile),
                 SystemClock.INSTANCE);
         this.keybinds = new Keybinds16();
         this.sampler = new Sampler16(client);

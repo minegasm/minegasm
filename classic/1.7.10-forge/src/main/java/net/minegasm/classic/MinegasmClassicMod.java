@@ -5,7 +5,6 @@ import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 
-import net.minegasm.buttplug.b4j.Buttplug4jProvider;
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.time.SystemClock;
 
@@ -15,7 +14,8 @@ import java.nio.file.Path;
  * Client-only Minegasm entrypoint for Minecraft 1.7.10 Forge. This line predates the 1.8 package move,
  * so it uses {@code cpw.mods.fml} rather than {@code net.minecraftforge.fml} (the shape 1.8.9 and
  * 1.12.2 share). It owns the same shared, loader-independent {@link MinegasmClient} the other builds
- * do, connecting through buttplug4j. 1.7.10's {@code @Mod} has no {@code clientSideOnly} flag, so
+ * do, with the Buttplug backend chosen by {@link ClassicProviderFactory} (buttplug4j or the bundled
+ * native transport). 1.7.10's {@code @Mod} has no {@code clientSideOnly} flag, so
  * {@code acceptableRemoteVersions = "*"} keeps this client-only mod from forcing a server-side install.
  */
 @Mod(modid = "minegasm", name = "Minegasm", version = MinegasmClassicMod.VERSION,
@@ -30,7 +30,7 @@ public final class MinegasmClassicMod {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         Path configFile = event.getModConfigurationDirectory().toPath().resolve("minegasm.json");
-        this.client = new MinegasmClient(configFile, new Buttplug4jProvider("Minegasm"),
+        this.client = new MinegasmClient(configFile, ClassicProviderFactory.create(configFile),
                 SystemClock.INSTANCE);
         ClassicClientHolder.set(client);
     }
