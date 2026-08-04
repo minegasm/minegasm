@@ -41,6 +41,9 @@ public final class SettingsScreen16 extends Screen {
 
     @Override
     protected void init() {
+        // The pack screen writes the selection immediately, so re-read it here rather than trust a
+        // snapshot taken when this screen opened; otherwise Save would revert a pack picked meanwhile.
+        model.recipePack = client.config().raw().profile().recipePack();
         int lx = width / 2 - 155;
         int rx = width / 2 + 5;
         leftHeaderX = lx + 75;
@@ -52,8 +55,10 @@ public final class SettingsScreen16 extends Screen {
         addButton(new PctSlider(lx, y0, 150, 20, "Intensity: ", model.intensity, v -> model.intensity = v));
         addButton(new PctSlider(lx, y0 + dy, 150, 20, "Variation: ", model.variation, v -> model.variation = v));
         addButton(new Button(lx, y0 + 2 * dy, 150, 20, recipeLabel(), b -> {
-            model.cycleRecipePack(filePackIds());
-            b.setMessage(recipeLabel());
+            // Stage the server URL (only read on Save) before leaving, so returning from the pack
+            // screen does not discard an unsaved edit; sliders and toggles already write live.
+            model.serverUrl = serverField.getValue();
+            openScenePacks();
         }));
         addButton(new Button(lx, y0 + 3 * dy, 150, 20, modeLabel(), b -> {
             model.cycleMode();
@@ -138,13 +143,8 @@ public final class SettingsScreen16 extends Screen {
         return new TextComponent("Recipe: " + capitalize(model.recipePack));
     }
 
-    /** Ids of the loaded scene packs, for the recipe cycle (built-ins are always included). */
-    private java.util.List<String> filePackIds() {
-        java.util.List<String> ids = new java.util.ArrayList<String>();
-        for (net.minegasm.pack.ScenePackInfo info : client.scenePacks()) {
-            ids.add(info.id());
-        }
-        return ids;
+    private void openScenePacks() {
+        minecraft.setScreen(new ScenePackScreen16(this, client));
     }
 
     private Component modeLabel() {

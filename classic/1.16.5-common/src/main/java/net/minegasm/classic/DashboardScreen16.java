@@ -125,8 +125,10 @@ public final class DashboardScreen16 extends Screen {
                 new TextComponent(panic ? "Resume" : "Stop"), b -> togglePanic()));
         y += gap;
 
-        addButton(new Button(leftX, y, columnWidth, h,
+        addButton(new Button(leftX, y, half, h,
                 new TextComponent("Settings..."), b -> openSettings()));
+        addButton(new Button(leftX + half + 4, y, half, h,
+                new TextComponent("Scene packs..."), b -> openScenePacks()));
         y += gap;
 
         addButton(new Button(leftX, y, half, h,
@@ -260,6 +262,10 @@ public final class DashboardScreen16 extends Screen {
 
     private void openSettings() {
         minecraft.setScreen(new SettingsScreen16(this, client));
+    }
+
+    private void openScenePacks() {
+        minecraft.setScreen(new ScenePackScreen16(this, client));
     }
 
     private void openCustomization() {

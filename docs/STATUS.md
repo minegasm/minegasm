@@ -167,14 +167,16 @@ The engine for these is unit-tested as listed above. Beyond the unit suite:
 - The **local bridge** has been exercised end to end against the reference adapter
   (`docs/bridge/reference-adapter.py`), confirming connect, line-framed `effect`/`stop` delivery, and
   rejection of an unknown protocol version.
-- The **pack-manager screen** (modern), the modern and classic `/minegasm recipe` and `/minegasm
-  bridge` commands, and the bridge **enable toggle** compile on every loader and are installed for
-  testing. In-game walkthroughs of those screens are pending, like the rest of the preflight checklist.
+- The **pack-manager screen** (now on both loaders), the modern and classic `/minegasm recipe` and
+  `/minegasm bridge` commands, and the bridge **enable toggle** compile on every loader and version and
+  are installed for testing. In-game walkthroughs of those screens are pending, like the rest of the
+  preflight checklist.
 
-Recipe-pack selection is now consistent across surfaces: the modern `/minegasm recipe` command, its
-settings-screen toggle, the pack-manager screen, and the classic command all offer the two built-ins
-plus every loaded file pack, and all persist the choice as its raw id (ADR-017) rather than collapsing
-a file pack back to a built-in.
+Recipe-pack selection is consistent across both loaders. Each has one pack picker, the dashboard's
+Scene Packs screen, reached from the dashboard or from the settings recipe row; both loaders also take
+`/minegasm recipe <id>`. Every surface lists the two built-ins plus each loaded file pack and persists
+the choice as its raw id (ADR-017). The picker writes immediately, and the staged settings screen
+re-reads the id at save time so it never reverts a pack chosen from the picker.
 
 ## Live Intiface verification
 

@@ -5,7 +5,6 @@ import net.minegasm.config.HapticConfig;
 import net.minegasm.config.MinegasmMode;
 import net.minegasm.config.PauseBehavior;
 import net.minegasm.config.TestOutputLimits;
-import net.minegasm.pack.ScenePackInfo;
 
 //? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -31,7 +30,6 @@ public final class MinegasmSettingsScreen extends Screen {
     private final MinegasmClient client;
     private double intensity;
     private double variation;
-    private String recipePack;
     private MinegasmMode mode;
     private boolean fatigue;
     private PauseBehavior pauseBehavior;
@@ -45,6 +43,9 @@ public final class MinegasmSettingsScreen extends Screen {
     private int unsafeTestMaxDurationMs;
     private boolean bridgeEnabled;
     private EditBox serverUrl;
+    // Holds the typed server URL across a trip to the pack screen, so re-init keeps an unsaved edit
+    // instead of reverting the field to the stored config value.
+    private String pendingServerUrl;
 
     public MinegasmSettingsScreen(Screen parent, MinegasmClient client) {
         super(Component.translatable("minegasm.settings.title"));
@@ -53,7 +54,6 @@ public final class MinegasmSettingsScreen extends Screen {
         HapticConfig cfg = client.config().raw();
         intensity = cfg.global().intensity();
         variation = cfg.global().variation();
-        recipePack = cfg.profile().recipePack();
         mode = cfg.profile().mode();
         fatigue = cfg.global().fatigueProtection();
         pauseBehavior = cfg.global().pauseBehaviorMode();
@@ -82,12 +82,7 @@ public final class MinegasmSettingsScreen extends Screen {
         addRenderableWidget(new PercentSlider(left, 72, columnWidth, h,
                 "minegasm.settings.variation", variation, value -> variation = value));
 
-        addRenderableWidget(button(packLabel(), b -> {
-            java.util.List<String> ids = recipeOptions();
-            int idx = ids.indexOf(recipePack);
-            recipePack = ids.get((idx + 1 + ids.size()) % ids.size());
-            b.setMessage(packLabel());
-        }, left, 96, columnWidth, h));
+        addRenderableWidget(button(packLabel(), b -> openScenePacks(), left, 96, columnWidth, h));
 
         addRenderableWidget(button(modeLabel(), b -> {
             MinegasmMode[] values = MinegasmMode.values();
@@ -109,7 +104,7 @@ public final class MinegasmSettingsScreen extends Screen {
         serverUrl = new EditBox(font, right, 48, columnWidth, h,
                 Component.translatable("minegasm.settings.server_url"));
         serverUrl.setMaxLength(256);
-        serverUrl.setValue(bp.serverUrl());
+        serverUrl.setValue(pendingServerUrl != null ? pendingServerUrl : bp.serverUrl());
         addRenderableWidget(serverUrl);
         addRenderableWidget(toggle(right, 72, columnWidth, "minegasm.settings.auto_connect",
                 () -> autoConnect, value -> autoConnect = value));
@@ -162,20 +157,17 @@ public final class MinegasmSettingsScreen extends Screen {
     }
 
     private Component packLabel() {
-        return Component.translatable("minegasm.settings.recipe_pack", recipePack);
+        return Component.translatable("minegasm.settings.recipe_pack",
+                client.config().raw().profile().recipePack());
     }
 
-    /** The selectable recipe pack ids: the two built-ins plus every loaded file pack (ADR-017). */
-    private java.util.List<String> recipeOptions() {
-        java.util.List<String> ids = new java.util.ArrayList<>();
-        ids.add("classic");
-        ids.add("balanced");
-        for (ScenePackInfo info : client.scenePacks()) {
-            if (!ids.contains(info.id())) {
-                ids.add(info.id());
-            }
-        }
-        return ids;
+    private void openScenePacks() {
+        pendingServerUrl = serverUrl.getValue(); // keep an unsaved URL edit across the round trip
+        //? if >=26.2 {
+        this.minecraft.gui.setScreen(new MinegasmScenePackScreen(this, client));
+        //?} else {
+        /*this.minecraft.setScreen(new MinegasmScenePackScreen(this, client));
+        *///?}
     }
 
     private Component modeLabel() {
@@ -258,7 +250,7 @@ public final class MinegasmSettingsScreen extends Screen {
         var g = cfg.global();
         var bp = cfg.buttplug();
         HapticConfig updated = new HapticConfig(cfg.schemaVersion(),
-                new HapticConfig.Profile(recipePack, mode.name()),
+                new HapticConfig.Profile(client.config().raw().profile().recipePack(), mode.name()),
                 new HapticConfig.Global(g.enabled(), intensity, variation, fatigue,
                         pauseBehavior.name(), stopOnWorldUnload, g.panicKey(),
                         testMaxPercent, testMaxDurationMs,

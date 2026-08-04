@@ -38,6 +38,7 @@ public final class ClassicConfigScreen extends GuiScreen {
     private static final int ID_CLEAR_ERRORS = 10;
     private static final int ID_CUSTOMIZATION = 11;
     private static final int ID_DEVICE_EDITOR = 12;
+    private static final int ID_SCENE_PACKS = 13;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
@@ -93,7 +94,8 @@ public final class ClassicConfigScreen extends GuiScreen {
         testBtn = addButton(new GuiButton(ID_TEST, leftX, y, half, h, "Test"));
         panicBtn = addButton(new GuiButton(ID_PANIC, leftX + half + 4, y, half, h, panicLabel()));
         y += gap;
-        addButton(new GuiButton(ID_SETTINGS, leftX, y, columnWidth, h, "Settings..."));
+        addButton(new GuiButton(ID_SETTINGS, leftX, y, half, h, "Settings..."));
+        addButton(new GuiButton(ID_SCENE_PACKS, leftX + half + 4, y, half, h, "Scene packs..."));
         y += gap;
         addButton(new GuiButton(ID_CUSTOMIZATION, leftX, y, half, h, "Customization..."));
         addButton(new GuiButton(ID_DEVICE_EDITOR, leftX + half + 4, y, half, h, "Device editor..."));
@@ -147,6 +149,9 @@ public final class ClassicConfigScreen extends GuiScreen {
                 break;
             case ID_SETTINGS:
                 mc.displayGuiScreen(new ClassicSettingsScreen(this));
+                break;
+            case ID_SCENE_PACKS:
+                mc.displayGuiScreen(new ClassicScenePackScreen(this));
                 break;
             case ID_CUSTOMIZATION:
                 mc.displayGuiScreen(new CustomizationScreen(this));

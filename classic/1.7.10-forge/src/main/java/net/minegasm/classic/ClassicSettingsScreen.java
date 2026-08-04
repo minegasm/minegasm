@@ -67,6 +67,9 @@ public final class ClassicSettingsScreen extends GuiScreen {
     @SuppressWarnings("unchecked")
     public void initGui() {
         buttonList.clear();
+        // The pack screen writes the selection immediately, so re-read it here rather than trust a
+        // snapshot taken when this screen opened; otherwise Save would revert a pack picked meanwhile.
+        model.recipePack = client.config().raw().profile().recipePack();
         int lx = width / 2 - 155;
         int rx = width / 2 + 5;
         int y0 = 40;
@@ -115,8 +118,13 @@ public final class ClassicSettingsScreen extends GuiScreen {
     protected void actionPerformed(GuiButton button) {
         switch (button.id) {
             case ID_RECIPE:
-                model.cycleRecipePack(filePackIds());
-                recipeBtn.displayString = recipeLabel();
+                // Stage the deferred slider/URL edits before leaving, so opening the pack screen and
+                // returning does not discard them (initGui rebuilds these from the model, and only Save
+                // otherwise writes them there).
+                model.intensity = intensitySlider.getValueInt() / 100.0;
+                model.variation = variationSlider.getValueInt() / 100.0;
+                model.serverUrl = serverField.getText();
+                mc.displayGuiScreen(new ClassicScenePackScreen(this));
                 break;
             case ID_MODE:
                 model.cycleMode();
@@ -214,15 +222,6 @@ public final class ClassicSettingsScreen extends GuiScreen {
 
     private String recipeLabel() {
         return "Recipe: " + capitalize(model.recipePack);
-    }
-
-    /** Ids of the loaded scene packs, for the recipe cycle (built-ins are always included). */
-    private java.util.List<String> filePackIds() {
-        java.util.List<String> ids = new java.util.ArrayList<String>();
-        for (net.minegasm.pack.ScenePackInfo info : client.scenePacks()) {
-            ids.add(info.id());
-        }
-        return ids;
     }
 
     private String modeLabel() {
