@@ -32,6 +32,11 @@ run {
             val loader = variant.substringAfterLast('-')
             rootProject.file("versions/$variant/build/libs/minegasm-$modVersion+mc$mc-$loader.jar")
         }
+        .toMutableMap()
+    // There is no 1.20.1-neoforge build variant (1.20.1 is targeted as Fabric + Forge only), but early
+    // NeoForge on 1.20.1 loads the Forge jar. Alias the neoforge instance to the 1.20.1-forge jar so
+    // installJars keeps it current whenever mods-install.env defines a 1.20.1-neoforge target.
+    jarByVariant["1.20.1-forge"]?.let { jarByVariant["1.20.1-neoforge"] = it }
 
     tasks.register("installJars") {
         group = "minegasm"
