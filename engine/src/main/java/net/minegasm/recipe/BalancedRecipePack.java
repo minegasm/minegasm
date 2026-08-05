@@ -63,7 +63,7 @@ public final class BalancedRecipePack implements RecipePack {
 
     private Optional<HapticScene> attack(RecipeContext ctx) {
         float strength = ctx.intent().hasTag("critical") ? 1.0f : 0.6f;
-        float peak = clampRange(ctx.amplitude(strength), 0.20f, 0.45f);
+        float peak = clampRange(ctx.amplitude(strength), 0.30f, 0.85f);
         peak = vary(ctx, peak);
         int dur = varyMs(ctx, 35 + Math.round(55 * strength));
         HapticPrimitive.Impulse impulse = new HapticPrimitive.Impulse(peak, dur, 6, Math.round(dur * 0.5f));
@@ -74,7 +74,7 @@ public final class BalancedRecipePack implements RecipePack {
 
     private Optional<HapticScene> hurt(RecipeContext ctx) {
         float shape = HapticMath.smoothstep(ctx.intent().strength());
-        float peak = clampRange(ctx.amplitude(shape), 0.30f, 0.80f);
+        float peak = clampRange(ctx.amplitude(shape), 0.35f, 1.00f);
         peak = vary(ctx, peak);
         int dur = varyMs(ctx, 90 + Math.round(100 * ctx.intent().strength()));
         HapticPrimitive.Impulse impulse = new HapticPrimitive.Impulse(peak, dur, 8, 55);
@@ -84,10 +84,10 @@ public final class BalancedRecipePack implements RecipePack {
     }
 
     private Optional<HapticScene> explosion(RecipeContext ctx) {
-        float shock = vary(ctx, clampRange(ctx.amplitude(1.0f), 0.55f, 0.90f));
+        float shock = vary(ctx, clampRange(ctx.amplitude(1.0f), 0.60f, 1.00f));
         int shockMs = varyMs(ctx, 120);
         HapticPrimitive.Impulse impulse = new HapticPrimitive.Impulse(shock, shockMs, 4, 60);
-        float after = clampRange(shock * 0.6f, 0.20f, 0.55f);
+        float after = clampRange(shock * 0.6f, 0.30f, 0.75f);
         HapticPrimitive.Rumble rumble = new HapticPrimitive.Rumble(after, 600, 0.6f, true);
         List<HapticLayer> layers = java.util.Arrays.asList(
                 vibe(ctx, "shock", HapticRole.IMPACT, impulse, CouplingMode.EXCLUSIVE),
@@ -102,7 +102,7 @@ public final class BalancedRecipePack implements RecipePack {
     private Optional<HapticScene> mining(RecipeContext ctx) {
         MaterialFeel mat = ctx.intent().material();
         float hardness = ctx.intent().strength(); // normalized hardness from observation
-        float level = clampRange(ctx.amplitude(0.4f + 0.6f * hardness), 0.10f, 0.32f);
+        float level = clampRange(ctx.amplitude(0.4f + 0.6f * hardness), 0.28f, 0.75f);
         HapticPrimitive.Texture texture = new HapticPrimitive.Texture(level, 180, mat.grain(), mat.density(), 0.10f);
         String key = ctx.intent().tags().stream().filter(t -> t.startsWith("pos:")).findFirst()
                 .map(t -> "mining:" + t).orElse("mining:active");
@@ -116,7 +116,7 @@ public final class BalancedRecipePack implements RecipePack {
     private Optional<HapticScene> blockBreak(RecipeContext ctx) {
         boolean ore = ctx.intent().hasTag("ore");
         float hardness = ctx.intent().strength();
-        float level = clampRange(ctx.amplitude(0.5f + 0.5f * hardness), 0.20f, 0.52f);
+        float level = clampRange(ctx.amplitude(0.5f + 0.5f * hardness), 0.32f, 0.90f);
         if (ore) {
             level = HapticMath.clamp01(level + 0.08f);
         }
@@ -153,7 +153,7 @@ public final class BalancedRecipePack implements RecipePack {
                 sharp = 0.75f;
                 break;
         }
-        float level = vary(ctx, clampRange(ctx.amplitude(sharp), 0.12f, 0.30f));
+        float level = vary(ctx, clampRange(ctx.amplitude(sharp), 0.28f, 0.65f));
         int dur = varyMs(ctx, 40 + Math.round(30 * sharp));
         HapticPrimitive.Impulse knock = new HapticPrimitive.Impulse(level, dur, 4, 30);
         return Optional.of(Recipes.scene(ctx, java.util.Arrays.asList(
@@ -161,7 +161,7 @@ public final class BalancedRecipePack implements RecipePack {
     }
 
     private Optional<HapticScene> harvest(RecipeContext ctx) {
-        float level = vary(ctx, clampRange(ctx.amplitude(0.6f), 0.15f, 0.35f));
+        float level = vary(ctx, clampRange(ctx.amplitude(0.6f), 0.30f, 0.70f));
         HapticPrimitive.BeatPattern pattern = new HapticPrimitive.BeatPattern(java.util.Arrays.asList(
                 new Beat(0, level * 0.8f, 40),
                 new Beat(90, level, 50)));
@@ -172,7 +172,7 @@ public final class BalancedRecipePack implements RecipePack {
     // --- notifications ---------------------------------------------------------------------
 
     private Optional<HapticScene> fishing(RecipeContext ctx) {
-        float level = clampRange(ctx.amplitude(0.7f), 0.30f, 0.55f);
+        float level = clampRange(ctx.amplitude(0.7f), 0.35f, 0.85f);
         HapticPrimitive.BeatPattern pattern = new HapticPrimitive.BeatPattern(java.util.Arrays.asList(
                 new Beat(0, level * 0.85f, 45),
                 new Beat(45 + 75, level, 60)));
@@ -184,14 +184,14 @@ public final class BalancedRecipePack implements RecipePack {
         float magnitude = ctx.intent().strength();
         boolean levelUp = ctx.intent().hasTag("levelup");
         int beats = magnitude < 0.33f ? 1 : (magnitude < 0.66f ? 2 : 3);
-        float cap = 0.45f;
+        float cap = 0.75f;
         List<Beat> list = new ArrayList<>();
         for (int i = 0; i < beats; i++) {
-            float lvl = clampRange(ctx.amplitude(0.4f + 0.2f * i), 0.12f, cap);
+            float lvl = clampRange(ctx.amplitude(0.4f + 0.2f * i), 0.28f, cap);
             list.add(new Beat(i * 70, vary(ctx, lvl), 45));
         }
         if (levelUp) {
-            list.add(new Beat(beats * 70 + 30, clampRange(ctx.amplitude(1.0f), 0.20f, cap + 0.10f), 90));
+            list.add(new Beat(beats * 70 + 30, clampRange(ctx.amplitude(1.0f), 0.35f, cap + 0.20f), 90));
         }
         return Optional.of(Recipes.scene(ctx, java.util.Arrays.asList(
                 vibe(ctx, "sparkle", HapticRole.REWARD, new HapticPrimitive.BeatPattern(list),
@@ -201,7 +201,7 @@ public final class BalancedRecipePack implements RecipePack {
     private Optional<HapticScene> advancement(RecipeContext ctx) {
         String tier = ctx.intent().hasTag("challenge") ? "challenge"
                 : ctx.intent().hasTag("goal") ? "goal" : "task";
-        float base = clampRange(ctx.amplitude(0.8f), 0.20f, 0.55f);
+        float base = clampRange(ctx.amplitude(0.8f), 0.32f, 0.85f);
         List<Beat> beats = new ArrayList<>();
         beats.add(new Beat(0, base * 0.6f, 60));
         beats.add(new Beat(140, base * 0.8f, 60));
@@ -234,8 +234,8 @@ public final class BalancedRecipePack implements RecipePack {
     private Optional<HapticScene> vitality(RecipeContext ctx) {
         boolean critical = ctx.intent().hasTag("critical");
         float level = critical
-                ? clampRange(ctx.amplitude(1.0f), 0.30f, 0.50f)
-                : clampRange(ctx.amplitude(0.6f), 0.15f, 0.30f);
+                ? clampRange(ctx.amplitude(1.0f), 0.35f, 0.90f)
+                : clampRange(ctx.amplitude(0.6f), 0.28f, 0.65f);
         HapticPrimitive.BeatPattern pattern = new HapticPrimitive.BeatPattern(java.util.Arrays.asList(
                 new Beat(0, level, 60),
                 new Beat(120, level, 60)));

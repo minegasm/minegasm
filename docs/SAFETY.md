@@ -27,8 +27,9 @@ uncertainty (brief §12).
 
 ## Output caps and gating
 
-- Hard per-kind caps in `render.SafetyCaps` (Vibrate ≤ 1.0, Oscillate ≤ 0.5, Rotate ≤ 0.35) applied
-  after all user scaling. Motion is not capped here; its bound is the travel window below.
+- Hard per-kind caps in `render.SafetyCaps` (Vibrate ≤ 1.0, Oscillate ≤ 0.9, Rotate ≤ 0.75,
+  Constrict ≤ 0.6) applied after all user scaling, ordered by risk (constriction the most cautious).
+  Motion is not capped here; its bound is the travel window below.
 - Per-device and per-feature caps/multipliers, plus global intensity.
 - **Bounded motion by default**: `Position`/`HwPositionWithDuration` (strokers) move within a
   conservative safe default (centered neutral, narrow window) even with no calibration; an explicit

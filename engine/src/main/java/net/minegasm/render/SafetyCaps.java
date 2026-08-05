@@ -3,9 +3,12 @@ package net.minegasm.render;
 import net.minegasm.core.OutputKind;
 
 /**
- * Hard normalized-level caps per output kind (brief §12.1, matching the conservative scaffold
- * defaults). These are absolute ceilings applied after all user scaling; a bug upstream can never
- * push an output above these. Motion travel is additionally bounded by calibration.
+ * Hard normalized-level caps per output kind (brief §12.1). Absolute ceilings applied after all user
+ * scaling, so a bug upstream can never push an output above these. The values are stronger than the
+ * original conservative scaffold defaults (the scaffold was weak enough that gameplay barely registered)
+ * but still ordered by risk: constriction (physical squeezing pressure) stays the most cautious, then
+ * rotation, then oscillation, with vibration free to the device's own max. Motion travel is additionally
+ * bounded by calibration.
  */
 public final class SafetyCaps {
 
@@ -16,11 +19,11 @@ public final class SafetyCaps {
             case VIBRATE:
                 return 1.00f;
             case OSCILLATE:
-                return 0.50f;
+                return 0.90f;
             case ROTATE:
-                return 0.35f;
+                return 0.75f;
             case CONSTRICT:
-                return 0.30f;
+                return 0.60f;
             case POSITION:
             case HW_POSITION_WITH_DURATION:
                 // Level passes through here; physical travel is bounded in SceneMixer.buildTarget by the

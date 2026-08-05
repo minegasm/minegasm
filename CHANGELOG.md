@@ -37,6 +37,16 @@ All notable changes to Minegasm are documented in this file. The format follows
   inbound frame cap is configured the same way. Default stays `buttplug4j`. See
   `docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`.
 
+### Changed
+
+- **Stronger default haptics.** The output was weak enough that many devices barely moved on gameplay
+  events, and raising the intensity slider did little. The Balanced recipe's per-event strength bands
+  were raised: higher floors so every event clears a device's start-threshold, and higher ceilings so
+  intensity and event strength have room to scale (previously the low ceilings clamped the gain away).
+  The per-kind `SafetyCaps` were also raised from the conservative scaffold values (Oscillate 0.5→0.9,
+  Rotate 0.35→0.75, Constrict 0.3→0.6; Vibrate stays 1.0), still ordered by risk and still the hard
+  backstop applied after all user scaling.
+
 ### Fixed
 
 - Loader metadata now pins the Minecraft dependency to the exact version each jar targets. The previous
