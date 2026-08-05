@@ -76,6 +76,10 @@ All notable changes to Minegasm are documented in this file. The format follows
   server's device-added and device-removed notifications, so a toy that connected during a scan stayed
   invisible until you hit Refresh. It now re-reads the device list when the set changes. (The default
   `buttplug4j` backend already did this.)
+- **Native backend: server errors are no longer swallowed.** Errors that weren't tied to a specific
+  request (a rejected output command, or a server-side system error) were dropped instead of shown. They
+  now land in the status and error log. A server that negotiates a non-v4 protocol is also refused at
+  connect time rather than appearing to connect and then failing on the first command.
 - Loader metadata now pins the Minecraft dependency to the exact version each jar targets. The previous
   unbounded `>=` range let a jar built for one Minecraft version load on a newer one and crash on an API
   that version had removed (for example the 1.19.2 jar's `Button` constructor on 1.20.1). Companion

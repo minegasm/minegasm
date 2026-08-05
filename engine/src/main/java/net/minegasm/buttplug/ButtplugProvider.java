@@ -117,6 +117,13 @@ public final class ButtplugProvider implements HapticProvider {
                 .thenCompose(msg -> {
                     if (msg instanceof ServerMessage.ServerInfo) {
                         ServerMessage.ServerInfo si = (ServerMessage.ServerInfo) msg;
+                        // Reject a server that negotiates a different major version rather than proceed
+                        // and fail on the first v4 OutputCmd. A server that omits the field parses as 4
+                        // (our default), so only an explicit mismatch is refused.
+                        if (si.majorVersion() != ButtplugCodec.PROTOCOL_MAJOR) {
+                            throw new IllegalStateException("server speaks Buttplug v" + si.majorVersion()
+                                    + " but this client requires v" + ButtplugCodec.PROTOCOL_MAJOR);
+                        }
                         this.negotiatedVersion = si.majorVersion() + "." + si.minorVersion();
                         this.maxPingTimeMs = si.maxPingTimeMs();
                         startPing();
@@ -173,7 +180,8 @@ public final class ButtplugProvider implements HapticProvider {
     /**
      * Send a feature-level output command. Dropped (as a completed no-op) if the socket is closed or
      * the command's captured generation no longer matches the registry (brief §5.3, §9.5). Output is
-     * fire-and-forget: a late {@code Ok}/{@code Error} is logged and ignored, never awaited.
+     * fire-and-forget: it is never awaited. A late {@code Ok} is ignored; a late {@code Error} is
+     * surfaced to the status/error history by {@link #handle} but does not fail the send.
      */
     public CompletionStage<Void> send(OutputCommand command) {
         if (!canSendMessages()) {
@@ -285,6 +293,10 @@ public final class ButtplugProvider implements HapticProvider {
             complete(si);
         } else if (msg instanceof ServerMessage.Error) {
             ServerMessage.Error err = (ServerMessage.Error) msg;
+            // Surface every server error, not only ones tied to a pending request: a rejected OutputCmd
+            // is fire-and-forget (no pending) and system errors carry Id 0, so failPending alone drops
+            // them. Recording it in the status/error history keeps them visible (duplicates de-dupe there).
+            setError(err.errorMessage());
             failPending(err.id(), new ButtplugException(err.errorMessage(), err.errorCode()));
         } else if (msg instanceof ServerMessage.ScanningFinished) {
             ServerMessage.ScanningFinished sf = (ServerMessage.ScanningFinished) msg;

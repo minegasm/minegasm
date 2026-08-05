@@ -84,6 +84,29 @@ class ButtplugProviderTest {
     }
 
     @Test
+    void serverErrorsAreSurfacedEvenWithoutAPendingRequest() {
+        FakeButtplugServer server = new FakeButtplugServer();
+        try (ButtplugProvider provider = new ButtplugProvider(server, "test")) {
+            provider.connect(URL).toCompletableFuture().join();
+            // An unsolicited/system error (Id 0), like a rejected fire-and-forget OutputCmd: it has no
+            // pending request to fail, but it must still land in the status so the UI can show it.
+            server.deliverRaw("[{\"Error\":{\"Id\":0,\"ErrorMessage\":\"device busy\",\"ErrorCode\":3}}]");
+            assertEquals("device busy", provider.status().lastError().orElseThrow());
+        }
+    }
+
+    @Test
+    void rejectsAServerWithAnIncompatibleProtocolVersion() {
+        FakeButtplugServer server = new FakeButtplugServer();
+        server.protocolVersionMajor = 3; // not the v4 this client speaks
+        try (ButtplugProvider provider = new ButtplugProvider(server, "test")) {
+            assertThrows(RuntimeException.class,
+                    () -> provider.connect(URL).toCompletableFuture().join());
+            assertEquals(ConnectionState.DISCONNECTED, provider.status().state());
+        }
+    }
+
+    @Test
     void failedTransportConnectionReturnsToDisconnected() {
         ButtplugTransport unavailable = new ButtplugTransport() {
             @Override

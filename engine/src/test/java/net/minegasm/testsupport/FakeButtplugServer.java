@@ -44,6 +44,7 @@ public final class FakeButtplugServer implements ButtplugTransport {
     private boolean open;
 
     public long maxPingTimeMs = 0;
+    public int protocolVersionMajor = 4;
     public boolean errorOnOutput = false;
     public boolean withholdOkForOutput = false;
     public boolean scanningFinishes = true;
@@ -175,7 +176,7 @@ public final class FakeButtplugServer implements ButtplugTransport {
         JsonObject b = new JsonObject();
         b.addProperty("Id", id);
         b.addProperty("ServerName", "FakeIntiface");
-        b.addProperty("ProtocolVersionMajor", 4);
+        b.addProperty("ProtocolVersionMajor", protocolVersionMajor);
         b.addProperty("ProtocolVersionMinor", 0);
         b.addProperty("MaxPingTime", maxPingTimeMs);
         return wrap("ServerInfo", b);
