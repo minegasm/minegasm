@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -37,6 +38,7 @@ class MinegasmClientReconnectTest {
         final AtomicInteger connects = new AtomicInteger();
         final AtomicInteger polls = new AtomicInteger();
         final AtomicInteger stopScans = new AtomicInteger();
+        volatile boolean closed;
         volatile ProviderStatus status = ProviderStatus.disconnected();
 
         @Override
@@ -102,6 +104,7 @@ class MinegasmClientReconnectTest {
 
         @Override
         public void close() {
+            closed = true;
         }
     }
 
@@ -114,6 +117,26 @@ class MinegasmClientReconnectTest {
             clock.advanceMillis(2_000); // step past the backoff windows (base 1s, capped 30s)
             client.onClientTickEnd(ClientStateSnapshot.empty(i));
         }
+        client.shutdown();
+    }
+
+    @Test
+    void setBackendSwapsBuildsTheNewBackendAndClosesTheOld() {
+        java.util.Map<String, FakeProvider> built = new java.util.HashMap<>();
+        java.util.function.Function<String, net.minegasm.buttplug.HapticProvider> factory =
+                name -> built.computeIfAbsent(name, n -> new FakeProvider());
+        MinegasmClient client = new MinegasmClient(temp.resolve("minegasm.json"), factory, new FakeClock());
+
+        assertEquals("native", client.backend()); // the default the config was created with
+        FakeProvider first = built.get("native");
+
+        assertTrue(client.setBackend("buttplug4j"));
+        assertEquals("buttplug4j", client.backend());
+        assertTrue(built.containsKey("buttplug4j"), "the new backend is built through the factory");
+        assertTrue(first.closed, "the old backend is closed on swap");
+
+        assertFalse(client.setBackend("buttplug4j"), "switching to the active backend is a no-op");
+        assertFalse(client.setBackend("bogus"), "an unknown backend name is rejected");
         client.shutdown();
     }
 

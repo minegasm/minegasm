@@ -42,6 +42,10 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 ### Changed
 
+- **Switching the Buttplug backend is now live.** The adapter toggle in settings, and a new
+  `/minegasm adapter native|buttplug4j` command, switch the backend without restarting Minecraft. The mod
+  stops and releases the old backend, wires in the new one, and reconnects in place. The old "restart to
+  take effect" hint is gone.
 - **Native is now the default Buttplug backend.** New setups use the dependency-free provider (JDK
   WebSocket on modern, a bundled WebSocket on classic) instead of `buttplug4j`. A config that explicitly
   selected `buttplug4j` keeps it; one that never picked a backend follows the new default. `buttplug4j`
@@ -85,6 +89,9 @@ All notable changes to Minegasm are documented in this file. The format follows
   request (a rejected output command, or a server-side system error) were dropped instead of shown. They
   now land in the status and error log. A server that negotiates a non-v4 protocol is also refused at
   connect time rather than appearing to connect and then failing on the first command.
+- The classic 1.16.5 Fabric build now honours the configured backend. It hardcoded `buttplug4j` and
+  ignored the `buttplug.client` setting, so it never used the native provider or followed the default;
+  it now builds the provider through the same factory as every other loader.
 - Loader metadata now pins the Minecraft dependency to the exact version each jar targets. The previous
   unbounded `>=` range let a jar built for one Minecraft version load on a newer one and crash on an API
   that version had removed (for example the 1.19.2 jar's `Button` constructor on 1.20.1). Companion

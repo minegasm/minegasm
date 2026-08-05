@@ -1,6 +1,5 @@
 package net.minegasm.classic;
 
-import net.minegasm.buttplug.b4j.Buttplug4jProvider;
 import net.minegasm.client.MinegasmClient;
 import net.minegasm.time.SystemClock;
 
@@ -34,7 +33,7 @@ public final class MinegasmClassicClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         Path configFile = FabricLoader.getInstance().getConfigDir().resolve("minegasm.json");
-        this.client = new MinegasmClient(configFile, new Buttplug4jProvider("Minegasm"),
+        this.client = new MinegasmClient(configFile, backend -> ClassicProviderFactory.create(backend),
                 SystemClock.INSTANCE);
         this.sampler = new Sampler16(client);
         ClassicClientHolder.set(client);

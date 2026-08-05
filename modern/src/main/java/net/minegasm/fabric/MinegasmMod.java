@@ -102,9 +102,9 @@ public final class MinegasmMod implements ClientModInitializer {
     private boolean showFirstRunNotice;
 
     public MinegasmMod() {
-        // Select the Buttplug backend from config (default buttplug4j; "native" for the JDK provider).
+        // Select the Buttplug backend from config (default native; "buttplug4j" for the library client).
         java.nio.file.Path configFile = FabricLoader.getInstance().getConfigDir().resolve("minegasm.json");
-        this.client = new MinegasmClient(configFile, ProviderFactory.create(configFile),
+        this.client = new MinegasmClient(configFile, backend -> ProviderFactory.create(backend),
                 net.minegasm.time.SystemClock.INSTANCE);
         activeClient = this.client;
         this.showFirstRunNotice = client.isFirstRun();
@@ -216,6 +216,15 @@ public final class MinegasmMod implements ClientModInitializer {
                                 .executes(context -> bridgeFromCommand(context.getSource(), true)))
                         .then(ClientCommands.literal("off")
                                 .executes(context -> bridgeFromCommand(context.getSource(), false))))
+                .then(ClientCommands.literal("adapter")
+                        .executes(context -> {
+                            sendAdapter(context.getSource());
+                            return 1;
+                        })
+                        .then(ClientCommands.literal("native")
+                                .executes(context -> adapterFromCommand(context.getSource(), "native")))
+                        .then(ClientCommands.literal("buttplug4j")
+                                .executes(context -> adapterFromCommand(context.getSource(), "buttplug4j"))))
                 .then(ClientCommands.literal("test")
                         .executes(context -> testFromCommand(context.getSource(), 25, 400, false))
                         .then(ClientCommands.argument("strength-percent", IntegerArgumentType.integer(
@@ -362,6 +371,19 @@ public final class MinegasmMod implements ClientModInitializer {
                 new HapticConfig.Bridge(enable, b.url(), b.transport(), b.allowRemote())));
         source.sendFeedback(Component.translatable("minegasm.command.bridge_set",
                 enable ? "on" : "off"));
+        return 1;
+    }
+
+    private void sendAdapter(FabricClientCommandSource source) {
+        source.sendFeedback(Component.translatable("minegasm.command.adapter_current",
+                client.backend()));
+    }
+
+    private int adapterFromCommand(FabricClientCommandSource source, String backend) {
+        boolean changed = client.setBackend(backend);
+        source.sendFeedback(Component.translatable(
+                changed ? "minegasm.command.adapter_set" : "minegasm.command.adapter_unchanged",
+                backend));
         return 1;
     }
 

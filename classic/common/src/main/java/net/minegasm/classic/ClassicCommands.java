@@ -37,7 +37,7 @@ public final class ClassicCommands {
     /** Sub-command names, in help order, for tab completion. */
     public static final List<String> SUBCOMMANDS = Arrays.asList(
             "status", "connect", "disconnect", "reconnect", "enable", "disable",
-            "mode", "recipe", "bridge", "stop", "resume", "test", "trigger");
+            "mode", "recipe", "bridge", "adapter", "stop", "resume", "test", "trigger");
 
     private static final Map<String, GameEventKind> TRIGGER_EVENTS = triggerEvents();
 
@@ -87,6 +87,9 @@ public final class ClassicCommands {
                 break;
             case "bridge":
                 bridge(client, out, args);
+                break;
+            case "adapter":
+                adapter(client, out, args);
                 break;
             case "test":
                 test(client, out, args);
@@ -145,6 +148,23 @@ public final class ClassicCommands {
         }
         applyProfile(client, cfg, new HapticConfig.Profile(selected, cfg.profile().hapticMode()));
         out.info("Recipe set to " + selected + ".");
+    }
+
+    private static void adapter(MinegasmClient client, Feedback out, String[] args) {
+        if (args.length < 2) {
+            out.info("Adapter: " + client.backend() + ". Use: /minegasm adapter native|buttplug4j");
+            return;
+        }
+        String requested = args[1].toLowerCase(Locale.ROOT);
+        if (!requested.equals("native") && !requested.equals("buttplug4j")) {
+            out.error("Unknown adapter '" + args[1] + "'. Options: native, buttplug4j");
+            return;
+        }
+        if (client.setBackend(requested)) {
+            out.info("Adapter switched to " + requested + ".");
+        } else {
+            out.info("Adapter already " + requested + ".");
+        }
     }
 
     private static void bridge(MinegasmClient client, Feedback out, String[] args) {

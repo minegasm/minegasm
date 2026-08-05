@@ -46,7 +46,7 @@ public final class MinegasmClassicMod {
             return; // client-only mod; do nothing on a dedicated server
         }
         Path configFile = FMLPaths.CONFIGDIR.get().resolve("minegasm.json");
-        this.client = new MinegasmClient(configFile, ClassicProviderFactory.create(configFile),
+        this.client = new MinegasmClient(configFile, backend -> ClassicProviderFactory.create(backend),
                 SystemClock.INSTANCE);
         this.keybinds = new Keybinds16();
         this.sampler = new Sampler16(client);

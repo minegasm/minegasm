@@ -30,7 +30,7 @@ public final class MinegasmClassicMod {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         Path configFile = event.getModConfigurationDirectory().toPath().resolve("minegasm.json");
-        this.client = new MinegasmClient(configFile, ClassicProviderFactory.create(configFile),
+        this.client = new MinegasmClient(configFile, backend -> ClassicProviderFactory.create(backend),
                 SystemClock.INSTANCE);
         ClassicClientHolder.set(client);
     }

@@ -53,7 +53,6 @@ public final class ClassicConfigScreen extends GuiScreen {
     private GuiButton panicBtn;
     private GuiButton adapterBtn;
     private GuiButton clearErrorsBtn;
-    private boolean adapterRestartRequired;
 
     private int leftX;
     private int rightX;
@@ -314,27 +313,17 @@ public final class ClassicConfigScreen extends GuiScreen {
         model.apply(client);
     }
 
-    /** Flip the Buttplug backend between buttplug4j and native, preserving everything else. The change
-     *  takes effect on the next launch, so the button shows a restart hint once toggled. */
+    /** Flip the Buttplug backend between buttplug4j and native, live (no restart needed). */
     private void toggleAdapter() {
-        HapticConfig cfg = client.config().raw();
-        HapticConfig.Buttplug b = cfg.buttplug();
-        String next = "native".equalsIgnoreCase(b.client()) ? "buttplug4j" : "native";
-        client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
-                new HapticConfig.Buttplug(b.serverUrl(), b.autoConnect(), b.autoScan(),
-                        b.allowRemoteServer(), b.reconnect(), next),
-                cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
-                cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
-        adapterRestartRequired = true;
+        String next = "native".equalsIgnoreCase(client.backend()) ? "buttplug4j" : "native";
+        client.setBackend(next);
         if (adapterBtn != null) {
             adapterBtn.displayString = adapterLabel();
         }
     }
 
     private String adapterLabel() {
-        String current = "native".equalsIgnoreCase(client.config().raw().buttplug().client())
-                ? "native" : "buttplug4j";
-        return "Adapter: " + current + (adapterRestartRequired ? " (restart)" : "");
+        return "Adapter: " + ("native".equalsIgnoreCase(client.backend()) ? "native" : "buttplug4j");
     }
 
     private void refreshActionButtons() {

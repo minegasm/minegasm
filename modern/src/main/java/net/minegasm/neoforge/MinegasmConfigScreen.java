@@ -30,7 +30,6 @@ public final class MinegasmConfigScreen extends Screen {
 
     private final Screen parent;
     private final MinegasmClient client;
-    private boolean adapterRestartRequired;
     private long observedRegistryGeneration = -1;
     private ConnectionState observedConnectionState;
     private boolean observedEnabled;
@@ -73,9 +72,8 @@ public final class MinegasmConfigScreen extends Screen {
                 b -> toggleEnabled(), leftX, y, columnWidth, h));
         y += gap;
 
-        String adapter = client.config().raw().buttplug().client();
-        addRenderableWidget(button(Component.translatable(
-                        adapterRestartRequired ? "minegasm.adapter.next_short" : "minegasm.adapter.short",
+        String adapter = client.backend();
+        addRenderableWidget(button(Component.translatable("minegasm.adapter.short",
                         Component.translatable("minegasm.adapter." + adapter.toLowerCase(Locale.ROOT))),
                 b -> toggleAdapter(), leftX, y, columnWidth, h));
         y += gap;
@@ -181,16 +179,9 @@ public final class MinegasmConfigScreen extends Screen {
     }
 
     private void toggleAdapter() {
-        HapticConfig cfg = client.config().raw();
-        var bp = cfg.buttplug();
-        String adapter = "native".equalsIgnoreCase(bp.client()) ? "buttplug4j" : "native";
-        var updated = new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
-                new HapticConfig.Buttplug(bp.serverUrl(), bp.autoConnect(), bp.autoScan(),
-                        bp.allowRemoteServer(), bp.reconnect(), adapter),
-                cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
-                cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
-        client.updateConfig(updated);
-        adapterRestartRequired = true;
+        // Swap the backend live (no restart): the client stops the old one and connects the new.
+        String next = "native".equalsIgnoreCase(client.backend()) ? "buttplug4j" : "native";
+        client.setBackend(next);
         rebuildWidgets();
     }
 

@@ -3,6 +3,7 @@ package net.minegasm.client;
 import net.minegasm.buttplug.ConnectionState;
 import net.minegasm.buttplug.HapticProvider;
 import net.minegasm.buttplug.ProviderStatus;
+import net.minegasm.buttplug.SwappableProvider;
 import net.minegasm.config.ConfigStore;
 import net.minegasm.config.HapticConfig;
 import net.minegasm.config.LegacyMinegasmImporter;
@@ -52,6 +53,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /**
  * Loader-independent client glue: owns the config, provider, and haptic runtime, and exposes the small
@@ -66,7 +68,8 @@ public final class MinegasmClient {
 
     private final ConfigStore configStore;
     private final AtomicReference<RuntimeConfig> config;
-    private final HapticProvider provider;
+    private final Function<String, HapticProvider> backendFactory;
+    private final SwappableProvider provider;
     private final HapticRuntime runtime;
     private final Clock clock;
     private final AtomicBoolean shutdown = new AtomicBoolean();
@@ -85,12 +88,14 @@ public final class MinegasmClient {
     private String lastRecordedError;
 
     /**
-     * Inject a provider backend; the bootstrap selects buttplug4j or native per config (brief §9.2). The
+     * Inject a backend factory (backend name to provider); the bootstrap builds the one named in config
+     * and wraps it in a {@link SwappableProvider} so {@link #setBackend} can switch backends live. The
      * concrete WebSocket transport lives in the loader layer, keeping this engine module free of
      * {@code java.net.http} and Java 8-compilable for Classic.
      */
-    public MinegasmClient(Path configFile, HapticProvider provider, Clock clock) {
+    public MinegasmClient(Path configFile, Function<String, HapticProvider> backendFactory, Clock clock) {
         this.clock = clock;
+        this.backendFactory = backendFactory;
         this.configStore = new ConfigStore(configFile);
         ConfigStore.LoadResult loaded = configStore.load();
         this.firstRun = !loaded.wasPresent() || loaded.recoveredFromCorruption();
@@ -98,7 +103,7 @@ public final class MinegasmClient {
             configStore.save(loaded.config());
         }
         this.config = new AtomicReference<>(RuntimeConfig.of(loaded.config()));
-        this.provider = provider;
+        this.provider = new SwappableProvider(backendFactory.apply(config.get().providerBackend()));
         // Load user scene packs before the runtime so the recipe engine can select them (brief 0003
         // §2.5). A bad pack is isolated and surfaced in the error history, never fatal.
         PackLoader.Result packs = new PackLoader().loadDirectory(packsDir());
@@ -108,6 +113,11 @@ public final class MinegasmClient {
         this.scenePacks = packs.registry();
         this.runtime = new HapticRuntime(provider, clock, config::get, scenePacks, buildBridgeTransport());
         provider.setStatusListener(this::recordProviderError);
+    }
+
+    /** Convenience for tests and callers with a single fixed backend instance. */
+    public MinegasmClient(Path configFile, HapticProvider provider, Clock clock) {
+        this(configFile, backend -> provider, clock);
     }
 
     /**
@@ -364,6 +374,49 @@ public final class MinegasmClient {
         desiredConnected = false; // an explicit disconnect means stay disconnected; do not reconnect
         runtime.lifecycle().onDisconnect();
         provider.disconnect();
+    }
+
+    /** The Buttplug backend currently selected: {@code "native"} or {@code "buttplug4j"}. */
+    public String backend() {
+        return config.get().providerBackend();
+    }
+
+    /**
+     * Switch the Buttplug backend live, without a restart: persist the choice, stop and release the old
+     * backend, wire in the new one, and reconnect if auto-connect is on. Returns {@code true} if the
+     * backend changed, {@code false} if the name was unrecognised or already active.
+     */
+    public synchronized boolean setBackend(String backend) {
+        String normalized = "buttplug4j".equalsIgnoreCase(backend) ? "buttplug4j"
+                : "native".equalsIgnoreCase(backend) ? "native" : null;
+        if (normalized == null || normalized.equals(backend())) {
+            return false;
+        }
+        boolean wasConnected = isConnected();
+        HapticProvider next = backendFactory.apply(normalized);
+        // Persist the choice so config, the reconnect supervisor, and a later restart all agree.
+        HapticConfig cfg = config.get().raw();
+        HapticConfig.Buttplug b = cfg.buttplug();
+        HapticConfig.Buttplug nb = new HapticConfig.Buttplug(b.serverUrl(), b.autoConnect(), b.autoScan(),
+                b.allowRemoteServer(), b.reconnect(), normalized);
+        updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(), nb, cfg.events(),
+                cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(), cfg.accumulation(),
+                cfg.customIntensity(), cfg.bridge()));
+        // Quiesce and release the old backend, then install the new one and reconnect if wanted.
+        HapticProvider old = provider.current();
+        runtime.lifecycle().onConfigReset(); // stop output before the old socket goes away
+        old.disconnect();
+        provider.swap(next);
+        try {
+            old.close();
+        } catch (RuntimeException ignored) {
+            // best effort: the old backend is being discarded
+        }
+        desiredConnected = false;
+        if (config.get().autoConnect() || wasConnected) {
+            connect(); // keep a live session live across the switch, or honour auto-connect
+        }
+        return true;
     }
 
     public ProviderStatus status() {

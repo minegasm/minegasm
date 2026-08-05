@@ -45,7 +45,6 @@ public final class DashboardScreen16 extends Screen {
     private int errorTop;
     private int errorHeight;
 
-    private boolean adapterRestartRequired;
     private long observedGeneration = -1;
     private ConnectionState observedState;
     private boolean observedEnabled;
@@ -233,22 +232,14 @@ public final class DashboardScreen16 extends Screen {
     /** Flip the Buttplug backend between buttplug4j and native, preserving everything else. The change
      *  takes effect on the next launch, so the button shows a restart hint once toggled. */
     private void toggleAdapter() {
-        HapticConfig cfg = client.config().raw();
-        HapticConfig.Buttplug b = cfg.buttplug();
-        String next = "native".equalsIgnoreCase(b.client()) ? "buttplug4j" : "native";
-        client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
-                new HapticConfig.Buttplug(b.serverUrl(), b.autoConnect(), b.autoScan(),
-                        b.allowRemoteServer(), b.reconnect(), next),
-                cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
-                cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
-        adapterRestartRequired = true;
+        // Swap the backend live (no restart): the client stops the old one and connects the new.
+        String next = "native".equalsIgnoreCase(client.backend()) ? "buttplug4j" : "native";
+        client.setBackend(next);
         rebuild();
     }
 
     private String adapterLabel() {
-        String current = "native".equalsIgnoreCase(client.config().raw().buttplug().client())
-                ? "native" : "buttplug4j";
-        return "Adapter: " + current + (adapterRestartRequired ? " (restart)" : "");
+        return "Adapter: " + ("native".equalsIgnoreCase(client.backend()) ? "native" : "buttplug4j");
     }
 
     private void toggleConnection() {
