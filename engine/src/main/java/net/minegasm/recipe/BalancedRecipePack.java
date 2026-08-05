@@ -254,24 +254,16 @@ public final class BalancedRecipePack implements RecipePack {
                 Math.max(Recipes.ms(primitive.durationMs()), timing.expiryNs()), null);
     }
 
-    // Minimum felt output. This is an output floor, not a gate: whenever an event fires, its final level
-    // is lifted to at least this, so it is always felt even at low intensity. The trade is that the very
-    // bottom of the intensity slider is muted for that event. It is really a per-toy start threshold, so
-    // a configurable per-device minimum-strength is the intended follow-up.
-    private static final float DEAD_ZONE = 0.22f;
-
-    // Pre-gain event character: mode base x shape, capped to a per-event ceiling. No floor here; the
-    // output floor is applied after gain in gained(). Clamp shaping *before* user gain so the intensity
-    // slider scales the result instead of being clamped away.
+    // Pre-gain event character: mode base x shape, capped to a per-event ceiling. Clamp shaping *before*
+    // user gain so the intensity slider scales the result instead of being clamped away.
     private float shaped(RecipeContext ctx, float shape, float ceiling) {
         return Math.min(HapticMath.clamp01(ctx.modeBase() * HapticMath.clamp01(shape)), ceiling);
     }
 
-    // Turn a pre-gain level into a final level: apply user gain (intensity x per-event multiplier), then
-    // the output floor. Every final level, including each beat of a pattern, passes through here once.
+    // Apply user gain (intensity x per-event multiplier) to a pre-gain level. The felt-output floor is a
+    // per-device start-threshold applied later in the mixer (SceneMixer), so it covers every pack.
     private static float gained(RecipeContext ctx, float preGain) {
-        float g = HapticMath.clamp01(preGain * ctx.userGain());
-        return g <= 0f ? 0f : Math.max(g, DEAD_ZONE);
+        return HapticMath.clamp01(preGain * ctx.userGain());
     }
 
     private static float vary(RecipeContext ctx, float level) {

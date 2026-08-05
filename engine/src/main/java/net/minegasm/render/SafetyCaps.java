@@ -14,6 +14,23 @@ public final class SafetyCaps {
 
     private SafetyCaps() {}
 
+    /**
+     * Whether {@code kind} is a vibration-class strength (a motor level), as opposed to a position or
+     * travel coordinate. The per-device minimum-strength floor applies only to these; flooring a
+     * position would push a stroker off its neutral.
+     */
+    public static boolean isStrengthKind(OutputKind kind) {
+        switch (kind) {
+            case VIBRATE:
+            case OSCILLATE:
+            case ROTATE:
+            case CONSTRICT:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     public static float cap(OutputKind kind) {
         switch (kind) {
             case VIBRATE:

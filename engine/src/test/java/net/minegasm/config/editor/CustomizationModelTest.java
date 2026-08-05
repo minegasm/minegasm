@@ -26,7 +26,7 @@ class CustomizationModelTest {
         HapticConfig defaults = HapticConfig.defaults();
 
         Map<String, DeviceSetting> devices = new LinkedHashMap<>();
-        devices.put("Lovense Edge|0:Vibrate,;", new DeviceSetting(true, 0.75, Map.of()));
+        devices.put("Lovense Edge|0:Vibrate,;", new DeviceSetting(true, 0.22, 0.75, Map.of()));
 
         Map<String, PositionCalibration> calibrations = new LinkedHashMap<>();
         calibrations.put("Lovense Edge|0:Vibrate,;",

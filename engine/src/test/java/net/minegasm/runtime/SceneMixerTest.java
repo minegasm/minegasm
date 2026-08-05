@@ -11,7 +11,9 @@ import net.minegasm.core.HapticPrimitive;
 import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticRoute;
 import net.minegasm.core.HapticScene;
+import net.minegasm.config.DeviceSetting;
 import net.minegasm.core.OutputKind;
+import net.minegasm.render.SafetyCaps;
 import net.minegasm.core.Priorities;
 import net.minegasm.device.DeviceRegistrySnapshot;
 import net.minegasm.render.EndpointTarget;
@@ -25,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SceneMixerTest {
@@ -87,6 +90,25 @@ class SceneMixerTest {
         assertEquals(1, targets.size());
         EndpointTarget t = targets.values().iterator().next();
         assertEquals(0.8f, t.level(), 1e-3);
+    }
+
+    @Test
+    void weakVibrationLiftsToTheDeviceStartThreshold() {
+        // 0.10 is below the default 0.22 start-threshold, so it is lifted to be felt on a motor with a
+        // dead zone; the default device setting supplies the threshold.
+        SceneMixer mixer = new SceneMixer();
+        mixer.add(scene("weak", vibeLayer("l", 0.10f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
+        EndpointTarget t = only(mixer.render(Devices.singleVibrate(), cfg, governor, false, 20 * MS));
+        assertEquals((float) DeviceSetting.DEFAULT_MIN_LEVEL, t.level(), 1e-3);
+    }
+
+    @Test
+    void startThresholdAppliesToStrengthKindsNotPosition() {
+        // The floor is a motor start-threshold. It must never touch position/stroker outputs, whose
+        // level is a travel coordinate; flooring one would push the stroker off its neutral.
+        assertTrue(SafetyCaps.isStrengthKind(OutputKind.VIBRATE));
+        assertFalse(SafetyCaps.isStrengthKind(OutputKind.POSITION));
+        assertFalse(SafetyCaps.isStrengthKind(OutputKind.HW_POSITION_WITH_DURATION));
     }
 
     @Test

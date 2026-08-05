@@ -55,7 +55,7 @@ public final class DeviceEditorModel {
                     existingCalibration != null ? existingCalibration : PositionCalibration.safeDefault());
 
             DeviceRow row = new DeviceRow(identityKey, device.label(), setting.enabled(),
-                    setting.maxLevel(), features, calibrationApplies, calibration);
+                    setting.minLevel(), setting.maxLevel(), features, calibrationApplies, calibration);
             rows.put(identityKey, row);
         }
     }
@@ -84,7 +84,7 @@ public final class DeviceEditorModel {
                             new FeatureSetting(feature.enabled, feature.multiplier));
                 }
                 newDevices.put(row.identityKey,
-                        new DeviceSetting(row.enabled, row.maxLevel, featureSettings));
+                        new DeviceSetting(row.enabled, row.minLevel, row.maxLevel, featureSettings));
             }
             if (row.calibrationApplies && row.calibrationTouched) {
                 PositionCalibrationRow c = row.calibration;
@@ -113,6 +113,7 @@ public final class DeviceEditorModel {
         public final String identityKey;
         public final String label;
         public boolean enabled;
+        public double minLevel;
         public double maxLevel;
         public final List<FeatureRow> features;
         public final boolean calibrationApplies;
@@ -120,12 +121,13 @@ public final class DeviceEditorModel {
         public boolean deviceTouched;
         public boolean calibrationTouched;
 
-        DeviceRow(String identityKey, String label, boolean enabled, double maxLevel,
+        DeviceRow(String identityKey, String label, boolean enabled, double minLevel, double maxLevel,
                   List<FeatureRow> features, boolean calibrationApplies,
                   PositionCalibrationRow calibration) {
             this.identityKey = identityKey;
             this.label = label;
             this.enabled = enabled;
+            this.minLevel = minLevel;
             this.maxLevel = maxLevel;
             this.features = features;
             this.calibrationApplies = calibrationApplies;

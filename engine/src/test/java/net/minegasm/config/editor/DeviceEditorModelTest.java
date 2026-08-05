@@ -86,7 +86,7 @@ class DeviceEditorModelTest {
     void disconnectedDeviceEntrySurvivesUntouched() {
         String otherIdentity = "Some Other Device|0:Vibrate,;";
         Map<String, DeviceSetting> devices = new LinkedHashMap<>();
-        devices.put(otherIdentity, new DeviceSetting(false, 0.4, Map.of()));
+        devices.put(otherIdentity, new DeviceSetting(false, 0.22, 0.4, Map.of()));
         HapticConfig defaults = HapticConfig.defaults();
         HapticConfig original = new HapticConfig(defaults.schemaVersion(), defaults.profile(),
                 defaults.global(), defaults.buttplug(), defaults.events(), defaults.outputPolicy(),
