@@ -7,8 +7,28 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-08-05
+
+The first release with **Minegasm Classic** (legacy Minecraft, back to 1.7.10) alongside the modern
+loaders, plus shareable scene packs, multi-backend output with a local bridge, more output types, and
+the dependency-free native provider as the new default. Reconnect and scanning are much steadier too.
+
 ### Added
 
+- **Minegasm Classic.** Minegasm now runs on legacy Minecraft: Forge on 1.7.10, 1.8.9, and 1.12.2, plus
+  1.16.5 on both Forge and Fabric. It is a separate build (unimined, Java 8 output) that shares the same
+  engine as the modern loaders, so gameplay events, recipes, scene packs, the local bridge, and the
+  in-game dashboard and config screens work the same way. The Buttplug stack is relocated and shaded
+  into each jar, since legacy Forge has no jar-in-jar. See `classic/PORTING.md`.
+- **More output types.** Beyond vibration, Minegasm now drives oscillator, rotator, and stroker
+  (positional) features, routed per device feature so a scene reaches whatever a toy actually supports.
+- **Haptic modes.** Five modes decide how events map to output: Action (things you do), Reaction (things
+  done to you), Immersion (broad coverage, the new default), Momentum (a charge that builds and decays),
+  and Custom (your own per-event values). Switch with `/minegasm mode <name>`; the older mode names still
+  load from an existing config.
+- **Customization and Device Editor screens.** Two config screens on both loaders: Customization tunes
+  per-event strength and routing, and the Device Editor holds per-device settings (including the
+  start-threshold below).
 - **Shareable scene packs.** Recipe packs can now be authored as data: a JSON pack file maps game
   events to scene templates in the existing scene/layer/primitive vocabulary. Packs load from
   `<config>/minegasm/scene-packs/` and are selectable by id alongside the built-in Classic and Balanced
@@ -39,6 +59,9 @@ All notable changes to Minegasm are documented in this file. The format follows
 - **Reset to defaults.** A button in the settings screen (both loaders) resets the whole config to
   defaults, keeping only the master enable state. It backs up the current file to a timestamped sibling
   first, so repeated resets keep every earlier backup, and it takes two clicks to confirm.
+- **1.20.1 NeoForge download.** Releases now include a `1.20.1-neoforge` jar. There is no separate
+  NeoForge build for 1.20.1; this is the 1.20.1 Forge jar, which early NeoForge loads, published under a
+  matching name so NeoForge users find a jar for their instance.
 
 ### Changed
 
@@ -64,6 +87,10 @@ All notable changes to Minegasm are documented in this file. The format follows
   let fatigue duck it away entirely. The per-kind `SafetyCaps` were also raised from the conservative scaffold values (Oscillate
   0.5→0.9, Rotate 0.35→0.75, Constrict 0.3→0.6; Vibrate stays 1.0), still ordered by risk and still the
   hard backstop applied after all scaling.
+- **Config keys renamed.** The config's `identity` section is now `profile`, and its `compatibilityMode`
+  field is now `hapticMode`. A config written by beta.2 keeps every other setting, but its recipe pack
+  and haptic mode reset to the defaults on first load; re-pick them in the settings screen. Legacy mode
+  names (NORMAL, MASOCHIST, HEDONIST, ACCUMULATION) still map to the current ones.
 
 ### Fixed
 
@@ -92,6 +119,10 @@ All notable changes to Minegasm are documented in this file. The format follows
 - The classic 1.16.5 Fabric build now honours the configured backend. It hardcoded `buttplug4j` and
   ignored the `buttplug.client` setting, so it never used the native provider or followed the default;
   it now builds the provider through the same factory as every other loader.
+- **Device and error lists no longer bleed over the UI on 1.20.1 and 1.19.2.** Those versions drew the
+  lists without clipping, so a list longer than its panel painted over the surrounding screen. Each list
+  is now clipped to its own rectangle (`enableScissor` on 1.20.1, a GL scissor on 1.19.2); 1.21.1 and
+  26.x already clipped themselves.
 - Loader metadata now pins the Minecraft dependency to the exact version each jar targets. The previous
   unbounded `>=` range let a jar built for one Minecraft version load on a newer one and crash on an API
   that version had removed (for example the 1.19.2 jar's `Button` constructor on 1.20.1). Companion

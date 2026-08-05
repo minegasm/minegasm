@@ -1,6 +1,7 @@
 # ADR-015: Defer automatic explosion acquisition to beta.3 (client-only mixin)
 
-**Status:** deferred, planned for `1.0.0-beta.3`.
+**Status:** deferred. It did not land in `1.0.0-beta.3` (no explosion mixin shipped); still planned for a
+later beta. The filename keeps its original slug.
 
 **Context.** `GameEventKind.EXPLOSION` is wired end-to-end: intent mapping (`HapticAggregator`
 reads `power`/`distance`), recipes, settings, and the manual `/minegasm trigger explosion` path all

@@ -283,8 +283,8 @@ observed. (The pre-existing "Test Device Output" quirk under Known issues reprod
   world does not replay past advancements). Nearby-explosion acquisition remains pending: its
   intent, recipe, settings, and manual `/minegasm trigger explosion` path exist, but gameplay does
   not emit it automatically (no mixin-free client signal carrying explosion position and power).
-  Planned for `1.0.0-beta.3` via a client-only mixin on the explosion receive path
-  (`docs/adr/ADR-015-explosion-acquisition-deferred-to-beta3.md`).
+  Still pending after `1.0.0-beta.3`; planned for a later beta via a client-only mixin on the explosion
+  receive path (`docs/adr/ADR-015-explosion-acquisition-deferred-to-beta3.md`).
 - Walk the full preflight checklist on the current main release lines and log results; smoke-test the
   older lines, per the split in `docs/TESTING.md`.
 - Manually confirm legacy TOML import in Minecraft with representative legacy configuration files.
