@@ -33,6 +33,13 @@ modSettings {
         "description_long" to providers.gradleProperty("mod_description_long").get(),
         "homepage" to providers.gradleProperty("mod_homepage").get(),
         "version" to project.version.toString(),
+        // NeoForge dependency floor: the major line, so neoforge.mods.toml can require a compatible
+        // patch rather than the exact build version. Only the NeoForge variants read it.
+        "neoforgeMajor" to when (project.name.substringBeforeLast('-')) {
+            "1.21.1" -> "21"
+            "26.1.2", "26.2" -> "26"
+            else -> "0"
+        },
     )
 }
 

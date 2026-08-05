@@ -27,6 +27,9 @@ side="CLIENT"
 [[dependencies.${id}]]
 modId="minecraft"
 mandatory=true
-versionRange="[${minecraftVersion},)"
+# Pinned to the exact Minecraft version this jar was built for. Each version has its own build, and the
+# Minecraft API breaks between them (even between patches), so an unbounded ">=" range lets an older jar
+# load on a newer game and crash on a removed method.
+versionRange="[${minecraftVersion}]"
 ordering="NONE"
 side="CLIENT"

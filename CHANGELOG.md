@@ -37,6 +37,14 @@ All notable changes to Minegasm are documented in this file. The format follows
   inbound frame cap is configured the same way. Default stays `buttplug4j`. See
   `docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`.
 
+### Fixed
+
+- Loader metadata now pins the Minecraft dependency to the exact version each jar targets. The previous
+  unbounded `>=` range let a jar built for one Minecraft version load on a newer one and crash on an API
+  that version had removed (for example the 1.19.2 jar's `Button` constructor on 1.20.1). Companion
+  floors were relaxed so a matching jar still loads on slightly older setups: fabric-api to any version,
+  the Fabric loader floor to `0.14.0`, and the NeoForge floor to its major line.
+
 ## [1.0.0-beta.2] - 2026-07-23
 
 Adds Fabric and Forge as loaders alongside NeoForge, and extends support back to older Minecraft

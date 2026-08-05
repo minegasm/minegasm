@@ -16,13 +16,18 @@ description='''${description_long}'''
 [[dependencies.${id}]]
 modId="neoforge"
 type="required"
-versionRange="[${neoforgeVersion},)"
+# Floor at the NeoForge major line (e.g. 21.x, 26.x), not the exact build version, so a compatible patch
+# update still loads. The exact-pinned Minecraft dependency below keeps this from crossing versions.
+versionRange="[${neoforgeMajor},)"
 ordering="NONE"
 side="CLIENT"
 
 [[dependencies.${id}]]
 modId="minecraft"
 type="required"
-versionRange="[${minecraftVersion},)"
+# Pinned to the exact Minecraft version this jar was built for (see the NeoForge note): each version has
+# its own build and the API breaks between them, so an unbounded range would let an older jar load on a
+# newer game and crash on a removed method.
+versionRange="[${minecraftVersion}]"
 ordering="NONE"
 side="CLIENT"
