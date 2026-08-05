@@ -7,6 +7,10 @@
   "license": "AGPL-3.0",
   "icon": "icon.png",
   "environment": "client",
+  "contact": {
+    "homepage": "https://www.minegasm.net",
+    "issues": "https://issues.minegasm.net"
+  },
   "entrypoints": {
     "client": [
       "net.minegasm.classic.MinegasmClassicClient"
