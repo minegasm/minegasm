@@ -1,7 +1,7 @@
 modLoader="javafml"
 loaderVersion="[1,)"
 license="AGPL-3.0-only"
-issueTrackerURL="https://codeberg.org/minegasm/minegasm/issues"
+issueTrackerURL="https://issues.minegasm.net"
 
 [[mods]]
 modId="${id}"

@@ -9,7 +9,7 @@
   ],
   "contact": {
     "homepage": "${homepage}",
-    "issues": "https://codeberg.org/minegasm/minegasm/issues"
+    "issues": "https://issues.minegasm.net"
   },
   "license": "AGPL-3.0-only",
   "icon": "icon.png",
