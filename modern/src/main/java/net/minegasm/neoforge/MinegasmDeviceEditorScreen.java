@@ -124,6 +124,13 @@ public final class MinegasmDeviceEditorScreen extends Screen {
                         }));
             }));
 
+            list.add(new Row(Component.literal(""), (x, y, w, h) ->
+                    addRenderableWidget(new BoundedSlider(x, y, w, h,
+                            "minegasm.devices.editor.min_value", 0.0, 1.0, 2, device.minLevel, v -> {
+                                device.minLevel = v;
+                                device.deviceTouched = true;
+                            }))));
+
             for (DeviceEditorModel.FeatureRow feature : device.features) {
                 Component featureLabel = Component.literal(
                         feature.description + " (" + feature.kind.wireName() + ")");

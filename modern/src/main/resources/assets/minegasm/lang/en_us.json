@@ -106,6 +106,7 @@
   "minegasm.devices.editor.button": "Device editor...",
   "minegasm.devices.editor.title": "Minegasm Device Editor",
   "minegasm.devices.editor.cap_value": "Intensity cap: %s",
+  "minegasm.devices.editor.min_value": "Start threshold: %s",
   "minegasm.devices.editor.feature_multiplier": "Multiplier: ×%s",
   "minegasm.devices.editor.calibration.enabled": "Calibration enabled",
   "minegasm.devices.editor.calibration.minimum": "Minimum",

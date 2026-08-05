@@ -150,6 +150,12 @@ public final class DeviceEditorScreen extends GuiScreen {
                         });
             }));
 
+            list.add(new Row("", (x, y, w, h) ->
+                    addSlider(x, y, w, h, "Start threshold: ", "", 0.0, 1.0, device.minLevel, v -> {
+                        device.minLevel = v;
+                        device.deviceTouched = true;
+                    })));
+
             for (DeviceEditorModel.FeatureRow feature : device.features) {
                 String featureLabel = feature.description + " (" + feature.kind.wireName() + ")";
                 list.add(new Row(featureLabel, (x, y, w, h) -> {

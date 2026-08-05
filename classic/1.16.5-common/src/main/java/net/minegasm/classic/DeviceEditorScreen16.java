@@ -125,6 +125,13 @@ public final class DeviceEditorScreen16 extends Screen {
                         }));
             }));
 
+            list.add(new Row("", (x, y, w, h) ->
+                    addButton(new BoundedSlider16(x, y, w, h, "Start threshold: ", 0.0, 1.0, 2,
+                            device.minLevel, v -> {
+                                device.minLevel = v;
+                                device.deviceTouched = true;
+                            }))));
+
             for (DeviceEditorModel.FeatureRow feature : device.features) {
                 String featureLabel = feature.description + " (" + feature.kind.wireName() + ")";
                 list.add(new Row(featureLabel, (x, y, w, h) -> {

@@ -156,8 +156,11 @@ public final class SceneMixer {
                 }
                 float capped = HapticMath.clamp01(level * (float) featureSetting.multiplier());
                 // Lift a vibration-class output to the device's start-threshold so it registers on a motor
-                // with a dead zone. Position/stroker outputs are travel coordinates, not strengths, so
-                // they are never floored (that would shove the stroker off its neutral).
+                // with a dead zone. This runs after fatigue attenuation, so a fatigued ambient holds at the
+                // threshold rather than fading to silence (matching the "always felt" intent); set a
+                // device's minimum to 0 to let fatigue duck it away. Position/stroker outputs are travel
+                // coordinates, not strengths, so they are never floored (that would shove the stroker off
+                // its neutral).
                 if (capped > 0f && SafetyCaps.isStrengthKind(kind)) {
                     capped = Math.max(capped, (float) deviceSetting.minLevel());
                 }

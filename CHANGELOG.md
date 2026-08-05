@@ -42,10 +42,14 @@ All notable changes to Minegasm are documented in this file. The format follows
 - **Stronger default haptics, and a working intensity slider.** Output was weak enough that many devices
   barely moved on gameplay events, and the intensity slider did little. The Balanced recipe now shapes
   each event's strength *before* applying user gain (intensity × per-event multiplier) rather than after,
-  so the slider scales the result instead of being clamped away, and lifts every firing event to a
-  minimum felt level so it registers on devices with a start-threshold (a per-device minimum-strength
-  setting is planned to make that threshold tunable). Events a mode de-emphasizes still sit at the floor
-  by design. The per-kind `SafetyCaps` were also raised from the conservative scaffold values (Oscillate
+  so the slider scales the result instead of being clamped away. Events a mode de-emphasizes still sit
+  at the floor by design.
+- **Per-device start-threshold.** A vibration-class output below a device's minimum is lifted so it
+  registers on a motor with a dead zone. It lives in the mixer, so it covers every pack (Classic and
+  file packs too), applies only to strength kinds (never position/strokers), and stays under the device
+  cap and `SafetyCaps`. Default 0.22, editable per device in the Device Editor. It runs after fatigue, so
+  a fatigued ambient holds at the threshold rather than fading to silence; set the device minimum to 0 to
+  let fatigue duck it away entirely. The per-kind `SafetyCaps` were also raised from the conservative scaffold values (Oscillate
   0.5→0.9, Rotate 0.35→0.75, Constrict 0.3→0.6; Vibrate stays 1.0), still ordered by risk and still the
   hard backstop applied after all scaling.
 
