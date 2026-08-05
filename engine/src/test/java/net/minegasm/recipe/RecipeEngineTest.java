@@ -80,6 +80,18 @@ class RecipeEngineTest {
     }
 
     @Test
+    void intensityScalesAnEmphasizedEvent() {
+        // Mining is emphasized in IMMERSION, so the balanced pack must scale its level with the intensity
+        // slider (the gain is applied after shaping). Both settings are above the felt-output floor.
+        HapticScene low = engine.resolve(intent(GameEventKind.MINING_ACTIVE, 0.5f),
+                Configs.enabled(MinegasmMode.IMMERSION, RecipePackId.BALANCED, 0.5)).orElseThrow();
+        HapticScene high = engine.resolve(intent(GameEventKind.MINING_ACTIVE, 0.5f),
+                Configs.enabled(MinegasmMode.IMMERSION, RecipePackId.BALANCED, 1.0)).orElseThrow();
+        assertTrue(high.layers().get(0).primitive().level() > low.layers().get(0).primitive().level(),
+                "higher intensity should produce a stronger mining level");
+    }
+
+    @Test
     void customModeUsesConfiguredIntensity() {
         RuntimeConfig custom = Configs.enabled(MinegasmMode.CUSTOM, RecipePackId.BALANCED);
         // Legacy CUSTOM defaults enable attack (0.60) but leave harvest at 0.
