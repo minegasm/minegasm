@@ -245,6 +245,45 @@ public interface ServerMessage {
         }
     }
 
+    /**
+     * The server's device set changed ({@code DeviceAdded}/{@code DeviceRemoved}). Both fold into one
+     * marker: the provider answers by re-requesting the full {@code DeviceList}, which is the registry's
+     * source of truth, rather than mutating a single entry.
+     */
+    final class DeviceListChanged implements ServerMessage {
+        private final long id;
+
+        public DeviceListChanged(long id) {
+            this.id = id;
+        }
+
+        @Override
+        public long id() {
+            return id;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof DeviceListChanged)) {
+                return false;
+            }
+            return id == ((DeviceListChanged) o).id;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id);
+        }
+
+        @Override
+        public String toString() {
+            return "DeviceListChanged[id=" + id + "]";
+        }
+    }
+
     final class Unknown implements ServerMessage {
         private final long id;
         private final String name;

@@ -58,6 +58,24 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 ### Fixed
 
+- **Auto-reconnect now actually reconnects, and auto-connect keeps trying.** The reconnect policy was
+  in the config and settings screen but nothing acted on it, so a dropped connection was never retried
+  and a startup auto-connect that failed (Intiface not up yet) never tried again. A client-tick
+  supervisor now retries a wanted connection with bounded exponential backoff and jitter. It runs at the
+  main menu too, so a connection can come up before you load a world, and a manual disconnect stays
+  disconnected instead of being reconnected against you.
+- **The default `buttplug4j` backend now notices a dropped socket.** Its client library exposes no
+  disconnect callback and its internal close is silent, so after Intiface closed or the link dropped the
+  mod still reported "connected" and output silently went nowhere. The provider now reconciles its state
+  against the library each tick, so a drop surfaces (and the reconnect supervisor can act on it).
+- **Scanning no longer gets stuck.** A scan only ended when the server reported it finished, which some
+  servers never do (they scan continuously, or find nothing when your device is already paired), so the
+  status could sit on "scanning" forever. A scan now stops on its own after about ten seconds, which
+  settles the status back to connected. Applies to both auto-scan and the manual scan button.
+- **Native backend: devices found mid-scan now show up on their own.** The native provider ignored the
+  server's device-added and device-removed notifications, so a toy that connected during a scan stayed
+  invisible until you hit Refresh. It now re-reads the device list when the set changes. (The default
+  `buttplug4j` backend already did this.)
 - Loader metadata now pins the Minecraft dependency to the exact version each jar targets. The previous
   unbounded `>=` range let a jar built for one Minecraft version load on a newer one and crash on an API
   that version had removed (for example the 1.19.2 jar's `Button` constructor on 1.20.1). Companion

@@ -41,6 +41,15 @@ public interface HapticProvider extends AutoCloseable {
     /** The current immutable connection status snapshot. */
     ProviderStatus status();
 
+    /**
+     * Reconcile the reported {@link #status()} with the transport's real state, once per client tick.
+     * A provider whose backend library drops the socket without a callback (buttplug4j) uses this to
+     * notice the drop and transition to {@code DISCONNECTED}; providers that already detect drops via a
+     * close callback leave the default no-op.
+     */
+    default void poll() {
+    }
+
     void setStatusListener(Consumer<ProviderStatus> listener);
 
     void setRegistryListener(Consumer<DeviceRegistrySnapshot> listener);

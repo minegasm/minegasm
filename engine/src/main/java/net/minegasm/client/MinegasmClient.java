@@ -29,6 +29,8 @@ import net.minegasm.pack.PackLoader;
 import net.minegasm.pack.PackRegistry;
 import net.minegasm.pack.ScenePackInfo;
 import net.minegasm.runtime.HapticRuntime;
+import net.minegasm.runtime.ReconnectSupervisor;
+import net.minegasm.runtime.ScanSupervisor;
 import net.minegasm.time.Clock;
 import net.minegasm.util.HapticMath;
 
@@ -70,6 +72,13 @@ public final class MinegasmClient {
     private final AtomicBoolean shutdown = new AtomicBoolean();
     private final boolean firstRun;
     private final PackRegistry scenePacks;
+    private final ReconnectSupervisor reconnectSupervisor = new ReconnectSupervisor();
+    private final ScanSupervisor scanSupervisor = new ScanSupervisor();
+    /**
+     * Whether a connection is wanted. Auto-connect and any successful connect set it; a manual
+     * disconnect clears it, so the reconnect supervisor never reconnects against the user's intent.
+     */
+    private volatile boolean desiredConnected;
     private final List<String> errorHistory = new ArrayList<>();
     private static final int MAX_ERROR_HISTORY = 50;
     private static final DateTimeFormatter ERROR_TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -159,6 +168,19 @@ public final class MinegasmClient {
         if (config.get().autoConnect()) {
             connect();
         }
+    }
+
+    /**
+     * Per-tick connection upkeep, driven from the client tick on every loader (so it also runs at the
+     * main menu, before a world loads). Reconciles the provider's reported state with its real socket,
+     * then lets the reconnect supervisor retry a wanted-but-dropped connection with backoff.
+     */
+    public void pollConnection() {
+        provider.poll();
+        ConnectionState state = provider.status().state();
+        reconnectSupervisor.tick(clock.nanoTime(), state, desiredConnected, config.get().reconnect(),
+                this::connect);
+        scanSupervisor.tick(clock.nanoTime(), state, this::stopScanning);
     }
 
     public void shutdown() {
@@ -307,6 +329,7 @@ public final class MinegasmClient {
      * explicitly allowed remote servers (brief §9.1, §12.2).
      */
     public CompletionStage<ProviderStatus> connect() {
+        desiredConnected = true; // a connection is now wanted, so a later drop should reconnect
         RuntimeConfig cfg = config.get();
         URI uri;
         try {
@@ -338,6 +361,7 @@ public final class MinegasmClient {
     }
 
     public void disconnect() {
+        desiredConnected = false; // an explicit disconnect means stay disconnected; do not reconnect
         runtime.lifecycle().onDisconnect();
         provider.disconnect();
     }
@@ -383,6 +407,7 @@ public final class MinegasmClient {
     // --- gameplay feed --------------------------------------------------------------------
 
     public void onClientTickEnd(ClientStateSnapshot snapshot) {
+        pollConnection();
         runtime.onClientTickEnd(snapshot);
     }
 

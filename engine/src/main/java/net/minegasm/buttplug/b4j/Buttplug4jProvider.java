@@ -85,6 +85,31 @@ public final class Buttplug4jProvider implements HapticProvider {
         return registry.snapshot();
     }
 
+    /**
+     * buttplug4j has no disconnect callback and its {@code onClose} only flips the library's own state,
+     * so a dropped socket never reaches our status. Poll the client each tick: if we still believe we're
+     * connected but the library no longer is, reconcile to {@code DISCONNECTED} so the reconnect
+     * supervisor can act. {@link #disconnect()} also cleans up the library's stale WebSocket client,
+     * which its {@code onClose} leaves behind, before a later reconnect replaces it.
+     */
+    @Override
+    public void poll() {
+        if (isLocallyConnected(status.get().state()) && !client.isConnected()) {
+            disconnect();
+        }
+    }
+
+    private static boolean isLocallyConnected(ConnectionState state) {
+        switch (state) {
+            case CONNECTED_NO_DEVICES:
+            case SCANNING:
+            case READY:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     @Override
     public CompletionStage<ProviderStatus> connect(URI uri) {
         if (status.get().state() != ConnectionState.DISCONNECTED) {
@@ -253,14 +278,7 @@ public final class Buttplug4jProvider implements HapticProvider {
     // --- helpers ---------------------------------------------------------------------------
 
     private boolean canSendMessages() {
-        switch (status.get().state()) {
-            case CONNECTED_NO_DEVICES:
-            case SCANNING:
-            case READY:
-                return true;
-            default:
-                return false;
-        }
+        return isLocallyConnected(status.get().state());
     }
 
     private static <T> CompletableFuture<T> failed(Throwable cause) {

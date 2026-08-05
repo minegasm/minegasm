@@ -47,6 +47,43 @@ class ButtplugProviderTest {
     }
 
     @Test
+    void deviceAddedAndRemovedRefreshTheRegistry() {
+        FakeButtplugServer server = new FakeButtplugServer();
+        try (ButtplugProvider provider = new ButtplugProvider(server, "test")) {
+            provider.connect(URL).toCompletableFuture().join();
+            assertTrue(provider.devices().all().isEmpty());
+
+            // A device connects (often mid-scan): the server pushes DeviceAdded, and the provider must
+            // re-request the full list rather than ignore it, so the toy appears without a manual refresh.
+            server.withDevices(vibe(0, 0));
+            server.deliverRaw("[{\"DeviceAdded\":{\"Id\":0}}]");
+            assertEquals(1, provider.devices().all().size());
+            assertEquals(ConnectionState.READY, provider.status().state());
+
+            // DeviceRemoved goes through the same path back to an empty registry.
+            server.withDevices();
+            server.deliverRaw("[{\"DeviceRemoved\":{\"Id\":0}}]");
+            assertTrue(provider.devices().all().isEmpty());
+            assertEquals(ConnectionState.CONNECTED_NO_DEVICES, provider.status().state());
+        }
+    }
+
+    @Test
+    void stopScanningResolvesAScanTheServerNeverFinishes() {
+        FakeButtplugServer server = new FakeButtplugServer();
+        server.scanningFinishes = false; // acks StartScanning but never sends ScanningFinished
+        try (ButtplugProvider provider = new ButtplugProvider(server, "test")) {
+            provider.connect(URL).toCompletableFuture().join();
+            provider.startScanning().toCompletableFuture().join();
+            assertEquals(ConnectionState.SCANNING, provider.status().state()); // genuinely stuck
+
+            // What the scan supervisor calls after its window: it must leave SCANNING.
+            provider.stopScanning().toCompletableFuture().join();
+            assertEquals(ConnectionState.CONNECTED_NO_DEVICES, provider.status().state());
+        }
+    }
+
+    @Test
     void failedTransportConnectionReturnsToDisconnected() {
         ButtplugTransport unavailable = new ButtplugTransport() {
             @Override

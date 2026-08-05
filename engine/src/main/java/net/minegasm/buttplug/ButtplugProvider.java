@@ -293,6 +293,12 @@ public final class ButtplugProvider implements HapticProvider {
                         ? ConnectionState.CONNECTED_NO_DEVICES : ConnectionState.READY);
             }
             complete(sf);
+        } else if (msg instanceof ServerMessage.DeviceListChanged) {
+            // A device connected or dropped (often mid-scan); re-request the authoritative full list so
+            // the registry reflects it without waiting for a manual refresh.
+            if (transport.isOpen()) {
+                transport.send(ButtplugCodec.requestDeviceList(nextId.getAndIncrement()));
+            }
         } else if (msg instanceof ServerMessage.Ok) {
             complete(msg);
         } else if (msg instanceof ServerMessage.Unknown) {

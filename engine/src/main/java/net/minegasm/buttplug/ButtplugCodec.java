@@ -169,6 +169,9 @@ public final class ButtplugCodec {
                 return new ServerMessage.DeviceList(id, parseDevices(body));
             case "ScanningFinished":
                 return new ServerMessage.ScanningFinished(id);
+            case "DeviceAdded":
+            case "DeviceRemoved":
+                return new ServerMessage.DeviceListChanged(id);
             default:
                 return new ServerMessage.Unknown(id, name);
         }
