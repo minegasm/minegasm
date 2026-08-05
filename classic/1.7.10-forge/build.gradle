@@ -47,9 +47,11 @@ configurations {
 dependencies {
     shade 'com.google.code.gson:gson:2.11.0'
     shade 'io.github.blackspherefollower:buttplug4j.connectors.jetty.websocket.client:4.0.278'
-    // The native provider's WebSocket client (ADR-019). slf4j is already shaded via buttplug4j, so
-    // Java-WebSocket rides on that rather than pulling its own copy.
+    // The native provider's WebSocket client (ADR-019). Java-WebSocket calls slf4j at runtime, and Jetty
+    // declares slf4j-api optional so it never reaches the shade bucket. Bundle it explicitly (it rides the
+    // org.slf4j relocation below); without it Draft_6455 fails with NoClassDefFoundError on first connect.
     shade('org.java-websocket:Java-WebSocket:1.5.7') { transitive = false }
+    shade 'org.slf4j:slf4j-api:1.7.36'
 }
 
 shadowJar {

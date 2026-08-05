@@ -102,9 +102,10 @@ public final class ClassicSettingsScreen extends GuiScreen {
         unsafeTestBtn = addButton(new GuiButton(ID_UNSAFETEST, rx, y0 + 5 * dy, 150, 20, unsafeTestLabel()));
         bridgeBtn = addButton(new GuiButton(ID_BRIDGE, rx, y0 + 6 * dy, 150, 20, bridgeLabel()));
 
-        resetBtn = addButton(new GuiButton(ID_RESET, 8, height - 26, 120, 20, resetLabel()));
-        addButton(new GuiButton(ID_SAVE, width / 2 - 100, height - 26, 98, 20, "Save"));
-        addButton(new GuiButton(ID_CANCEL, width / 2 + 2, height - 26, 98, 20, "Cancel"));
+        // Reset fills the left column; Save/Cancel split the right, so nothing crowds the reset button.
+        resetBtn = addButton(new GuiButton(ID_RESET, lx, height - 26, 150, 20, resetLabel()));
+        addButton(new GuiButton(ID_SAVE, rx, height - 26, 73, 20, "Save"));
+        addButton(new GuiButton(ID_CANCEL, rx + 77, height - 26, 73, 20, "Cancel"));
     }
 
     @Override

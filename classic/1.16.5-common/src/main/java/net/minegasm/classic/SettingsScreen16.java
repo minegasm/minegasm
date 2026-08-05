@@ -109,7 +109,8 @@ public final class SettingsScreen16 extends Screen {
             b.setMessage(bridgeLabel());
         }));
 
-        addButton(new Button(8, height - 26, 120, 20, resetLabel(), b -> {
+        // Reset fills the left column; Save/Cancel split the right, so nothing crowds the reset button.
+        addButton(new Button(lx, height - 26, 150, 20, resetLabel(), b -> {
             if (resetArmed) {
                 client.resetToDefaults();
                 minecraft.setScreen(new SettingsScreen16(parent, client));
@@ -119,7 +120,7 @@ public final class SettingsScreen16 extends Screen {
             }
         }));
 
-        addButton(new Button(width / 2 - 100, height - 26, 98, 20, new TextComponent("Save"), b -> {
+        addButton(new Button(rx, height - 26, 73, 20, new TextComponent("Save"), b -> {
             String url = serverField.getValue().trim();
             if (!ClassicConfigModel.isValidServerUrl(url)) {
                 serverField.setTextColor(0xFF5555); // reject a non-ws(s) URL, like the modern screen
@@ -129,7 +130,7 @@ public final class SettingsScreen16 extends Screen {
             model.apply(client);
             onClose();
         }));
-        addButton(new Button(width / 2 + 2, height - 26, 98, 20, new TextComponent("Cancel"),
+        addButton(new Button(rx + 77, height - 26, 73, 20, new TextComponent("Cancel"),
                 b -> onClose()));
     }
 
