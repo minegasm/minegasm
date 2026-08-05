@@ -58,6 +58,8 @@ dependencies {
     // org.slf4j relocation below); without it Draft_6455 fails with NoClassDefFoundError on first connect.
     shade('org.java-websocket:Java-WebSocket:1.5.7') { transitive = false }
     shade 'org.slf4j:slf4j-api:1.7.36'
+    // Relocated NOP binding so slf4j resolves silently instead of printing its "no binding" notice.
+    shade 'org.slf4j:slf4j-nop:1.7.36'
     // Mixin annotations for the client-command hook. Forge 1.16.5 has no client-command event, so a
     // Mixin into LocalPlayer.chat intercepts /minegasm client-side. compileOnly: the Mixin runtime comes
     // from MixinBootstrap (a mandatory dependency declared in mods.toml). unimined builds and remaps the

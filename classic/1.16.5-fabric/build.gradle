@@ -68,6 +68,8 @@ dependencies {
     // org.slf4j relocation below); without it Draft_6455 fails with NoClassDefFoundError on first connect.
     shade('org.java-websocket:Java-WebSocket:1.5.7') { transitive = false }
     shade 'org.slf4j:slf4j-api:1.7.36'
+    // Relocated NOP binding so slf4j resolves silently instead of printing its "no binding" notice.
+    shade 'org.slf4j:slf4j-nop:1.7.36'
     // Fabric API provides the client tick, keybinding, and client-command APIs the entrypoint uses.
     // It is a separate mod the player installs (declared in fabric.mod.json), not bundled.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
