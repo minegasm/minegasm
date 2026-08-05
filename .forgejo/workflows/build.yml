@@ -69,6 +69,11 @@ jobs:
           shopt -s nullglob
           mkdir -p dist
           cp versions/*/build/libs/minegasm-*.jar dist/
+          # No 1.20.1-neoforge build variant exists, but early NeoForge on 1.20.1 loads the Forge jar.
+          # Ship a neoforge-named copy so those users find a matching asset (mirrors the installJars alias).
+          for f in dist/minegasm-*+mc1.20.1-forge.jar; do
+            cp "$f" "${f/+mc1.20.1-forge/+mc1.20.1-neoforge}"
+          done
 
           expected="$(echo "$VARIANTS" | wc -w)"
           actual="$(find dist -maxdepth 1 -name '*.jar' -type f | wc -l)"
