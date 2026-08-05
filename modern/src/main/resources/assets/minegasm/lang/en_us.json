@@ -59,6 +59,8 @@
   "minegasm.settings.bridge": "Local bridge: %s",
   "minegasm.settings.bridge_restart": "Local bridge: %s (restart)",
   "minegasm.settings.save": "Save",
+  "minegasm.settings.reset": "Reset to defaults",
+  "minegasm.settings.reset_confirm": "Confirm reset?",
 
   "minegasm.customization.button": "Customization...",
   "minegasm.customization.title": "Minegasm Customization",

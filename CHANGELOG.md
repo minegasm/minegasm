@@ -36,6 +36,9 @@ All notable changes to Minegasm are documented in this file. The format follows
   bundled, relocated Java-WebSocket transport rather than modern's JDK `java.net.http.WebSocket`; the
   inbound frame cap is configured the same way. Default stays `buttplug4j`. See
   `docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`.
+- **Reset to defaults.** A button in the settings screen (both loaders) resets the whole config to
+  defaults, keeping only the master enable state. It backs up the current file to a timestamped sibling
+  first, so repeated resets keep every earlier backup, and it takes two clicks to confirm.
 
 ### Changed
 

@@ -46,6 +46,8 @@ public final class MinegasmSettingsScreen extends Screen {
     // Holds the typed server URL across a trip to the pack screen, so re-init keeps an unsaved edit
     // instead of reverting the field to the stored config value.
     private String pendingServerUrl;
+    // Reset is a two-click action: the first click arms it, the second performs it.
+    private boolean resetArmed;
 
     public MinegasmSettingsScreen(Screen parent, MinegasmClient client) {
         super(Component.translatable("minegasm.settings.title"));
@@ -125,10 +127,34 @@ public final class MinegasmSettingsScreen extends Screen {
             b.setMessage(bridgeLabel());
         }, right, 192, columnWidth, h));
 
+        addRenderableWidget(button(resetLabel(), b -> {
+            if (resetArmed) {
+                client.resetToDefaults();
+                openFreshSettings();
+            } else {
+                resetArmed = true;
+                b.setMessage(resetLabel());
+            }
+        }, left, height - 24, columnWidth, h));
+
         addRenderableWidget(button(Component.translatable("minegasm.settings.save"),
                 b -> save(), right, height - 24, (columnWidth - 4) / 2, h));
         addRenderableWidget(button(Component.translatable("gui.cancel"), b -> onClose(),
                 right + (columnWidth - 4) / 2 + 4, height - 24, (columnWidth - 4) / 2, h));
+    }
+
+    private Component resetLabel() {
+        return Component.translatable(resetArmed
+                ? "minegasm.settings.reset_confirm" : "minegasm.settings.reset");
+    }
+
+    private void openFreshSettings() {
+        // Reopen so the screen shows the reset defaults; keeping only the master enable, per resetToDefaults.
+        //? if >=26.2 {
+        this.minecraft.gui.setScreen(new MinegasmSettingsScreen(parent, client));
+        //?} else {
+        /*this.minecraft.setScreen(new MinegasmSettingsScreen(parent, client));
+        *///?}
     }
 
     private Button toggle(int x, int y, int width, String key,

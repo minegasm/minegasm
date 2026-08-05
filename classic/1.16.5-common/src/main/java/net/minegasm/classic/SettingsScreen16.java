@@ -29,6 +29,7 @@ public final class SettingsScreen16 extends Screen {
 
     private Button unsafeTestBtn;
     private EditBox serverField;
+    private boolean resetArmed;
     private int leftHeaderX;
     private int rightHeaderX;
 
@@ -108,6 +109,16 @@ public final class SettingsScreen16 extends Screen {
             b.setMessage(bridgeLabel());
         }));
 
+        addButton(new Button(8, height - 26, 120, 20, resetLabel(), b -> {
+            if (resetArmed) {
+                client.resetToDefaults();
+                minecraft.setScreen(new SettingsScreen16(parent, client));
+            } else {
+                resetArmed = true;
+                b.setMessage(resetLabel());
+            }
+        }));
+
         addButton(new Button(width / 2 - 100, height - 26, 98, 20, new TextComponent("Save"), b -> {
             String url = serverField.getValue().trim();
             if (!ClassicConfigModel.isValidServerUrl(url)) {
@@ -120,6 +131,10 @@ public final class SettingsScreen16 extends Screen {
         }));
         addButton(new Button(width / 2 + 2, height - 26, 98, 20, new TextComponent("Cancel"),
                 b -> onClose()));
+    }
+
+    private TextComponent resetLabel() {
+        return new TextComponent(resetArmed ? "Confirm reset?" : "Reset to defaults");
     }
 
     @Override

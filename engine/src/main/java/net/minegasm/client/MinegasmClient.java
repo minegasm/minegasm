@@ -43,6 +43,7 @@ import java.io.UncheckedIOException;
 import java.util.Locale;
 import java.util.List;
 import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
@@ -218,6 +219,51 @@ public final class MinegasmClient {
                 return Files.copy(modern, candidate, StandardCopyOption.COPY_ATTRIBUTES);
             } catch (FileAlreadyExistsException occupied) {
                 // Preserve every earlier backup and try the next available suffix.
+            }
+        }
+    }
+
+    private static final DateTimeFormatter BACKUP_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+
+    /**
+     * Reset the whole configuration to defaults, keeping only the master enable flag, after backing up
+     * the current file. Returns the backup file, or null if there was no existing file to back up.
+     */
+    public Path resetToDefaults() {
+        Path file = configStore.file();
+        Path backup = null;
+        if (Files.exists(file)) {
+            try {
+                backup = backupConfig(file);
+            } catch (IOException e) {
+                throw new UncheckedIOException("failed backing up config before reset", e);
+            }
+        }
+        boolean wasEnabled = config.get().enabled();
+        HapticConfig d = HapticConfig.defaults();
+        HapticConfig.Global dg = d.global();
+        HapticConfig reset = new HapticConfig(d.schemaVersion(), d.profile(),
+                new HapticConfig.Global(wasEnabled, dg.intensity(), dg.variation(),
+                        dg.fatigueProtection(), dg.pauseBehavior(), dg.stopOnWorldUnload(), dg.panicKey(),
+                        dg.testMaxPercent(), dg.testMaxDurationMs(),
+                        dg.unsafeTestMaxPercent(), dg.unsafeTestMaxDurationMs()),
+                d.buttplug(), d.events(), d.outputPolicy(), d.devices(),
+                d.positionCalibrations(), d.accumulation(), d.customIntensity(), d.bridge());
+        updateConfig(reset);
+        return backup;
+    }
+
+    /** Copy the config to a timestamped sibling, adding a numeric suffix if that name is taken, so
+     *  repeated resets keep every earlier backup. */
+    static Path backupConfig(Path file) throws IOException {
+        String baseName = file.getFileName() + ".backup-" + LocalDateTime.now().format(BACKUP_STAMP);
+        for (int suffix = 0; ; suffix++) {
+            String name = suffix == 0 ? baseName : baseName + "." + suffix;
+            Path candidate = file.resolveSibling(name);
+            try {
+                return Files.copy(file, candidate, StandardCopyOption.COPY_ATTRIBUTES);
+            } catch (FileAlreadyExistsException occupied) {
+                // Keep every earlier backup and try the next suffix.
             }
         }
     }

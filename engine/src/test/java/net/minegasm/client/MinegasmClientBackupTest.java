@@ -7,6 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MinegasmClientBackupTest {
     @TempDir
@@ -28,5 +30,20 @@ class MinegasmClientBackupTest {
         assertEquals("original backup", Files.readString(first));
         assertEquals("current", Files.readString(second));
         assertEquals("new current", Files.readString(third));
+    }
+
+    @Test
+    void resetBackupsAreTimestampedAndNeverOverwrite() throws Exception {
+        Path file = temp.resolve("minegasm.json");
+        Files.writeString(file, "current");
+        Path first = MinegasmClient.backupConfig(file);
+        Files.writeString(file, "changed");
+        Path second = MinegasmClient.backupConfig(file);
+
+        assertTrue(first.getFileName().toString().startsWith("minegasm.json.backup-"),
+                "backup name carries a timestamp");
+        assertNotEquals(first, second, "a second backup in the same second must not overwrite the first");
+        assertEquals("current", Files.readString(first));
+        assertEquals("changed", Files.readString(second));
     }
 }
