@@ -10,8 +10,8 @@ import net.minegasm.config.RuntimeConfig;
 import java.nio.file.Path;
 
 /**
- * Selects the Buttplug client backend from config (brief §9.2). Default is {@code buttplug4j} (the
- * maintained v4 client library); {@code native} selects the dependency-free JDK-WebSocket provider.
+ * Selects the Buttplug client backend from config (brief §9.2). Default is {@code native} (the
+ * dependency-free JDK-WebSocket provider); {@code buttplug4j} selects the maintained v4 client library.
  * Lives in the Gradle-only source set because it references {@link Buttplug4jProvider} (which pulls in
  * buttplug4j/Jetty). No Minecraft types are used here.
  */
@@ -27,9 +27,9 @@ public final class ProviderFactory {
     }
 
     public static HapticProvider create(String backend) {
-        if ("native".equalsIgnoreCase(backend)) {
-            return new ButtplugProvider(new WebSocketTransport(), CLIENT_NAME);
+        if ("buttplug4j".equalsIgnoreCase(backend)) {
+            return new Buttplug4jProvider(CLIENT_NAME);
         }
-        return new Buttplug4jProvider(CLIENT_NAME);
+        return new ButtplugProvider(new WebSocketTransport(), CLIENT_NAME);
     }
 }

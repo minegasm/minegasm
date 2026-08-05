@@ -34,7 +34,7 @@ All notable changes to Minegasm are documented in this file. The format follows
   that avoids its Jetty/Jackson stack) now works on the classic loaders too, and both dashboards carry
   the adapter toggle. Classic's Java 8 target has no built-in WebSocket client, so `native` there is a
   bundled, relocated Java-WebSocket transport rather than modern's JDK `java.net.http.WebSocket`; the
-  inbound frame cap is configured the same way. Default stays `buttplug4j`. See
+  inbound frame cap is configured the same way. See
   `docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`.
 - **Reset to defaults.** A button in the settings screen (both loaders) resets the whole config to
   defaults, keeping only the master enable state. It backs up the current file to a timestamped sibling
@@ -42,6 +42,11 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 ### Changed
 
+- **Native is now the default Buttplug backend.** New setups use the dependency-free provider (JDK
+  WebSocket on modern, a bundled WebSocket on classic) instead of `buttplug4j`. A config that explicitly
+  selected `buttplug4j` keeps it; one that never picked a backend follows the new default. `buttplug4j`
+  stays available and only pulls in its Jetty/Jackson stack when you select it. Switch either way with
+  the adapter toggle.
 - **Stronger default haptics, and a working intensity slider.** Output was weak enough that many devices
   barely moved on gameplay events, and the intensity slider did little. The Balanced recipe now shapes
   each event's strength *before* applying user gain (intensity × per-event multiplier) rather than after,
@@ -64,7 +69,7 @@ All notable changes to Minegasm are documented in this file. The format follows
   supervisor now retries a wanted connection with bounded exponential backoff and jitter. It runs at the
   main menu too, so a connection can come up before you load a world, and a manual disconnect stays
   disconnected instead of being reconnected against you.
-- **The default `buttplug4j` backend now notices a dropped socket.** Its client library exposes no
+- **The `buttplug4j` backend now notices a dropped socket.** Its client library exposes no
   disconnect callback and its internal close is silent, so after Intiface closed or the link dropped the
   mod still reported "connected" and output silently went nowhere. The provider now reconciles its state
   against the library each tick, so a drop surfaces (and the reconnect supervisor can act on it).

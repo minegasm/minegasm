@@ -62,7 +62,7 @@ provider/command path the engine uses.
    connect a real device.
 3. Run the probe (`net.minegasm.tools.IntifaceProbe`):
 
-   **buttplug4j backend (default in the mod), via Gradle** (run from `modern/`), which resolves the
+   **buttplug4j backend (the mod's alternative backend), via Gradle** (run from `modern/`), which resolves the
    buttplug4j/Jetty deps:
    ```bash
    cd modern

@@ -141,7 +141,7 @@ public final class RuntimeConfig {
         return config.buttplug().reconnect();
     }
 
-    /** Which Buttplug client backend to use: {@code "buttplug4j"} (default) or {@code "native"}. */
+    /** Which Buttplug client backend to use: {@code "native"} (default) or {@code "buttplug4j"}. */
     public String providerBackend() {
         return config.buttplug().client();
     }

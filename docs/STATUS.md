@@ -182,13 +182,13 @@ Device editor, and Legacy import sub-screens (Customization and Device editor sh
 `CustomizationModel`/`DeviceEditorModel`, so their rows match too). Both dashboards carry the adapter
 toggle (native vs `buttplug4j`): modern's `native` is the dependency-free JDK WebSocket, classic's a
 bundled Java-WebSocket transport, since classic's Java 8 target has no built-in WebSocket client
-(`docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`). Default stays `buttplug4j` on
+(`docs/adr/ADR-019-classic-native-provider-via-websocket-library.md`). `native` is the default on
 both. A loopback test covers the classic transport's connect/send/receive and oversize-frame rejection,
 confirming the inbound `maxFrameSize` cap fires; it has not been run against real hardware.
 
 ## Live Intiface verification
 
-Both the default buttplug4j provider and the native fallback provider have been exercised against a
+Both the native (default) provider and the buttplug4j provider have been exercised against a
 running Intiface Central server using simulated devices. The probes confirmed connection, v4
 negotiation, scanning, feature discovery, vibration output, and stop behavior through the same
 provider/command path used by the mod.

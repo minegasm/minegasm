@@ -25,7 +25,8 @@ libraries.
    `ClassicWebSocketTransport` in `classic/common` implements the engine's `ButtplugTransport`, so the
    existing `ButtplugProvider` drives it unchanged; a shared `ClassicProviderFactory` selects `native`
    or `buttplug4j` from `buttplug.client`, mirroring the modern `ProviderFactory`. The classic
-   dashboard gains the same adapter toggle the modern dashboard has. Default stays `buttplug4j`.
+   dashboard gains the same adapter toggle the modern dashboard has. Default was `buttplug4j` at the time; it has since been flipped so `native` is the default (see the
+CHANGELOG and ADR-006's update note).
 
 2. Java-WebSocket over the lighter `nv-websocket-client`, on the frame cap. `nv-websocket-client`'s
    `setMaxPayloadSize` only splits outgoing frames; its read path reads a frame at the length the

@@ -2,15 +2,19 @@
 
 **Status:** accepted. Library spike complete.
 
+**Update (2026-08-05):** the default was later flipped. `native` is now the default backend and
+`buttplug4j` the alternative, after the native client reached parity (drop detection, device
+add/remove, error surfacing, version guard). The rest of this record stands; only the default changed.
+
 **Decision.** Devices are driven only through Buttplug v4 to a separately running Intiface server. No
 Bluetooth/HID/vendor SDK and no embedded device server. The engine depends on a `HapticProvider`
 interface; two implementations exist:
 
-- **`Buttplug4jProvider`** (default) wraps [buttplug4j](https://github.com/blackspherefollower/buttplug4j)
+- **`Buttplug4jProvider`** (alternative) wraps [buttplug4j](https://github.com/blackspherefollower/buttplug4j)
   `io.github.blackspherefollower:buttplug4j.connectors.jetty.websocket.client:4.0.278`, whose 4.x line
   implements the v4 feature-based spec (`OutputCmd`, `DeviceFeature`). Output is sent via the feature's
   `run*Float` methods, so buttplug4j owns hardware range scaling. Pulls in Jetty + Jackson.
-- **`ButtplugProvider`** (fallback) is a dependency-free raw v4 client over the JDK `WebSocket` + Gson
+- **`ButtplugProvider`** (default) is a dependency-free raw v4 client over the JDK `WebSocket` + Gson
   (`ButtplugCodec`). It is also the in-process fake-server test backend.
 
 The backend is chosen by config (`buttplug.client` = `buttplug4j` | `native`); `ProviderFactory` builds

@@ -146,8 +146,8 @@ single mining action through the code:
    schedules per-feature `OutputCommand`s. Everything is timed with `System.nanoTime()` via a `Clock`,
    not tick counts, so it behaves the same under lag.
 5. **Output**. The `ButtplugBackend`'s provider encodes commands into the Buttplug protocol and sends
-   them over a WebSocket to Intiface (default backend `buttplug4j`, with a dependency-free JDK-WebSocket
-   fallback). The optional `BridgeBackend` instead serializes each scene to JSON and sends it over TCP to
+   them over a WebSocket to Intiface (default backend `native`, a dependency-free JDK-WebSocket client,
+   with `buttplug4j` as the alternative). The optional `BridgeBackend` instead serializes each scene to JSON and sends it over TCP to
    a local adapter the user runs (`docs/bridge/PROTOCOL.md`), the extension point for non-Buttplug
    outputs.
 

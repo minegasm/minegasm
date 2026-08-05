@@ -385,8 +385,9 @@ public final class HapticConfig implements ConfigValue {
             this.autoScan = autoScan;
             this.allowRemoteServer = allowRemoteServer;
             this.reconnect = reconnect == null ? ReconnectParams.defaults() : reconnect;
-            // Which Buttplug client backend to use: "buttplug4j" (library) or "native" (JDK WebSocket).
-            this.client = client == null || client.trim().isEmpty() ? "buttplug4j" : client;
+            // Which Buttplug client backend to use: "native" (JDK/bundled WebSocket, the default) or
+            // "buttplug4j" (the library, which pulls in Jetty/Jackson).
+            this.client = client == null || client.trim().isEmpty() ? "native" : client;
         }
 
         public String serverUrl() {
@@ -415,7 +416,7 @@ public final class HapticConfig implements ConfigValue {
 
         public static Buttplug defaults() {
             return new Buttplug("ws://127.0.0.1:12345", true, true, false,
-                    ReconnectParams.defaults(), "buttplug4j");
+                    ReconnectParams.defaults(), "native");
         }
 
         @Override

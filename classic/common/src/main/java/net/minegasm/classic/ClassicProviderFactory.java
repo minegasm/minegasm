@@ -10,8 +10,8 @@ import java.nio.file.Path;
 
 /**
  * Selects the Buttplug client backend for the classic loaders from config (mirrors the modern
- * {@code ProviderFactory}). Default is {@code buttplug4j}; {@code native} uses the bundled
- * Java-WebSocket transport (ADR-019). No Minecraft types are used here.
+ * {@code ProviderFactory}). Default is {@code native} (the bundled Java-WebSocket transport, ADR-019);
+ * {@code buttplug4j} uses the library. No Minecraft types are used here.
  */
 public final class ClassicProviderFactory {
 
@@ -26,9 +26,9 @@ public final class ClassicProviderFactory {
     }
 
     public static HapticProvider create(String backend) {
-        if ("native".equalsIgnoreCase(backend)) {
-            return new ButtplugProvider(new ClassicWebSocketTransport(), CLIENT_NAME);
+        if ("buttplug4j".equalsIgnoreCase(backend)) {
+            return new Buttplug4jProvider(CLIENT_NAME);
         }
-        return new Buttplug4jProvider(CLIENT_NAME);
+        return new ButtplugProvider(new ClassicWebSocketTransport(), CLIENT_NAME);
     }
 }

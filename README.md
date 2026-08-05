@@ -30,9 +30,9 @@ resume** stops hardware, freezes remaining scene/fatigue time, and safely re-ren
 **Continue** leaves active output running under its normal recipe expiry. A paused scene is discarded
 rather than resumed if the world unloads, the device registry changes, or another safety stop occurs.
 
-Devices are reached via the **buttplug4j** client (`4.0.278`, v4 feature-based spec) by default, with a
-dependency-free JDK WebSocket provider as a fallback/test backend, selectable with the
-`buttplug.client` config key (`buttplug4j` | `native`). See `docs/adr/ADR-006-buttplug-v4-external-provider.md`.
+Devices are reached via a dependency-free WebSocket provider (**native**) by default, with the
+**buttplug4j** client (`4.0.278`, v4 feature-based spec) available as an alternative, selectable with the
+`buttplug.client` config key (`native` | `buttplug4j`). See `docs/adr/ADR-006-buttplug-v4-external-provider.md`.
 
 Beyond Buttplug, an optional **local bridge** sends the same scenes as JSON over loopback TCP to an
 adapter you run, the extension point for non-Buttplug outputs (DIY hardware, other services). It is off
@@ -67,8 +67,8 @@ versus pending.
 | Config, migration, legacy import | `net.minegasm.config` | ✅ compiled + unit-tested |
 | Recipes, presets, accumulation | `net.minegasm.recipe` | ✅ compiled + unit-tested |
 | Mixer, scheduler, worker, fatigue | `net.minegasm.runtime`, `render`, `observe` | ✅ compiled + unit-tested |
-| Buttplug v4 provider + fake server (native fallback) | `net.minegasm.buttplug` | ✅ compiled + unit-tested |
-| buttplug4j provider (default backend) | `net.minegasm.buttplug.b4j` | ✅ compiled vs buttplug4j 4.0.278 (needs Intiface + hardware to run) |
+| Buttplug v4 provider + fake server (native, default backend) | `net.minegasm.buttplug` | ✅ compiled + unit-tested |
+| buttplug4j provider (alternative backend) | `net.minegasm.buttplug.b4j` | ✅ compiled vs buttplug4j 4.0.278 (needs Intiface + hardware to run) |
 | Client glue | `net.minegasm.client` | ✅ compiled |
 | Minecraft observation, UI (shared) | `net.minegasm.neoforge` | ✅ compiled, manually exercised in-game (see `docs/STATUS.md`) |
 | NeoForge entrypoint | `net.minegasm.neoforge.MinegasmMod` (shared `src`, `//? if neoforge`) | ✅ compiled, manually exercised in-game |
