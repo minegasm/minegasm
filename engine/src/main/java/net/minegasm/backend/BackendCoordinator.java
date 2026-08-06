@@ -1,6 +1,5 @@
 package net.minegasm.backend;
 
-import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
 
 import java.util.ArrayList;
@@ -8,13 +7,15 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Owns every enabled {@link HapticBackend} and fans the device-independent scene stream to all of them
- * (brief 0003 §3.2), guarding each call so one backend's failure never blocks the others.
+ * Owns every enabled {@link HapticBackend} and fans lifecycle calls to all of them (brief 0003 §3.2),
+ * guarding each call so one backend's failure never blocks the others. Scene fan-out is not here: scenes
+ * are governed centrally and reach each backend through the {@link net.minegasm.runtime.SceneGovernor}
+ * (ADR-018), so this class only starts, stops, pauses, and closes backends.
  *
  * <p>Calls run inline on the caller's thread, which keeps stops synchronous: after a stop returns, every
  * backend's StopCmd is out and local state cleared, so a delayed cycle cannot reassert output. Backends
- * must keep {@code submit}/{@code stop} non-blocking, so inline fan-out never holds up the caller
- * (including panic); isolating a hung backend is that backend's job.
+ * must keep {@code stop} non-blocking, so inline fan-out never holds up the caller (including panic);
+ * isolating a hung backend is that backend's job.
  */
 public final class BackendCoordinator implements AutoCloseable {
 
@@ -31,13 +32,6 @@ public final class BackendCoordinator implements AutoCloseable {
     public void start() {
         for (HapticBackend b : backends) {
             guard(() -> b.start());
-        }
-    }
-
-    /** Fan a scene to every backend; inline and non-blocking (brief 0003 §3.2). */
-    public void submit(final HapticScene scene) {
-        for (final HapticBackend b : backends) {
-            guard(() -> b.submit(scene));
         }
     }
 

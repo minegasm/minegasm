@@ -1,18 +1,13 @@
 package net.minegasm.backend;
 
-import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.HapticWorker;
 import net.minegasm.runtime.StopReason;
 
 /**
- * The Buttplug backend: a thin adapter over the existing {@link HapticWorker}, which already owns the
- * mixer, scheduler, and Buttplug provider (brief 0003 §3.2). Wrapping the worker unchanged is the
- * regression guard, a Buttplug-only user must observe no behavioral difference, so this class only
- * forwards calls and adds no logic of its own.
- *
- * <p>When central mixing lands (brief 0003 §3.3), the mixer and fatigue governor move up to the
- * coordinator and this backend shrinks to the device-rendering half; until then it holds the whole
- * worker.
+ * The Buttplug backend: a thin lifecycle adapter over the {@link HapticWorker}, which owns the scheduler
+ * and Buttplug provider and pulls governed scenes from the central {@link net.minegasm.runtime.SceneGovernor}
+ * (ADR-018). Scenes no longer arrive through this backend; it only starts, stops, pauses, and closes the
+ * worker, so a Buttplug-only user observes no behavioral difference (the §3.2 regression guard).
  */
 public final class ButtplugBackend implements HapticBackend {
 
@@ -30,11 +25,6 @@ public final class ButtplugBackend implements HapticBackend {
     @Override
     public void start() {
         worker.start();
-    }
-
-    @Override
-    public void submit(HapticScene scene) {
-        worker.offer(scene);
     }
 
     @Override

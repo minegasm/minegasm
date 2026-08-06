@@ -180,7 +180,10 @@ outer bound none of them can exceed in aggregate.
 Sequencing note: `SceneMixer` and `FatigueGovernor` live inside `HapticWorker` today. Phase 0 can wrap
 the worker whole for a single backend, but the central mixer, governor, and body budget must be lifted
 out of the worker up to the coordinator when the second backend lands, so they are shared rather than
-duplicated. Plan for that lift in Phase 0 rather than paying it back later.
+duplicated. Plan for that lift in Phase 0 rather than paying it back later. (Done once the local bridge
+landed: scene holding, coalescing, expiry, and fatigue moved into `SceneGovernor`; fatigue is realized as
+the scene-level attenuation this section calls for, and the worker now renders per-cycle only. See
+ADR-018.)
 
 ## 3.4 Backend roadmap
 

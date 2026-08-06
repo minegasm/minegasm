@@ -18,6 +18,20 @@ public interface HapticPrimitive {
     /** Total nominal duration in milliseconds. */
     int durationMs();
 
+    /**
+     * Return a copy of this primitive with its amplitude multiplied by {@code factor} (clamped to
+     * {@code [0, 1]}), leaving timing and shape untouched. Because {@link PrimitiveEvaluator} is linear
+     * in a primitive's amplitude, scaling here is equivalent to scaling the rendered level, which lets
+     * central governance bake attenuation (fatigue now, the body budget later) into a scene before it
+     * fans out to any backend, including semantic ones that never render a level themselves.
+     */
+    HapticPrimitive scaled(float factor);
+
+    /** Clamp an amplitude to the valid {@code [0, 1]} range. */
+    static float clampLevel(float v) {
+        return v < 0f ? 0f : (v > 1f ? 1f : v);
+    }
+
     /** Immediate contact/impact: attack, hurt, place, block break (brief §8.2). */
     final class Impulse implements HapticPrimitive {
         private final float level;
@@ -48,6 +62,11 @@ public interface HapticPrimitive {
 
         public int releaseMs() {
             return releaseMs;
+        }
+
+        @Override
+        public HapticPrimitive scaled(float factor) {
+            return new Impulse(clampLevel(level * factor), durationMs, attackMs, releaseMs);
         }
 
         @Override
@@ -114,6 +133,11 @@ public interface HapticPrimitive {
         }
 
         @Override
+        public HapticPrimitive scaled(float factor) {
+            return new Texture(clampLevel(level * factor), durationMs, grain, density, irregularity);
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) {
                 return true;
@@ -170,6 +194,11 @@ public interface HapticPrimitive {
 
         public boolean decay() {
             return decay;
+        }
+
+        @Override
+        public HapticPrimitive scaled(float factor) {
+            return new Rumble(clampLevel(level * factor), durationMs, roughness, decay);
         }
 
         @Override
@@ -234,6 +263,11 @@ public interface HapticPrimitive {
         }
 
         @Override
+        public HapticPrimitive scaled(float factor) {
+            return new Sweep(clampLevel(from * factor), clampLevel(to * factor), durationMs, easing);
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) {
                 return true;
@@ -280,6 +314,15 @@ public interface HapticPrimitive {
         @Override
         public int durationMs() {
             return beats.stream().mapToInt(b -> b.atMs() + b.durationMs()).max().orElse(0);
+        }
+
+        @Override
+        public HapticPrimitive scaled(float factor) {
+            List<Beat> scaled = new ArrayList<>(beats.size());
+            for (Beat b : beats) {
+                scaled.add(new Beat(b.atMs(), clampLevel(b.level() * factor), b.durationMs()));
+            }
+            return new BeatPattern(scaled);
         }
 
         @Override
@@ -338,6 +381,11 @@ public interface HapticPrimitive {
         }
 
         @Override
+        public HapticPrimitive scaled(float factor) {
+            return new Hold(clampLevel(level * factor), durationMs, fadeInMs, fadeOutMs);
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) {
                 return true;
@@ -393,6 +441,11 @@ public interface HapticPrimitive {
 
         public int periodMs() {
             return periodMs;
+        }
+
+        @Override
+        public HapticPrimitive scaled(float factor) {
+            return new Oscillation(clampLevel(level * factor), periodMs, durationMs);
         }
 
         @Override

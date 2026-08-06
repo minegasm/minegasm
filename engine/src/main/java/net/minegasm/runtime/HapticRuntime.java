@@ -38,7 +38,7 @@ public final class HapticRuntime {
     private final StateTracker tracker = new StateTracker();
     private final HapticAggregator aggregator = new HapticAggregator();
     private final RecipeEngine recipe;
-    private final SceneIngressQueue ingress = new SceneIngressQueue();
+    private final SceneGovernor sceneGovernor = new SceneGovernor();
     private final HapticProvider provider;
     private final HapticWorker worker;
     private final BackendCoordinator coordinator;
@@ -70,14 +70,18 @@ public final class HapticRuntime {
         this.clock = clock;
         this.config = config;
         this.recipe = new RecipeEngine(packs);
-        this.worker = new HapticWorker(ingress, provider, clock, config);
-        // The scene seam (brief 0003 §3.2): scenes fan out through the coordinator. It always holds the
-        // ButtplugBackend (wrapping the worker unchanged) and adds the bridge backend when a transport is
-        // injected. The watchdog stays on the worker for now.
+        this.worker = new HapticWorker(sceneGovernor, provider, clock, config);
+        // Central governance (ADR-018): scenes are held and governed by the SceneGovernor. The worker
+        // pulls the governed set; when a bridge transport is injected, the worker also fans that governed
+        // set to it change-driven. The coordinator now carries lifecycle only. The watchdog stays on the
+        // worker.
         List<HapticBackend> backends = new ArrayList<>();
         backends.add(new ButtplugBackend(worker));
         if (bridgeTransport != null) {
-            backends.add(new BridgeBackend(bridgeTransport, URI.create(config.get().bridgeUrl()), clock));
+            BridgeBackend bridge =
+                    new BridgeBackend(bridgeTransport, URI.create(config.get().bridgeUrl()), clock);
+            backends.add(bridge);
+            worker.setBridgeForwarder(new GovernedSceneForwarder(bridge::submit));
         }
         this.coordinator = new BackendCoordinator(backends);
         this.lifecycle = new LifecycleController(coordinator, config);
@@ -135,12 +139,12 @@ public final class HapticRuntime {
         RuntimeConfig cfg = config.get();
 
         for (HapticIntent intent : aggregator.aggregate(discrete, transitions, snapshot, cfg, now)) {
-            recipe.resolve(intent, cfg).ifPresent(scene -> coordinator.submit(scene));
+            recipe.resolve(intent, cfg).ifPresent(scene -> sceneGovernor.submit(scene, now));
         }
         // Accumulation mode decays and refreshes even without new events.
-        recipe.tickAccumulation(cfg, now).ifPresent(scene -> coordinator.submit(scene));
+        recipe.tickAccumulation(cfg, now).ifPresent(scene -> sceneGovernor.submit(scene, now));
         // Rhythmic stroking for position devices decays and refreshes the same way (Balanced only).
-        recipe.tickStroke(cfg, now).ifPresent(scene -> coordinator.submit(scene));
+        recipe.tickStroke(cfg, now).ifPresent(scene -> sceneGovernor.submit(scene, now));
     }
 
     /** Run a single worker cycle now (used by the real loop and by tests). */
@@ -172,7 +176,7 @@ public final class HapticRuntime {
         return provider;
     }
 
-    public SceneIngressQueue ingress() {
-        return ingress;
+    public SceneGovernor sceneGovernor() {
+        return sceneGovernor;
     }
 }

@@ -85,6 +85,12 @@ public final class HapticLayer {
         return coalesceKey;
     }
 
+    /** A copy of this layer with its primitive replaced (everything else unchanged). */
+    public HapticLayer withPrimitive(HapticPrimitive replacement) {
+        return new HapticLayer(layerId, role, replacement, route, coupling, priority, startOffsetNs,
+                expiresAfterNs, coalesceKey);
+    }
+
     public boolean isContinuous() {
         return coalesceKey != null && !coalesceKey.trim().isEmpty();
     }

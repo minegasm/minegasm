@@ -18,16 +18,16 @@ import net.minegasm.render.PrimitiveEvaluator;
 import net.minegasm.render.SafetyCaps;
 import net.minegasm.util.HapticMath;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Holds the currently active scenes and renders them to per-feature endpoint targets at a monotonic
- * time (brief §10.1). Continuous scenes are latest-wins by their key; discrete scenes coexist and
- * combine per endpoint by coupling/priority (MAX, plus EXCLUSIVE ducking). Damage merging happens
- * earlier in the aggregator, so the mixer stays free of event-name logic.
+ * Renders a snapshot of active scenes to per-feature endpoint targets at a monotonic time (brief
+ * §10.1). Discrete and continuous scenes combine per endpoint by coupling/priority (MAX, plus
+ * EXCLUSIVE ducking). Damage merging happens earlier in the aggregator, so the mixer stays free of
+ * event-name logic. Scene-level bookkeeping (holding, coalescing, expiry) lives in {@link SceneStore};
+ * this class is a pure function of the scene list handed to {@link #render}.
  *
  * <p>Confined to the haptic worker thread; not synchronised.
  */
@@ -42,63 +42,16 @@ public final class SceneMixer {
     /** Shortest full out-and-back stroke period; also the move-duration floor. Anti-jackhammer. */
     private static final long MIN_STROKE_PERIOD_MS = 700;
 
-    private final List<HapticScene> discrete = new ArrayList<>();
-    private final Map<String, HapticScene> continuous = new LinkedHashMap<>();
-
-    public void add(HapticScene scene) {
-        if (scene == null) {
-            return;
-        }
-        if (scene.isContinuous()) {
-            continuous.put(scene.continuousKey(), scene); // latest-wins
-        } else {
-            discrete.add(scene);
-        }
-    }
-
-    /** Drop expired scenes. */
-    public void update(long nowNs) {
-        discrete.removeIf(s -> s.isExpired(nowNs));
-        continuous.values().removeIf(s -> s.isExpired(nowNs));
-    }
-
-    public void clear() {
-        discrete.clear();
-        continuous.clear();
-    }
-
-    /** Shift every preserved scene forward after a real-time pause. */
-    public void shiftTime(long deltaNs) {
-        if (deltaNs <= 0) return;
-        for (int i = 0; i < discrete.size(); i++) {
-            discrete.set(i, shifted(discrete.get(i), deltaNs));
-        }
-        continuous.replaceAll((key, scene) -> shifted(scene, deltaNs));
-    }
-
-    private static HapticScene shifted(HapticScene scene, long deltaNs) {
-        return new HapticScene(scene.sceneId(), scene.kind(), scene.priority(), scene.layers(),
-                scene.createdAtNs() + deltaNs, scene.expiresAtNs() + deltaNs,
-                scene.continuousKey());
-    }
-
-    public boolean isEmpty() {
-        return discrete.isEmpty() && continuous.isEmpty();
-    }
-
-    public int activeSceneCount() {
-        return discrete.size() + continuous.size();
-    }
-
     /**
-     * Compute the desired output for every enabled compatible feature at {@code nowNs}. Applies
-     * routing, device/feature enablement and caps, fatigue attenuation, calibration for motion, and
-     * per-endpoint coupling.
+     * Compute the desired output for every enabled compatible feature at {@code nowNs} from the given
+     * scene snapshot. Applies routing, device/feature enablement and caps, calibration for motion, and
+     * per-endpoint coupling. Fatigue attenuation is already baked into the scenes by
+     * {@link SceneGovernor#govern}, so this stage only reads the primitive levels it is handed.
      */
-    public Map<String, EndpointTarget> render(DeviceRegistrySnapshot snapshot, RuntimeConfig config,
-                                              FatigueGovernor governor, boolean fatigueOn, long nowNs) {
+    public Map<String, EndpointTarget> render(List<HapticScene> scenes, DeviceRegistrySnapshot snapshot,
+                                              RuntimeConfig config, long nowNs) {
         Map<String, EndpointTarget> targets = new LinkedHashMap<>();
-        for (HapticScene scene : allScenes()) {
+        for (HapticScene scene : scenes) {
             if (scene.isExpired(nowNs)) {
                 continue;
             }
@@ -112,23 +65,10 @@ public final class SceneMixer {
                 if (level <= 0f) {
                     continue;
                 }
-                if (fatigueOn) {
-                    level *= governor.factor(layer.role());
-                }
-                if (level <= 0f) {
-                    continue;
-                }
                 routeLayer(layer, level, nowNs - layerStart, snapshot, config, targets);
             }
         }
         return targets;
-    }
-
-    private List<HapticScene> allScenes() {
-        List<HapticScene> all = new ArrayList<>(discrete.size() + continuous.size());
-        all.addAll(discrete);
-        all.addAll(continuous.values());
-        return all;
     }
 
     private void routeLayer(HapticLayer layer, float level, long elapsedNs,

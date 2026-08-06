@@ -135,7 +135,8 @@ The automated suite covers:
 - accumulation decay and bounded charge;
 - hurt merging, XP coalescing, mining continuity, vitality edges/repeats, fishing refractory periods,
   and respawn handling;
-- mixer routing, caps, exclusive ducking, fatigue attenuation, and bounded scene ingress;
+- mixer routing, caps, exclusive ducking, central fatigue attenuation, and the governor's bounded scene
+  store;
 - scheduling, deadband, timing gaps, held-endpoint stops, and device-registry generation invalidation;
 - pause policies, including true freeze/resume, and independent world-exit behavior;
 - connection failure recovery, reconnect backoff, index reuse, stale-generation rejection, and
@@ -150,7 +151,10 @@ The automated suite covers:
   dropped by an unrelated edit;
 - scene-pack round-tripping (all seven primitives), fail-closed import, strength-scaled
   materialization, disk loading with per-file isolation, and file-pack selection by id;
-- the backend coordinator's scene fan-out and concurrent, isolated stop; the bridge's device-neutral
+- central scene governance (ADR-018): the `SceneGovernor`'s hold/coalesce/expiry and bounded overflow,
+  central fatigue attenuation baked into the governed scene, and the change-driven `GovernedSceneForwarder`
+  that sends a steady continuous effect to the bridge once rather than every cycle;
+- the backend coordinator's lifecycle fan-out and concurrent, isolated stop; the bridge's device-neutral
   codec, bounded one-in-flight send queue with stop ordering, and backend gating; and the TCP bridge
   transport against a real loopback socket;
 - end-to-end intent-to-device behavior, including output to every compatible device feature.

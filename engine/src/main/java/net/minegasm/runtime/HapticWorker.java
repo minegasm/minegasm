@@ -4,13 +4,11 @@ import net.minegasm.buttplug.HapticProvider;
 import net.minegasm.buttplug.OutputCommand;
 import net.minegasm.buttplug.StopSelection;
 import net.minegasm.config.RuntimeConfig;
-import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticScene;
 import net.minegasm.device.DeviceRegistrySnapshot;
 import net.minegasm.render.EndpointTarget;
 import net.minegasm.time.Clock;
 
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -21,26 +19,29 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
- * The single haptic worker (brief §6.4). Each cycle: drain the scene ingress into the mixer, expire
- * stale scenes, render per-feature targets against the live registry, schedule concrete commands,
- * and dispatch them to the provider. Timing is monotonic; the worker owns all mixer/scheduler state
- * so no fine-grained locks are needed. Cycles are also driveable directly by tests with a
- * {@link net.minegasm.time.FakeClock}.
+ * The single haptic worker (brief §6.4). Each cycle: pull the governed scene snapshot from the central
+ * {@link SceneGovernor}, render per-feature targets against the live registry, schedule concrete
+ * commands, and dispatch them to the provider. Scene holding, coalescing, and expiry now live in the
+ * governor (ADR-018); the worker owns the scheduler and per-cycle rendering. Timing is monotonic, and
+ * cycles are driveable directly by tests with a {@link net.minegasm.time.FakeClock}.
+ *
+ * <p>The worker's own monitor is what makes a stop safe: {@link #cycle} snapshots, renders, and
+ * dispatches while holding it, and {@link #requestStop} clears the governor and sends the protocol stop
+ * while holding it too, so a stop can never interleave with a cycle and leave a stale scene to render.
  */
 public final class HapticWorker {
 
     private static final long CYCLE_MS = 15;
 
-    private final SceneIngressQueue ingress;
+    private final SceneGovernor scenes;
     private final SceneMixer mixer = new SceneMixer();
     private final FeatureScheduler scheduler = new FeatureScheduler();
-    private final FatigueGovernor governor = new FatigueGovernor();
     private final HapticProvider provider;
     private final Clock clock;
     private final Supplier<RuntimeConfig> config;
+    private GovernedSceneForwarder bridgeForwarder; // null unless a bridge backend is wired
 
     private final AtomicLong lastHealthyCycleNs = new AtomicLong();
-    private long lastCycleNs;
     private volatile boolean outputEnabled = true;
     private volatile StopReason lastStopReason;
     private boolean paused;
@@ -49,9 +50,9 @@ public final class HapticWorker {
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> loop;
 
-    public HapticWorker(SceneIngressQueue ingress, HapticProvider provider, Clock clock,
+    public HapticWorker(SceneGovernor scenes, HapticProvider provider, Clock clock,
                         Supplier<RuntimeConfig> config) {
-        this.ingress = ingress;
+        this.scenes = scenes;
         this.provider = provider;
         this.clock = clock;
         this.config = config;
@@ -91,7 +92,15 @@ public final class HapticWorker {
 
     /** Offer a scene from the client thread; non-blocking and bounded. */
     public void offer(HapticScene scene) {
-        ingress.offer(scene, clock.nanoTime());
+        scenes.submit(scene, clock.nanoTime());
+    }
+
+    /**
+     * Wire a change-driven forwarder that fans the governed scene set to a semantic backend (the bridge).
+     * Set once at construction time before the loop starts; null means no such backend.
+     */
+    public synchronized void setBridgeForwarder(GovernedSceneForwarder forwarder) {
+        this.bridgeForwarder = forwarder;
     }
 
     /**
@@ -102,44 +111,52 @@ public final class HapticWorker {
             lastHealthyCycleNs.set(nowNs);
             return java.util.Collections.emptyList();
         }
-        for (HapticScene scene : ingress.drain()) {
-            mixer.add(scene);
-        }
-        mixer.update(nowNs);
-        governor.update(nowNs);
-
         RuntimeConfig cfg = config.get();
         DeviceRegistrySnapshot snapshot = provider.devices();
-        long dt = lastCycleNs == 0 ? 0 : nowNs - lastCycleNs;
-        lastCycleNs = nowNs;
+        boolean outputActive = cfg.enabled() && outputEnabled;
+        // Pull the governed set: the governor expires stale scenes, decays and accounts fatigue, and
+        // bakes fatigue attenuation into the primitives. Only accrue load when output can actually reach
+        // the body, i.e. a device is connected, so an enabled mod with nothing attached never fatigues
+        // (the old per-render accounting got this for free; brief §10.6).
+        boolean accountLoad = outputActive && !snapshot.isEmpty();
+        List<HapticScene> held = scenes.govern(nowNs, cfg.fatigueProtection(), accountLoad);
 
         Map<String, EndpointTarget> targets;
-        if (!cfg.enabled() || !outputEnabled) {
+        if (!outputActive) {
             targets = java.util.Collections.emptyMap(); // drive any held endpoints to zero, then stay silent
         } else {
-            targets = mixer.render(snapshot, cfg, governor, cfg.fatigueProtection(), nowNs);
-            recordFatigue(targets, dt);
+            targets = mixer.render(held, snapshot, cfg, nowNs);
         }
 
         List<OutputCommand> commands = scheduler.accept(targets, snapshot, nowNs);
         for (OutputCommand command : commands) {
             provider.send(command);
         }
+        // Fan the same governed set to the semantic bridge, change-driven. Skipped while output is
+        // suppressed; a running effect self-expires on the adapter via its TTL.
+        if (bridgeForwarder != null && outputActive) {
+            bridgeForwarder.forward(held, nowNs);
+        }
         lastHealthyCycleNs.set(nowNs);
         return commands;
     }
 
     /**
-     * Stop all output immediately and clear local state so a delayed cycle cannot reassert output
-     * (brief §9.10). Sends the protocol {@code StopCmd} (bypasses the timing gap) and forgets all
-     * scheduler/mixer state.
+     * Stop all output immediately and clear held scene state so a delayed cycle cannot reassert output
+     * (brief §9.10). Clearing the governor and sending the protocol {@code StopCmd} both happen under
+     * the worker monitor, so this cannot interleave with a {@link #cycle}: once it returns, the governor
+     * is empty and the next cycle renders nothing.
      */
     public synchronized void requestStop(StopReason reason) {
         this.lastStopReason = reason;
-        mixer.clear();
-        ingress.clear();
+        scenes.reset(); // drops held scenes and forgets fatigue load
         scheduler.reset();
-        governor.reset();
+        if (bridgeForwarder != null) {
+            // Forget forwarding state under the worker monitor: the governor is now empty, so the next
+            // cycle forwards nothing and cannot overtake the bridge's stop frame; and the next real scene
+            // after a resume is sent afresh rather than being suppressed as a duplicate.
+            bridgeForwarder.reset();
+        }
         paused = false;
         pausedAtNs = 0;
         provider.stop(StopSelection.all());
@@ -148,9 +165,6 @@ public final class HapticWorker {
     /** Stop hardware but preserve and freeze scene state for a possible resume. */
     public synchronized void pause() {
         if (paused) return;
-        for (HapticScene scene : ingress.drain()) {
-            mixer.add(scene);
-        }
         paused = true;
         pausedAtNs = clock.nanoTime();
         pausedRegistryGeneration = provider.devices().generation();
@@ -163,26 +177,22 @@ public final class HapticWorker {
         if (!paused) return;
         long nowNs = clock.nanoTime();
         if (provider.devices().generation() != pausedRegistryGeneration) {
-            mixer.clear();
-            ingress.clear();
-            governor.reset();
+            // Device-specific decision, kept on the worker: a scene frozen against a device set that has
+            // since changed must not resume onto whatever now occupies those indices.
+            scenes.reset();
         } else {
             long deltaNs = Math.max(0, nowNs - pausedAtNs);
-            mixer.shiftTime(deltaNs);
-            governor.shiftTime(deltaNs);
+            scenes.shiftTime(deltaNs); // shifts held scenes and the fatigue clock together
         }
         scheduler.reset();
-        lastCycleNs = 0;
         paused = false;
         pausedAtNs = 0;
     }
 
     public synchronized void discardPause() {
         if (!paused) return;
-        mixer.clear();
-        ingress.clear();
+        scenes.reset();
         scheduler.reset();
-        governor.reset();
         paused = false;
         pausedAtNs = 0;
     }
@@ -208,17 +218,6 @@ public final class HapticWorker {
     }
 
     public int activeSceneCount() {
-        return mixer.activeSceneCount();
-    }
-
-    private void recordFatigue(Map<String, EndpointTarget> targets, long dtNs) {
-        if (dtNs <= 0 || targets.isEmpty()) {
-            return;
-        }
-        Map<HapticRole, Float> maxByRole = new EnumMap<>(HapticRole.class);
-        for (EndpointTarget t : targets.values()) {
-            maxByRole.merge(t.role(), t.level(), Math::max);
-        }
-        maxByRole.forEach((role, level) -> governor.record(role, level, dtNs));
+        return scenes.activeSceneCount();
     }
 }

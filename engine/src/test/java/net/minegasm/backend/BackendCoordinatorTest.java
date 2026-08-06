@@ -1,7 +1,5 @@
 package net.minegasm.backend;
 
-import net.minegasm.core.GameEventKind;
-import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
 import org.junit.jupiter.api.Test;
 
@@ -15,29 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The Phase 0 exit condition (brief 0003 §3.2): one scene reaches every backend, a universal stop
- * reaches every backend synchronously, and one backend throwing on submit or stop does not stop the
- * others.
+ * The coordinator fans lifecycle across backends (brief 0003 §3.2): a universal stop reaches every
+ * backend synchronously, one backend throwing on stop does not stop the others, and start/close reach
+ * all. Scene delivery is not here (ADR-018): scenes are governed centrally and reach backends through
+ * the SceneGovernor, not the coordinator.
  */
 class BackendCoordinatorTest {
-
-    private static HapticScene scene(String id) {
-        return new HapticScene(id, GameEventKind.ATTACK, 0, Collections.emptyList(), 0L, 1_000L, null);
-    }
-
-    @Test
-    void submitFansToEveryBackend() {
-        FakeBackend a = new FakeBackend("a");
-        FakeBackend b = new FakeBackend("b");
-        BackendCoordinator coordinator = new BackendCoordinator(Arrays.asList(a, b));
-        HapticScene s = scene("s1");
-
-        coordinator.submit(s);
-
-        assertEquals(Collections.singletonList(s), a.submitted);
-        assertEquals(Collections.singletonList(s), b.submitted);
-        coordinator.close();
-    }
 
     @Test
     void stopReachesEveryBackendSynchronously() {
@@ -69,20 +50,6 @@ class BackendCoordinatorTest {
     }
 
     @Test
-    void oneBackendThrowingOnSubmitDoesNotStopOthers() {
-        FakeBackend boom = new FakeBackend("boom");
-        boom.throwOnSubmit = true;
-        FakeBackend ok = new FakeBackend("ok");
-        BackendCoordinator coordinator = new BackendCoordinator(Arrays.asList(boom, ok));
-        HapticScene s = scene("s1");
-
-        coordinator.submit(s); // must not throw
-
-        assertEquals(Collections.singletonList(s), ok.submitted);
-        coordinator.close();
-    }
-
-    @Test
     void startAndCloseFanToEveryBackend() {
         FakeBackend a = new FakeBackend("a");
         FakeBackend b = new FakeBackend("b");
@@ -96,13 +63,11 @@ class BackendCoordinatorTest {
         assertTrue(a.closed && b.closed, "close must reach every backend");
     }
 
-    /** A backend that records what it received and can be told to throw. Stops run synchronously. */
+    /** A backend that records the stops it received and can be told to throw. Stops run synchronously. */
     private static final class FakeBackend implements HapticBackend {
         private final String id;
-        final List<HapticScene> submitted = new ArrayList<>();
         final List<StopReason> stops = new ArrayList<>();
         boolean throwOnStop;
-        boolean throwOnSubmit;
         boolean started;
         boolean closed;
 
@@ -118,14 +83,6 @@ class BackendCoordinatorTest {
         @Override
         public void start() {
             started = true;
-        }
-
-        @Override
-        public void submit(HapticScene scene) {
-            if (throwOnSubmit) {
-                throw new RuntimeException("submit boom from " + id);
-            }
-            submitted.add(scene);
         }
 
         @Override

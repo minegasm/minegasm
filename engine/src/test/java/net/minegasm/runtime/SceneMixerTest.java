@@ -34,7 +34,6 @@ class SceneMixerTest {
 
     private static final long MS = 1_000_000L;
     private final RuntimeConfig cfg = Configs.enabled(MinegasmMode.IMMERSION, RecipePackId.BALANCED);
-    private final FatigueGovernor governor = new FatigueGovernor();
 
     private HapticScene scene(String id, HapticLayer layer, long created, long expiry) {
         return new HapticScene(id, GameEventKind.ATTACK, layer.priority(), List.of(layer),
@@ -64,11 +63,12 @@ class SceneMixerTest {
         DeviceRegistrySnapshot snap = Devices.registryWith(Devices.hwPosition(0, "stroker"));
 
         SceneMixer mixer = new SceneMixer();
-        mixer.add(strokeScene);
-        EndpointTarget atStart = only(mixer.render(snap, motionCfg, governor, false, 0));
-        mixer.clear();
-        mixer.add(strokeScene);
-        EndpointTarget atHalf = only(mixer.render(snap, motionCfg, governor, false, 400 * MS));
+        SceneStore store = new SceneStore();
+        store.add(strokeScene);
+        EndpointTarget atStart = only(mixer.render(store.snapshot(), snap, motionCfg, 0));
+        store.clear();
+        store.add(strokeScene);
+        EndpointTarget atHalf = only(mixer.render(store.snapshot(), snap, motionCfg, 400 * MS));
 
         assertTrue(atStart.level() > 0.6f, "first half strokes toward the high bound");
         assertTrue(atHalf.level() < 0.4f, "second half strokes toward the low bound");
@@ -84,9 +84,10 @@ class SceneMixerTest {
     @Test
     void vibrationImpulseRoutesToFeature() {
         SceneMixer mixer = new SceneMixer();
-        mixer.add(scene("a", vibeLayer("l", 0.8f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
+        SceneStore store = new SceneStore();
+        store.add(scene("a", vibeLayer("l", 0.8f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
         Map<String, EndpointTarget> targets =
-                mixer.render(Devices.singleVibrate(), cfg, governor, false, 20 * MS);
+                mixer.render(store.snapshot(), Devices.singleVibrate(), cfg, 20 * MS);
         assertEquals(1, targets.size());
         EndpointTarget t = targets.values().iterator().next();
         assertEquals(0.8f, t.level(), 1e-3);
@@ -97,8 +98,9 @@ class SceneMixerTest {
         // 0.10 is below the default 0.22 start-threshold, so it is lifted to be felt on a motor with a
         // dead zone; the default device setting supplies the threshold.
         SceneMixer mixer = new SceneMixer();
-        mixer.add(scene("weak", vibeLayer("l", 0.10f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
-        EndpointTarget t = only(mixer.render(Devices.singleVibrate(), cfg, governor, false, 20 * MS));
+        SceneStore store = new SceneStore();
+        store.add(scene("weak", vibeLayer("l", 0.10f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
+        EndpointTarget t = only(mixer.render(store.snapshot(), Devices.singleVibrate(), cfg, 20 * MS));
         assertEquals((float) DeviceSetting.DEFAULT_MIN_LEVEL, t.level(), 1e-3);
     }
 
@@ -114,24 +116,26 @@ class SceneMixerTest {
     @Test
     void disabledOutputKindNotRendered() {
         SceneMixer mixer = new SceneMixer();
-        mixer.add(scene("a", vibeLayer("l", 0.8f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
+        SceneStore store = new SceneStore();
+        store.add(scene("a", vibeLayer("l", 0.8f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
         // Device only has Oscillate; with Oscillate forced off in policy, nothing routes.
         RuntimeConfig oscOff =
                 Configs.withOutputOff(MinegasmMode.IMMERSION, RecipePackId.BALANCED, "Oscillate");
         DeviceRegistrySnapshot oscOnly = Devices.registryWith(Devices.oscillateOnly(0, "osc"));
-        assertTrue(mixer.render(oscOnly, oscOff, governor, false, 20 * MS).isEmpty());
+        assertTrue(mixer.render(store.snapshot(), oscOnly, oscOff, 20 * MS).isEmpty());
     }
 
     @Test
     void exclusiveLayerDominatesHigherLevel() {
         SceneMixer mixer = new SceneMixer();
+        SceneStore store = new SceneStore();
         // A louder non-exclusive layer and a quieter exclusive higher-priority layer collide.
-        mixer.add(scene("loud", vibeLayer("loud", 0.9f, CouplingMode.MAX, Priorities.MINING_TEXTURE),
+        store.add(scene("loud", vibeLayer("loud", 0.9f, CouplingMode.MAX, Priorities.MINING_TEXTURE),
                 0, 250 * MS));
-        mixer.add(scene("excl", vibeLayer("excl", 0.3f, CouplingMode.EXCLUSIVE, Priorities.EXPLOSION),
+        store.add(scene("excl", vibeLayer("excl", 0.3f, CouplingMode.EXCLUSIVE, Priorities.EXPLOSION),
                 0, 250 * MS));
         Map<String, EndpointTarget> targets =
-                mixer.render(Devices.singleVibrate(), cfg, governor, false, 20 * MS);
+                mixer.render(store.snapshot(), Devices.singleVibrate(), cfg, 20 * MS);
         EndpointTarget t = targets.values().iterator().next();
         assertEquals(0.3f, t.level(), 1e-3, "exclusive high-priority layer ducks the louder one");
     }
@@ -139,8 +143,9 @@ class SceneMixerTest {
     @Test
     void expiredLayerProducesNoTarget() {
         SceneMixer mixer = new SceneMixer();
-        mixer.add(scene("a", vibeLayer("l", 0.8f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
-        mixer.update(300 * MS);
-        assertTrue(mixer.render(Devices.singleVibrate(), cfg, governor, false, 300 * MS).isEmpty());
+        SceneStore store = new SceneStore();
+        store.add(scene("a", vibeLayer("l", 0.8f, CouplingMode.MAX, Priorities.HURT), 0, 250 * MS));
+        store.update(300 * MS);
+        assertTrue(mixer.render(store.snapshot(), Devices.singleVibrate(), cfg, 300 * MS).isEmpty());
     }
 }

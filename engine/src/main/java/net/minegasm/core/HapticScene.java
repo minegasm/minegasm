@@ -61,6 +61,12 @@ public final class HapticScene {
         return layers;
     }
 
+    /** A copy of this scene with its layers replaced (id, kind, priority, and timing unchanged). */
+    public HapticScene withLayers(List<HapticLayer> replacement) {
+        return new HapticScene(sceneId, kind, priority, replacement, createdAtNs, expiresAtNs,
+                continuousKey);
+    }
+
     public long createdAtNs() {
         return createdAtNs;
     }

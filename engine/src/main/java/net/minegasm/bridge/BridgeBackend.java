@@ -13,14 +13,15 @@ import java.net.URI;
  * for integrations that do not justify code in the mod (XToys, DIY hardware, eventually OpenShock). The
  * socket lives behind {@link BridgeTransport} in the loader layer; this class is Java 8 and library-free.
  *
- * <p><b>v1 scope.</b> The coordinator fans out raw, pre-mix scenes: mixing, fatigue, and
- * {@code SafetyCaps} live in the Buttplug worker, not centrally (brief 0003 §3.3). So the bridge emits
- * ungoverned, unmixed scenes, fine for vibration-class adapters but nothing stronger; lifting the central
- * mixer/governor/body-budget up (§3.3, ADR-018) is a hard prerequisite before any electrostim adapter
- * rides this bridge (ADR-016 requires shock governed against the central body budget). Outbound frames go
- * through a bounded, one-in-flight {@link OutboundQueue} that drops oldest when full, so a burst cannot
- * grow memory and a stop cannot be overtaken. It does not yet coalesce continuous scenes (re-offered each
- * tick); the same §3.3 lift provides that for free.
+ * <p><b>Governed input.</b> The bridge now consumes the central governed set (ADR-018): scenes arrive
+ * already coalesced and fatigue-attenuated from {@link net.minegasm.runtime.SceneGovernor} via
+ * {@link net.minegasm.runtime.GovernedSceneForwarder}, which forwards a scene only when its content
+ * changes or its TTL needs refreshing, so a steady continuous effect is sent once rather than every tick.
+ * Scene-level {@code SafetyCaps} still apply per backend at render for Buttplug; the aggregate body
+ * budget (Phase 6) will attenuate the governed scene centrally before it reaches here, the prerequisite
+ * before any electrostim adapter rides this bridge (ADR-016). Outbound frames go through a bounded,
+ * one-in-flight {@link OutboundQueue} that drops oldest when full, so a burst cannot grow memory and a
+ * stop cannot be overtaken; every frame also carries a TTL so a dropped connection self-clears.
  */
 public final class BridgeBackend implements HapticBackend {
 
@@ -54,7 +55,11 @@ public final class BridgeBackend implements HapticBackend {
         lastHealthyCycleNs = clock.nanoTime();
     }
 
-    @Override
+    /**
+     * Deliver one already-governed scene to the adapter (the sink for {@link
+     * net.minegasm.runtime.GovernedSceneForwarder}). Not part of {@link HapticBackend}: scenes reach the
+     * bridge change-driven from the governed set, not through the coordinator's lifecycle fan-out.
+     */
     public void submit(HapticScene scene) {
         if (!outputEnabled || !transport.isOpen()) {
             return; // panic-latched or no adapter connected: drop, do not buffer stale output

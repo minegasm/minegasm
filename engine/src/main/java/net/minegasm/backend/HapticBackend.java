@@ -1,17 +1,17 @@
 package net.minegasm.backend;
 
-import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
 
 /**
- * One output backend behind the engine's device-neutral seam (brief 0003 §3.2). The fan-out currency is
- * the device-independent {@link HapticScene}, so Buttplug, a future spatial backend, or a bridge each
- * implement this and swap in without touching observation, intents, or recipes. {@link ButtplugBackend}
- * is the first, wrapping the existing worker; the {@link BackendCoordinator} owns every enabled backend.
+ * One output backend behind the engine's device-neutral seam (brief 0003 §3.2). Scene fan-out is now
+ * governed centrally (ADR-018): the {@link net.minegasm.runtime.SceneGovernor} holds and governs scenes,
+ * the worker pulls the governed set, and a semantic backend receives it change-driven. So this interface
+ * carries lifecycle, not scene delivery: the {@link BackendCoordinator} fans start/stop/pause/close to
+ * every backend, but scenes reach each backend through the governor, not through this interface.
  *
- * <p>{@code submit} and {@code stop} must be non-blocking to the caller, and {@code stop} must take
- * effect synchronously (when it returns, output is stopping and no later cycle can reassert it): the
- * in-memory clear happens inline, any hardware/network I/O off the caller's thread inside the backend.
+ * <p>{@code stop} must be non-blocking to the caller and take effect synchronously (when it returns,
+ * output is stopping and no later cycle can reassert it): the in-memory clear happens inline, any
+ * hardware/network I/O off the caller's thread inside the backend.
  */
 public interface HapticBackend extends AutoCloseable {
 
@@ -20,9 +20,6 @@ public interface HapticBackend extends AutoCloseable {
 
     /** Begin running (start the worker loop, open a connection, etc.). */
     void start();
-
-    /** Submit a device-independent scene to render. Must not block the caller. */
-    void submit(HapticScene scene);
 
     /** Stop all output for this backend now. Must be non-blocking and take effect synchronously. */
     void stop(StopReason reason);
