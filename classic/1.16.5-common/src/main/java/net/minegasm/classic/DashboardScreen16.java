@@ -93,10 +93,7 @@ public final class DashboardScreen16 extends Screen {
         }));
         clearErrors.active = !errors.isEmpty();
 
-        // Left column: live controls.
-        addButton(new Button(leftX, y, columnWidth, h,
-                new TextComponent("Haptics: " + onOff(enabled)), b -> toggleEnabled()));
-        y += gap;
+        // Left column: live Buttplug controls (master output and stop live on the hub).
         addButton(new Button(leftX, y, columnWidth, h,
                 new TextComponent(adapterLabel()), b -> toggleAdapter()));
         y += gap;
@@ -122,29 +119,16 @@ public final class DashboardScreen16 extends Screen {
         y += gap;
 
         boolean panic = !client.runtime().worker().isOutputEnabled();
-        Button test = addButton(new Button(leftX, y, half, h,
+        Button test = addButton(new Button(leftX, y, columnWidth, h,
                 new TextComponent("Test"), b -> client.testPulse(0.25f)));
         test.active = enabled && connected && devices.size() > 0 && !panic;
-        addButton(new Button(leftX + half + 4, y, half, h,
-                new TextComponent(panic ? "Resume" : "Stop"), b -> togglePanic()));
         y += gap;
 
-        addButton(new Button(leftX, y, half, h,
-                new TextComponent("Settings..."), b -> openSettings()));
-        addButton(new Button(leftX + half + 4, y, half, h,
-                new TextComponent("Scene packs..."), b -> openScenePacks()));
-        y += gap;
-
-        addButton(new Button(leftX, y, half, h,
-                new TextComponent("Customization..."), b -> openCustomization()));
-        addButton(new Button(leftX + half + 4, y, half, h,
+        // Device editor is Buttplug-specific, so it stays on this integration screen; the global screens
+        // live on the hub.
+        addButton(new Button(leftX, y, columnWidth, h,
                 new TextComponent("Device editor..."), b -> openDeviceEditor()));
         y += gap;
-
-        if (client.hasLegacyConfig()) {
-            addButton(new Button(leftX, y, columnWidth, h,
-                    new TextComponent("Import legacy config..."), b -> openLegacyImport()));
-        }
 
         addButton(new Button(leftX, height - 24, columnWidth, h,
                 new TextComponent("Done"), b -> onClose()));
@@ -215,20 +199,6 @@ public final class DashboardScreen16 extends Screen {
         init();
     }
 
-    private void toggleEnabled() {
-        HapticConfig cfg = client.config().raw();
-        HapticConfig.Global g = cfg.global();
-        HapticConfig updated = new HapticConfig(cfg.schemaVersion(), cfg.profile(),
-                new HapticConfig.Global(!g.enabled(), g.intensity(), g.variation(),
-                        g.fatigueProtection(), g.pauseBehavior(), g.stopOnWorldUnload(), g.panicKey(),
-                        g.testMaxPercent(), g.testMaxDurationMs(),
-                        g.unsafeTestMaxPercent(), g.unsafeTestMaxDurationMs()),
-                cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridges());
-        client.updateConfig(updated);
-        rebuild();
-    }
-
     /** Flip the Buttplug backend between buttplug4j and native, preserving everything else. The change
      *  takes effect on the next launch, so the button shows a restart hint once toggled. */
     private void toggleAdapter() {
@@ -262,47 +232,18 @@ public final class DashboardScreen16 extends Screen {
         client.refreshDevices().whenComplete((result, error) -> refreshAfterAsync());
     }
 
-    private void togglePanic() {
-        if (client.runtime().worker().isOutputEnabled()) {
-            client.panic();
-        } else {
-            client.clearPanic();
-        }
-        rebuild();
-    }
-
     private void refreshAfterAsync() {
         if (minecraft != null) {
             minecraft.execute(this::rebuild);
         }
     }
 
-    private void openSettings() {
-        minecraft.setScreen(new SettingsScreen16(this, client));
-    }
-
-    private void openScenePacks() {
-        minecraft.setScreen(new ScenePackScreen16(this, client));
-    }
-
-    private void openCustomization() {
-        minecraft.setScreen(new CustomizationScreen16(this, client));
-    }
-
     private void openDeviceEditor() {
         minecraft.setScreen(new DeviceEditorScreen16(this, client));
-    }
-
-    private void openLegacyImport() {
-        minecraft.setScreen(new LegacyImportScreen16(this, client));
     }
 
     @Override
     public void onClose() {
         minecraft.setScreen(parent);
-    }
-
-    private static String onOff(boolean value) {
-        return value ? "ON" : "OFF";
     }
 }

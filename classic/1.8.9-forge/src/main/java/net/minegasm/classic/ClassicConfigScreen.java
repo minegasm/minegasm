@@ -46,12 +46,10 @@ public final class ClassicConfigScreen extends GuiScreen {
     private final GuiScreen parent;
     private final MinegasmClient client;
 
-    private GuiButton enabledBtn;
     private GuiButton connectBtn;
     private GuiButton scanBtn;
     private GuiButton refreshBtn;
     private GuiButton testBtn;
-    private GuiButton panicBtn;
     private GuiButton adapterBtn;
     private GuiButton clearErrorsBtn;
 
@@ -88,9 +86,7 @@ public final class ClassicConfigScreen extends GuiScreen {
         errorTop = 132;
         errorHeight = Math.max(28, height - 144);
 
-        enabledBtn = new GuiButton(ID_ENABLED, leftX, y, columnWidth, h, enabledLabel());
-        buttonList.add(enabledBtn);
-        y += gap;
+        // Buttplug controls only; master output and stop live on the hub.
         adapterBtn = new GuiButton(ID_ADAPTER, leftX, y, columnWidth, h, adapterLabel());
         buttonList.add(adapterBtn);
         y += gap;
@@ -102,20 +98,11 @@ public final class ClassicConfigScreen extends GuiScreen {
         buttonList.add(scanBtn);
         buttonList.add(refreshBtn);
         y += gap;
-        testBtn = new GuiButton(ID_TEST, leftX, y, half, h, "Test");
-        panicBtn = new GuiButton(ID_PANIC, leftX + half + 4, y, half, h, panicLabel());
+        testBtn = new GuiButton(ID_TEST, leftX, y, columnWidth, h, "Test");
         buttonList.add(testBtn);
-        buttonList.add(panicBtn);
         y += gap;
-        buttonList.add(new GuiButton(ID_SETTINGS, leftX, y, half, h, "Settings..."));
-        buttonList.add(new GuiButton(ID_SCENE_PACKS, leftX + half + 4, y, half, h, "Scene packs..."));
+        buttonList.add(new GuiButton(ID_DEVICE_EDITOR, leftX, y, columnWidth, h, "Device editor..."));
         y += gap;
-        buttonList.add(new GuiButton(ID_CUSTOMIZATION, leftX, y, half, h, "Customization..."));
-        buttonList.add(new GuiButton(ID_DEVICE_EDITOR, leftX + half + 4, y, half, h, "Device editor..."));
-        y += gap;
-        if (client.hasLegacyConfig()) {
-            buttonList.add(new GuiButton(ID_LEGACY, leftX, y, columnWidth, h, "Import legacy config..."));
-        }
         buttonList.add(new GuiButton(ID_DONE, leftX, height - 24, columnWidth, h, "Done"));
 
         clearErrorsBtn = new GuiButton(ID_CLEAR_ERRORS, rightX + columnWidth - 44, 117, 44, 14, "Clear");
@@ -127,9 +114,6 @@ public final class ClassicConfigScreen extends GuiScreen {
     @Override
     protected void actionPerformed(GuiButton button) throws IOException {
         switch (button.id) {
-            case ID_ENABLED:
-                toggleEnabled();
-                break;
             case ID_CONNECT:
                 if (client.isConnected()) {
                     client.disconnect();
@@ -150,33 +134,14 @@ public final class ClassicConfigScreen extends GuiScreen {
             case ID_TEST:
                 client.testPulse(0.25f);
                 break;
-            case ID_PANIC:
-                if (client.runtime().worker().isOutputEnabled()) {
-                    client.panic();
-                } else {
-                    client.clearPanic();
-                }
-                break;
             case ID_CLEAR_ERRORS:
                 client.clearErrorHistory();
-                break;
-            case ID_SETTINGS:
-                mc.displayGuiScreen(new ClassicSettingsScreen(this));
-                break;
-            case ID_SCENE_PACKS:
-                mc.displayGuiScreen(new ClassicScenePackScreen(this));
                 break;
             case ID_ADAPTER:
                 toggleAdapter();
                 break;
-            case ID_CUSTOMIZATION:
-                mc.displayGuiScreen(new CustomizationScreen(this));
-                break;
             case ID_DEVICE_EDITOR:
                 mc.displayGuiScreen(new DeviceEditorScreen(this));
-                break;
-            case ID_LEGACY:
-                mc.displayGuiScreen(new ClassicLegacyImportScreen(this));
                 break;
             case ID_DONE:
                 mc.displayGuiScreen(parent);
@@ -307,12 +272,6 @@ public final class ClassicConfigScreen extends GuiScreen {
         return px >= x && px < x + w && py >= y && py < y + h;
     }
 
-    private void toggleEnabled() {
-        ClassicConfigModel model = new ClassicConfigModel(client.config().raw());
-        model.enabled = !model.enabled;
-        model.apply(client);
-    }
-
     /** Flip the Buttplug backend between buttplug4j and native, live (no restart needed). */
     private void toggleAdapter() {
         String next = "native".equalsIgnoreCase(client.backend()) ? "buttplug4j" : "native";
@@ -334,9 +293,6 @@ public final class ClassicConfigScreen extends GuiScreen {
         boolean panicked = !client.runtime().worker().isOutputEnabled();
         boolean enabled = client.config().enabled();
 
-        if (enabledBtn != null) {
-            enabledBtn.displayString = enabledLabel();
-        }
         if (adapterBtn != null) {
             adapterBtn.displayString = adapterLabel();
         }
@@ -351,9 +307,6 @@ public final class ClassicConfigScreen extends GuiScreen {
         if (refreshBtn != null) {
             refreshBtn.enabled = connected && !busy;
         }
-        if (panicBtn != null) {
-            panicBtn.displayString = panicLabel();
-        }
         if (testBtn != null) {
             testBtn.enabled = enabled && connected
                     && client.status().deviceCount() > 0 && !panicked;
@@ -363,20 +316,12 @@ public final class ClassicConfigScreen extends GuiScreen {
         }
     }
 
-    private String enabledLabel() {
-        return "Haptics: " + (client.config().enabled() ? "ON" : "OFF");
-    }
-
     private String connectLabel() {
         return client.isConnected() ? "Disconnect" : "Connect";
     }
 
     private String scanLabel() {
         return client.status().state() == ConnectionState.SCANNING ? "Stop scan" : "Scan";
-    }
-
-    private String panicLabel() {
-        return client.runtime().worker().isOutputEnabled() ? "Stop" : "Resume";
     }
 
     private String stateName() {

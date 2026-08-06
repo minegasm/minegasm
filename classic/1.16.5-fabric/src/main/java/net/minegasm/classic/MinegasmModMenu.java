@@ -12,6 +12,6 @@ public final class MinegasmModMenu implements ModMenuApi {
 
     @Override
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
-        return DashboardScreen16::new;
+        return HubScreen16::new;
     }
 }

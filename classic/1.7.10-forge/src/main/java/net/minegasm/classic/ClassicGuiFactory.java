@@ -22,7 +22,7 @@ public final class ClassicGuiFactory implements IModGuiFactory {
 
     @Override
     public Class<? extends GuiScreen> mainConfigGuiClass() {
-        return ClassicConfigScreen.class;
+        return ClassicHubScreen.class;
     }
 
     @Override

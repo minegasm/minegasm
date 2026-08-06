@@ -28,7 +28,7 @@ public final class ClassicGuiFactory implements IModGuiFactory {
 
     @Override
     public GuiScreen createConfigGui(GuiScreen parent) {
-        return new ClassicConfigScreen(parent);
+        return new ClassicHubScreen(parent);
     }
 
     @Override

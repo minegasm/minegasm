@@ -58,7 +58,7 @@ public final class MinegasmClassicMod {
 
         // Mods-list "Config" button -> the shared settings screen.
         ModLoadingContext.get().registerExtensionPoint(ExtensionPoint.CONFIGGUIFACTORY,
-                () -> (BiFunction<Minecraft, Screen, Screen>) (mc, parent) -> new DashboardScreen16(parent));
+                () -> (BiFunction<Minecraft, Screen, Screen>) (mc, parent) -> new HubScreen16(parent));
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
