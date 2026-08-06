@@ -91,7 +91,7 @@ class DeviceEditorModelTest {
         HapticConfig original = new HapticConfig(defaults.schemaVersion(), defaults.profile(),
                 defaults.global(), defaults.buttplug(), defaults.events(), defaults.outputPolicy(),
                 devices, defaults.positionCalibrations(), defaults.accumulation(),
-                defaults.customIntensity(), defaults.bridge());
+                defaults.customIntensity(), defaults.bridges());
 
         // The device currently connected is NOT the one in `devices` above.
         DeviceEditorModel model = new DeviceEditorModel(original, List.of(strokerDevice()));

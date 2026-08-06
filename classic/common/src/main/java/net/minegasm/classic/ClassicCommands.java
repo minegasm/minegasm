@@ -169,7 +169,7 @@ public final class ClassicCommands {
 
     private static void bridge(MinegasmClient client, Feedback out, String[] args) {
         HapticConfig cfg = client.config().raw();
-        HapticConfig.Bridge b = cfg.bridge();
+        HapticConfig.Bridge b = cfg.bridges().get(0);
         if (args.length < 2) {
             out.info("Bridge: " + (b.enabled() ? "on" : "off")
                     + " (" + b.transport() + " " + b.url() + "). Use: /minegasm bridge on|off");
@@ -185,10 +185,11 @@ public final class ClassicCommands {
             out.error("Use: /minegasm bridge on|off");
             return;
         }
+        java.util.List<HapticConfig.Bridge> bridges = new java.util.ArrayList<>(cfg.bridges());
+        bridges.set(0, new HapticConfig.Bridge(b.name(), enable, b.url(), b.transport(), b.allowRemote()));
         client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(),
-                new HapticConfig.Bridge(enable, b.url(), b.transport(), b.allowRemote())));
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), bridges));
         out.info("Bridge " + (enable ? "enabled" : "disabled")
                 + ". Restart Minecraft for it to take effect.");
     }
@@ -211,7 +212,7 @@ public final class ClassicCommands {
                                       HapticConfig.Profile profile) {
         client.updateConfig(new HapticConfig(cfg.schemaVersion(), profile, cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridges()));
     }
 
     private static String names(Enum<?>[] values) {

@@ -34,7 +34,7 @@ class CustomizationModelTest {
 
         return new HapticConfig(defaults.schemaVersion(), defaults.profile(), defaults.global(),
                 defaults.buttplug(), defaults.events(), defaults.outputPolicy(), devices, calibrations,
-                defaults.accumulation(), defaults.customIntensity(), defaults.bridge());
+                defaults.accumulation(), defaults.customIntensity(), defaults.bridges());
     }
 
     @Test

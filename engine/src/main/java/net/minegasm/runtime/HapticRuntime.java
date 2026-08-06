@@ -4,7 +4,7 @@ import net.minegasm.backend.BackendCoordinator;
 import net.minegasm.backend.ButtplugBackend;
 import net.minegasm.backend.HapticBackend;
 import net.minegasm.bridge.BridgeBackend;
-import net.minegasm.bridge.BridgeTransport;
+import net.minegasm.bridge.BridgeEndpoint;
 import net.minegasm.buttplug.HapticProvider;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.core.HapticIntent;
@@ -18,7 +18,6 @@ import net.minegasm.pack.PackRegistry;
 import net.minegasm.recipe.RecipeEngine;
 import net.minegasm.time.Clock;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -61,12 +60,12 @@ public final class HapticRuntime {
     }
 
     /**
-     * @param bridgeTransport an outbound bridge transport to fan scenes to a local adapter, or null for
-     *     no bridge (the loader injects it only when the bridge is enabled and passed the loopback/remote
-     *     check; brief 0003 §3.4).
+     * @param bridgeEndpoints outbound bridge endpoints to fan scenes to local adapters, or null/empty for
+     *     no bridge. Each becomes its own {@link BridgeBackend} so several run at once (multi-endpoint);
+     *     the client builds one per enabled, allowed bridge (brief 0003 §3.4).
      */
     public HapticRuntime(HapticProvider provider, Clock clock, Supplier<RuntimeConfig> config,
-                         PackRegistry packs, BridgeTransport bridgeTransport) {
+                         PackRegistry packs, List<BridgeEndpoint> bridgeEndpoints) {
         this.provider = provider;
         this.clock = clock;
         this.config = config;
@@ -78,8 +77,10 @@ public final class HapticRuntime {
         this.buttplug = new ButtplugBackend(provider, config);
         List<HapticBackend> backends = new ArrayList<>();
         backends.add(buttplug);
-        if (bridgeTransport != null) {
-            backends.add(new BridgeBackend(bridgeTransport, URI.create(config.get().bridgeUrl()), clock));
+        if (bridgeEndpoints != null) {
+            for (BridgeEndpoint endpoint : bridgeEndpoints) {
+                backends.add(new BridgeBackend(endpoint.transport(), endpoint.uri(), endpoint.id(), clock));
+            }
         }
         this.coordinator = new BackendCoordinator(backends);
         this.worker = new HapticWorker(sceneGovernor, coordinator, clock, config);

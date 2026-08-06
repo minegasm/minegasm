@@ -146,21 +146,10 @@ public final class RuntimeConfig {
         return config.buttplug().client();
     }
 
-    // --- local bridge -----------------------------------------------------------------------
+    // --- local bridges ----------------------------------------------------------------------
 
-    public boolean bridgeEnabled() {
-        return config.bridge().enabled();
-    }
-
-    public String bridgeUrl() {
-        return config.bridge().url();
-    }
-
-    public String bridgeTransport() {
-        return config.bridge().transport();
-    }
-
-    public boolean bridgeAllowRemote() {
-        return config.bridge().allowRemote();
+    /** Every configured bridge endpoint (any number, each independently enabled). */
+    public java.util.List<HapticConfig.Bridge> bridges() {
+        return config.bridges();
     }
 }

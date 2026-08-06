@@ -82,7 +82,7 @@ class RuntimeEndToEndTest {
                         global.testMaxDurationMs(), global.unsafeTestMaxPercent(),
                         global.unsafeTestMaxDurationMs()),
                 raw.buttplug(), raw.events(), raw.outputPolicy(), raw.devices(),
-                raw.positionCalibrations(), raw.accumulation(), raw.customIntensity(), raw.bridge()));
+                raw.positionCalibrations(), raw.accumulation(), raw.customIntensity(), raw.bridges()));
     }
 
     private void setPauseBehavior(PauseBehavior behavior) {
@@ -95,7 +95,7 @@ class RuntimeEndToEndTest {
                         global.testMaxPercent(), global.testMaxDurationMs(),
                         global.unsafeTestMaxPercent(), global.unsafeTestMaxDurationMs()),
                 raw.buttplug(), raw.events(), raw.outputPolicy(), raw.devices(),
-                raw.positionCalibrations(), raw.accumulation(), raw.customIntensity(), raw.bridge()));
+                raw.positionCalibrations(), raw.accumulation(), raw.customIntensity(), raw.bridges()));
     }
 
     private List<OutputCommand> triggerHurtAndPump() {

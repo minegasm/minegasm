@@ -89,7 +89,7 @@ public final class LegacyMinegasmImporter {
                 HapticConfig.CURRENT_SCHEMA_VERSION,
                 identity, global, bp,
                 start.events(), start.outputPolicy(), start.devices(),
-                start.positionCalibrations(), start.accumulation(), ci, start.bridge());
+                start.positionCalibrations(), start.accumulation(), ci, start.bridges());
 
         return new ImportPreview(result, summary);
     }

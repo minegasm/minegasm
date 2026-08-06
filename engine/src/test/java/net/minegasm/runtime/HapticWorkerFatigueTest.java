@@ -46,7 +46,7 @@ class HapticWorkerFatigueTest {
                         g.pauseBehavior(), g.stopOnWorldUnload(), g.panicKey(), g.testMaxPercent(),
                         g.testMaxDurationMs(), g.unsafeTestMaxPercent(), g.unsafeTestMaxDurationMs()),
                 raw.buttplug(), raw.events(), raw.outputPolicy(), raw.devices(),
-                raw.positionCalibrations(), raw.accumulation(), raw.customIntensity(), raw.bridge()));
+                raw.positionCalibrations(), raw.accumulation(), raw.customIntensity(), raw.bridges()));
     }
 
     private static HapticScene sustainedTexture(long createdNs) {

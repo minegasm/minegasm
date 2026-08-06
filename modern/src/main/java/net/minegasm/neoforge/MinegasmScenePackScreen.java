@@ -80,7 +80,7 @@ public final class MinegasmScenePackScreen extends Screen {
         HapticConfig updated = new HapticConfig(cfg.schemaVersion(),
                 new HapticConfig.Profile(packId, p.hapticMode()),
                 cfg.global(), cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridges());
         client.updateConfig(updated);
         rebuildWidgets();
     }

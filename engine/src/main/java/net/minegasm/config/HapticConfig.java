@@ -5,6 +5,7 @@ import net.minegasm.core.OutputKind;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -30,12 +31,12 @@ public final class HapticConfig implements ConfigValue {
     private final Map<String, PositionCalibration> positionCalibrations;
     private final AccumulationParams accumulation;
     private final CustomIntensities customIntensity;
-    private final Bridge bridge;
+    private final List<Bridge> bridges;
 
     /**
-     * Full constructor including the bridge section. The Gson adapter uses this one (it matches every
-     * instance field). New code that needs to set the bridge calls it directly; older call sites use the
-     * shorter constructor below, which defaults the bridge.
+     * Full constructor including the bridge list. The Gson adapter uses this one (it matches every
+     * instance field). New code that needs to set the bridges calls it directly; older call sites use the
+     * shorter constructor below, which defaults them.
      */
     public HapticConfig(
             int schemaVersion,
@@ -48,7 +49,7 @@ public final class HapticConfig implements ConfigValue {
             Map<String, PositionCalibration> positionCalibrations,
             AccumulationParams accumulation,
             CustomIntensities customIntensity,
-            Bridge bridge) {
+            List<Bridge> bridges) {
         this.schemaVersion = schemaVersion <= 0 ? CURRENT_SCHEMA_VERSION : schemaVersion;
         this.profile = profile == null ? Profile.defaults() : profile;
         this.global = global == null ? Global.defaults() : global;
@@ -63,7 +64,9 @@ public final class HapticConfig implements ConfigValue {
         this.accumulation = accumulation == null ? AccumulationParams.defaults() : accumulation;
         this.customIntensity = customIntensity == null
                 ? CustomIntensities.legacyDefaults() : customIntensity;
-        this.bridge = bridge == null ? Bridge.defaults() : bridge;
+        this.bridges = bridges == null || bridges.isEmpty()
+                ? defaultBridges()
+                : Collections.unmodifiableList(new java.util.ArrayList<>(bridges));
     }
 
     private static <K, V> Map<K, V> unmodifiableCopy(Map<K, V> source) {
@@ -110,8 +113,8 @@ public final class HapticConfig implements ConfigValue {
         return customIntensity;
     }
 
-    public Bridge bridge() {
-        return bridge;
+    public List<Bridge> bridges() {
+        return bridges;
     }
 
     @Override
@@ -124,7 +127,7 @@ public final class HapticConfig implements ConfigValue {
         }
         HapticConfig other = (HapticConfig) o;
         return schemaVersion == other.schemaVersion
-                && Objects.equals(bridge, other.bridge)
+                && Objects.equals(bridges, other.bridges)
                 && Objects.equals(profile, other.profile)
                 && Objects.equals(global, other.global)
                 && Objects.equals(buttplug, other.buttplug)
@@ -139,7 +142,7 @@ public final class HapticConfig implements ConfigValue {
     @Override
     public int hashCode() {
         return Objects.hash(schemaVersion, profile, global, buttplug, events, outputPolicy, devices,
-                positionCalibrations, accumulation, customIntensity, bridge);
+                positionCalibrations, accumulation, customIntensity, bridges);
     }
 
     @Override
@@ -148,7 +151,7 @@ public final class HapticConfig implements ConfigValue {
                 + ", global=" + global + ", buttplug=" + buttplug + ", events=" + events
                 + ", outputPolicy=" + outputPolicy + ", devices=" + devices
                 + ", positionCalibrations=" + positionCalibrations + ", accumulation=" + accumulation
-                + ", customIntensity=" + customIntensity + ", bridge=" + bridge + "]";
+                + ", customIntensity=" + customIntensity + ", bridges=" + bridges + "]";
     }
 
     /** Recipe pack + haptic mode selection. */
@@ -456,17 +459,24 @@ public final class HapticConfig implements ConfigValue {
      * opt-in.
      */
     public static final class Bridge implements ConfigValue {
+        private final String name;
         private final boolean enabled;
         private final String url;
         private final String transport;
         private final boolean allowRemote;
 
-        public Bridge(boolean enabled, String url, String transport, boolean allowRemote) {
+        public Bridge(String name, boolean enabled, String url, String transport, boolean allowRemote) {
+            this.name = name == null || name.trim().isEmpty() ? "bridge" : name.trim();
             this.enabled = enabled;
             this.url = url == null || url.trim().isEmpty() ? "tcp://127.0.0.1:12347" : url;
             this.transport = transport == null || transport.trim().isEmpty()
                     ? "tcp" : transport.trim().toLowerCase(java.util.Locale.ROOT);
             this.allowRemote = allowRemote;
+        }
+
+        /** A user-facing label unique among endpoints, so several bridges can be told apart. */
+        public String name() {
+            return name;
         }
 
         public boolean enabled() {
@@ -488,7 +498,7 @@ public final class HapticConfig implements ConfigValue {
         }
 
         public static Bridge defaults() {
-            return new Bridge(false, "tcp://127.0.0.1:12347", "tcp", false);
+            return new Bridge("local", false, "tcp://127.0.0.1:12347", "tcp", false);
         }
 
         @Override
@@ -502,20 +512,26 @@ public final class HapticConfig implements ConfigValue {
             Bridge other = (Bridge) o;
             return enabled == other.enabled
                     && allowRemote == other.allowRemote
+                    && Objects.equals(name, other.name)
                     && Objects.equals(url, other.url)
                     && Objects.equals(transport, other.transport);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(enabled, url, transport, allowRemote);
+            return Objects.hash(name, enabled, url, transport, allowRemote);
         }
 
         @Override
         public String toString() {
-            return "Bridge[enabled=" + enabled + ", url=" + url + ", transport=" + transport
-                    + ", allowRemote=" + allowRemote + "]";
+            return "Bridge[name=" + name + ", enabled=" + enabled + ", url=" + url + ", transport="
+                    + transport + ", allowRemote=" + allowRemote + "]";
         }
+    }
+
+    /** Default set of bridge endpoints: one disabled loopback entry, so a fresh install has a row to edit. */
+    public static java.util.List<Bridge> defaultBridges() {
+        return Collections.singletonList(Bridge.defaults());
     }
 
     /** A complete default configuration (matches {@code config.example.yaml} intent). */
@@ -531,7 +547,7 @@ public final class HapticConfig implements ConfigValue {
                 Collections.emptyMap(),
                 AccumulationParams.defaults(),
                 CustomIntensities.legacyDefaults(),
-                Bridge.defaults());
+                defaultBridges());
     }
 
     private static Map<String, EventSetting> defaultEvents() {

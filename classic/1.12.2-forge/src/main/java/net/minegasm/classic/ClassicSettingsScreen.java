@@ -270,7 +270,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
 
     private String bridgeLabel() {
         // The bridge backend is built at startup, so a changed value needs a restart to take effect.
-        boolean changed = model.bridgeEnabled != client.config().raw().bridge().enabled();
+        boolean changed = model.bridgeEnabled != client.config().raw().bridges().get(0).enabled();
         return "Bridge: " + onOff(model.bridgeEnabled) + (changed ? " (restart)" : "");
     }
 

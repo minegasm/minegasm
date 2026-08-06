@@ -402,16 +402,17 @@ public final class MinegasmMod {
 
     private void sendBridge(CommandSourceStack source) {
         feedback(source, () -> Component.translatable("minegasm.command.bridge_current",
-                client.config().raw().bridge().enabled() ? "on" : "off"));
+                client.config().raw().bridges().get(0).enabled() ? "on" : "off"));
     }
 
     private int bridgeFromCommand(CommandSourceStack source, boolean enable) {
         HapticConfig cfg = client.config().raw();
-        HapticConfig.Bridge b = cfg.bridge();
+        java.util.List<HapticConfig.Bridge> bridges = new java.util.ArrayList<>(cfg.bridges());
+        HapticConfig.Bridge b = bridges.get(0);
+        bridges.set(0, new HapticConfig.Bridge(b.name(), enable, b.url(), b.transport(), b.allowRemote()));
         client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(),
-                new HapticConfig.Bridge(enable, b.url(), b.transport(), b.allowRemote())));
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), bridges));
         feedback(source, () -> Component.translatable("minegasm.command.bridge_set",
                 enable ? "on" : "off"));
         return 1;
@@ -435,7 +436,7 @@ public final class MinegasmMod {
         HapticConfig cfg = client.config().raw();
         client.updateConfig(new HapticConfig(cfg.schemaVersion(), profile, cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridges()));
     }
 
     private static java.util.List<String> lowerNames(Enum<?>[] values) {

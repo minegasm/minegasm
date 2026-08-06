@@ -53,13 +53,13 @@ public final class Configs {
         policy.putAll(extraPolicy);
         HapticConfig cfg = new HapticConfig(1, id, g, d.buttplug(), d.events(), policy,
                 d.devices(), d.positionCalibrations(), d.accumulation(), d.customIntensity(),
-                d.bridge());
+                d.bridges());
         return RuntimeConfig.of(cfg);
     }
 
     private static HapticConfig rebuild(HapticConfig d, HapticConfig.Profile id, HapticConfig.Global g) {
         return new HapticConfig(1, id, g, d.buttplug(), d.events(), d.outputPolicy(),
                 d.devices(), d.positionCalibrations(), d.accumulation(), d.customIntensity(),
-                d.bridge());
+                d.bridges());
     }
 }

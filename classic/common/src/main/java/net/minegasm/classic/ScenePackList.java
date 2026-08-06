@@ -54,7 +54,7 @@ public final class ScenePackList {
         client.updateConfig(new HapticConfig(cfg.schemaVersion(),
                 new HapticConfig.Profile(id, p.hapticMode()),
                 cfg.global(), cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge()));
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridges()));
     }
 
     private static boolean contains(List<Entry> list, String id) {

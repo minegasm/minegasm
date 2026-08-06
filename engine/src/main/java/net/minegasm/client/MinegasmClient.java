@@ -23,7 +23,7 @@ import net.minegasm.core.Priorities;
 import net.minegasm.device.DeviceRegistrySnapshot;
 import net.minegasm.device.HapticDevice;
 import net.minegasm.device.HapticFeature;
-import net.minegasm.bridge.BridgeTransport;
+import net.minegasm.bridge.BridgeEndpoint;
 import net.minegasm.bridge.TcpLineBridgeTransport;
 import net.minegasm.observe.ClientStateSnapshot;
 import net.minegasm.pack.PackLoader;
@@ -111,7 +111,7 @@ public final class MinegasmClient {
             errorHistory.add("[scene-packs] " + packError);
         }
         this.scenePacks = packs.registry();
-        this.runtime = new HapticRuntime(provider, clock, config::get, scenePacks, buildBridgeTransport());
+        this.runtime = new HapticRuntime(provider, clock, config::get, scenePacks, buildBridgeEndpoints());
         provider.setStatusListener(this::recordProviderError);
     }
 
@@ -121,33 +121,37 @@ public final class MinegasmClient {
     }
 
     /**
-     * Build the outbound bridge transport when the bridge is enabled and its endpoint allowed, else null.
-     * The endpoint must be loopback unless the user opted into remote (same rule as the Buttplug server).
-     * Only the dependency-free TCP transport is built here.
+     * Build an outbound endpoint for every bridge that is enabled and allowed. Each endpoint must be
+     * loopback unless the user opted into remote (same rule as the Buttplug server). Only the
+     * dependency-free TCP transport is built here; a disabled, invalid, or non-loopback bridge is skipped
+     * and surfaced in the error history, never fatal. Several endpoints run at once (multi-endpoint).
      */
-    private BridgeTransport buildBridgeTransport() {
-        RuntimeConfig cfg = config.get();
-        if (!cfg.bridgeEnabled()) {
-            return null;
+    private List<BridgeEndpoint> buildBridgeEndpoints() {
+        List<BridgeEndpoint> endpoints = new ArrayList<>();
+        for (HapticConfig.Bridge bridge : config.get().bridges()) {
+            if (!bridge.enabled()) {
+                continue;
+            }
+            URI uri;
+            try {
+                uri = URI.create(bridge.url());
+            } catch (IllegalArgumentException bad) {
+                errorHistory.add("[bridge:" + bridge.name() + "] invalid endpoint " + bridge.url());
+                continue;
+            }
+            if (!bridge.allowRemote() && !isLoopback(uri)) {
+                errorHistory.add("[bridge:" + bridge.name() + "] refusing non-loopback endpoint "
+                        + safeHost(uri) + " (enable 'allow remote')");
+                continue;
+            }
+            if (!"tcp".equals(bridge.transport())) {
+                errorHistory.add("[bridge:" + bridge.name() + "] transport '" + bridge.transport()
+                        + "' is not available in this build");
+                continue;
+            }
+            endpoints.add(new BridgeEndpoint(bridge.name(), uri, new TcpLineBridgeTransport()));
         }
-        URI uri;
-        try {
-            uri = URI.create(cfg.bridgeUrl());
-        } catch (IllegalArgumentException bad) {
-            errorHistory.add("[bridge] invalid endpoint " + cfg.bridgeUrl());
-            return null;
-        }
-        if (!cfg.bridgeAllowRemote() && !isLoopback(uri)) {
-            errorHistory.add("[bridge] refusing non-loopback endpoint " + safeHost(uri)
-                    + " (enable 'allow remote')");
-            return null;
-        }
-        String transport = cfg.bridgeTransport();
-        if ("tcp".equals(transport)) {
-            return new TcpLineBridgeTransport();
-        }
-        errorHistory.add("[bridge] transport '" + transport + "' is not available in this build");
-        return null;
+        return endpoints;
     }
 
     /**
@@ -280,7 +284,7 @@ public final class MinegasmClient {
                         dg.testMaxPercent(), dg.testMaxDurationMs(),
                         dg.unsafeTestMaxPercent(), dg.unsafeTestMaxDurationMs()),
                 d.buttplug(), d.events(), d.outputPolicy(), d.devices(),
-                d.positionCalibrations(), d.accumulation(), d.customIntensity(), d.bridge());
+                d.positionCalibrations(), d.accumulation(), d.customIntensity(), d.bridges());
         updateConfig(reset);
         return backup;
     }
@@ -317,7 +321,7 @@ public final class MinegasmClient {
                         g.testMaxPercent(), g.testMaxDurationMs(),
                         g.unsafeTestMaxPercent(), g.unsafeTestMaxDurationMs()),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridge());
+                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridges());
         updateConfig(updated);
         return true;
     }
@@ -401,7 +405,7 @@ public final class MinegasmClient {
                 b.allowRemoteServer(), b.reconnect(), normalized);
         updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(), nb, cfg.events(),
                 cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(), cfg.accumulation(),
-                cfg.customIntensity(), cfg.bridge()));
+                cfg.customIntensity(), cfg.bridges()));
         // Quiesce and release the old backend, then install the new one and reconnect if wanted.
         HapticProvider old = provider.current();
         runtime.lifecycle().onConfigReset(); // stop output before the old socket goes away

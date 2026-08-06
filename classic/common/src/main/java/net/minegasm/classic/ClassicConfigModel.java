@@ -63,7 +63,7 @@ public final class ClassicConfigModel {
         this.testMaxDurationMs = g.testMaxDurationMs();
         this.unsafeTestMaxPercent = g.unsafeTestMaxPercent();
         this.unsafeTestMaxDurationMs = g.unsafeTestMaxDurationMs();
-        this.bridgeEnabled = original.bridge().enabled();
+        this.bridgeEnabled = original.bridges().get(0).enabled();
     }
 
     /** Step the pause behavior through Stop -> Pause -> Continue -> Stop. */
@@ -144,14 +144,15 @@ public final class ClassicConfigModel {
         HapticConfig.Buttplug newButtplug = new HapticConfig.Buttplug(
                 serverUrl, autoConnect, autoScan, allowRemote, b.reconnect(), b.client());
 
-        HapticConfig.Bridge ob = original.bridge();
-        HapticConfig.Bridge newBridge = new HapticConfig.Bridge(
-                bridgeEnabled, ob.url(), ob.transport(), ob.allowRemote());
+        java.util.List<HapticConfig.Bridge> newBridges = new java.util.ArrayList<>(original.bridges());
+        HapticConfig.Bridge ob = newBridges.get(0);
+        newBridges.set(0, new HapticConfig.Bridge(
+                ob.name(), bridgeEnabled, ob.url(), ob.transport(), ob.allowRemote()));
 
         return new HapticConfig(original.schemaVersion(), newIdentity, newGlobal, newButtplug,
                 original.events(), original.outputPolicy(), original.devices(),
                 original.positionCalibrations(), original.accumulation(), original.customIntensity(),
-                newBridge);
+                newBridges);
     }
 
     /** Persist the edits through the shared client (which stops output on an enable->disable change). */

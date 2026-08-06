@@ -67,7 +67,7 @@ public final class MinegasmSettingsScreen extends Screen {
         testMaxDurationMs = cfg.global().testMaxDurationMs();
         unsafeTestMaxPercent = cfg.global().unsafeTestMaxPercent();
         unsafeTestMaxDurationMs = cfg.global().unsafeTestMaxDurationMs();
-        bridgeEnabled = cfg.bridge().enabled();
+        bridgeEnabled = cfg.bridges().get(0).enabled();
     }
 
     @Override
@@ -219,7 +219,7 @@ public final class MinegasmSettingsScreen extends Screen {
     private Component bridgeLabel() {
         // Enabling/disabling the bridge changes which backends the runtime builds, which happens at
         // startup, so a changed value shows a restart hint.
-        boolean changed = bridgeEnabled != client.config().raw().bridge().enabled();
+        boolean changed = bridgeEnabled != client.config().raw().bridges().get(0).enabled();
         return Component.translatable(
                 changed ? "minegasm.settings.bridge_restart" : "minegasm.settings.bridge",
                 Component.translatable(bridgeEnabled ? "options.on" : "options.off"));
@@ -275,6 +275,10 @@ public final class MinegasmSettingsScreen extends Screen {
         HapticConfig cfg = client.config().raw();
         var g = cfg.global();
         var bp = cfg.buttplug();
+        java.util.List<HapticConfig.Bridge> bridges = new java.util.ArrayList<>(cfg.bridges());
+        HapticConfig.Bridge b0 = bridges.get(0);
+        bridges.set(0, new HapticConfig.Bridge(b0.name(), bridgeEnabled, b0.url(), b0.transport(),
+                b0.allowRemote()));
         HapticConfig updated = new HapticConfig(cfg.schemaVersion(),
                 new HapticConfig.Profile(client.config().raw().profile().recipePack(), mode.name()),
                 new HapticConfig.Global(g.enabled(), intensity, variation, fatigue,
@@ -284,9 +288,7 @@ public final class MinegasmSettingsScreen extends Screen {
                 new HapticConfig.Buttplug(url, autoConnect, autoScan, allowRemote,
                         bp.reconnect(), bp.client()),
                 cfg.events(), cfg.outputPolicy(), cfg.devices(), cfg.positionCalibrations(),
-                cfg.accumulation(), cfg.customIntensity(),
-                new HapticConfig.Bridge(bridgeEnabled, cfg.bridge().url(), cfg.bridge().transport(),
-                        cfg.bridge().allowRemote()));
+                cfg.accumulation(), cfg.customIntensity(), bridges);
         client.updateConfig(updated);
         onClose();
     }
