@@ -19,11 +19,13 @@ turn the bridge into a ~60/sec sample stream, contradicting its committed wire m
 
 - **Central = scene-level.** Holding, coalescing (continuous scenes latest-wins), expiry, priority and
   ducking between scenes, fatigue attenuation (see below), and later an aggregate body budget applied as
-  level attenuation, all *before* fan-out to backends. This lives in `SceneGovernor`; the worker pulls
-  the governed set from it and the bridge is fed from it change-driven.
+  level attenuation, all *before* fan-out to backends. This lives in `SceneGovernor`. A neutral driver
+  (`HapticWorker`) advances it once per cycle and fans the governed set to every backend; it renders
+  nothing itself.
 - **Per-cycle signal rendering stays per-backend.** Envelope evaluation, per-endpoint coupling,
-  smoothing, calibration, this is `SceneMixer.render`/the worker, and it is genuinely device-specific.
-  It does not move.
+  smoothing, calibration, this is `SceneMixer.render`, and it is genuinely device-specific. It lives in
+  the Buttplug rendering backend, which is the first rendering backend, not a privileged one: a future
+  native integration implements the same `onGovernedScenes` seam and renders concurrently.
 - **The semantic bridge consumes governed scenes unchanged.** Its wire model (scene + primitives +
   TTL) is unaffected. It now receives them coalesced and change-driven from the governor rather than raw
   every tick (`GovernedSceneForwarder`).
@@ -52,20 +54,24 @@ two are close, and the one edge that matters is that the authored level is uncap
 device max or multiplier reaches attenuation somewhat sooner than before. That is safe-direction (fatigue
 only ever *reduces* output).
 
-The governor stays device-neutral: it accrues whatever load the worker tells it to. The worker gates that
-on a device actually being connected (`accountLoad = outputActive && !snapshot.isEmpty()`), so an enabled
-mod with nothing attached never fatigues, which the old per-render path got for free. Fatigue is a
-property of the body, and with nothing attached nothing is driving the body. (The gate keys on the
-Buttplug device snapshot; a bridge-only session does not accrue, matching the pre-lift behavior where the
+The governor stays device-neutral: it accrues whatever load the driver tells it to. The driver gates that
+on a rendering backend actually being able to drive the body (`accountLoad = enabled &&
+coordinator.anyRenderingActive()`, where a rendering backend is active when enabled, not panicked, and
+has a device), so an enabled mod with nothing attached never fatigues, which the old per-render path got
+for free. Fatigue is a property of the body, and with nothing attached nothing is driving the body. (Only
+rendering backends count; a bridge-only session does not accrue, matching the pre-lift behavior where the
 bridge never fatigued at all. Accruing across a genuinely rendering second backend is a refinement for
 when one exists.) The move was done now because the surface is small while the bridge is the only second
 backend, and because the Phase-6 body budget needs exactly this central seam.
 
 **Consequences.** The governance lift was smaller than a signal-level rewrite: `SceneGovernor` holds and
-governs, the worker pulls, the bridge is fed change-driven, and `SceneMixer` shrank to a pure per-cycle
-renderer. It cannot retroactively break the semantic bridge, which is why the bridge transport was built
-first. The aggregate body budget is still not designed here; that is Phase 6 (electrostim), behind its
-threat model, and it slots into the same central attenuation stage fatigue now uses.
+governs, a neutral driver fans the governed set to every backend, and `SceneMixer` shrank to a pure
+per-cycle renderer owned by the Buttplug backend. Rendering (Buttplug) and forwarding (the bridge) both
+became `onGovernedScenes` implementations, so native integrations are first-class and run concurrently
+with each other and the bridge. It cannot retroactively break the semantic bridge, which is why the
+bridge transport was built first. The aggregate body budget is still not designed here; that is Phase 6
+(electrostim), behind its threat model, and it slots into the same central attenuation stage fatigue now
+uses.
 
 **References.** Brief 0003 §3.3 (central governance), ADR-016 (electrostim caps/arming), `SceneGovernor`
 (central hold, coalesce, expiry, fatigue), `SceneStore`, `GovernedSceneForwarder` (change-driven bridge

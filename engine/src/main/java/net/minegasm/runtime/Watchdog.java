@@ -33,7 +33,7 @@ public final class Watchdog {
         long now = clock.nanoTime();
         if (now - last > thresholdNs && now - lastFiredNs > thresholdNs) {
             lastFiredNs = now;
-            worker.requestStop(StopReason.WATCHDOG);
+            worker.stopAll(StopReason.WATCHDOG);
             return true;
         }
         return false;

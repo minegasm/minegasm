@@ -40,6 +40,7 @@ public final class HapticRuntime {
     private final RecipeEngine recipe;
     private final SceneGovernor sceneGovernor = new SceneGovernor();
     private final HapticProvider provider;
+    private final ButtplugBackend buttplug;
     private final HapticWorker worker;
     private final BackendCoordinator coordinator;
     private final LifecycleController lifecycle;
@@ -70,21 +71,19 @@ public final class HapticRuntime {
         this.clock = clock;
         this.config = config;
         this.recipe = new RecipeEngine(packs);
-        this.worker = new HapticWorker(sceneGovernor, provider, clock, config);
-        // Central governance (ADR-018): scenes are held and governed by the SceneGovernor. The worker
-        // pulls the governed set; when a bridge transport is injected, the worker also fans that governed
-        // set to it change-driven. The coordinator now carries lifecycle only. The watchdog stays on the
-        // worker.
+        // Central governance (ADR-018): the SceneGovernor holds and governs scenes; the neutral driver
+        // advances it once per cycle and fans the governed set to every backend. Rendering backends
+        // (Buttplug, and any future native integration) render it to their devices; semantic backends
+        // (the bridge) forward it change-driven. Any number of each run concurrently.
+        this.buttplug = new ButtplugBackend(provider, config);
         List<HapticBackend> backends = new ArrayList<>();
-        backends.add(new ButtplugBackend(worker));
+        backends.add(buttplug);
         if (bridgeTransport != null) {
-            BridgeBackend bridge =
-                    new BridgeBackend(bridgeTransport, URI.create(config.get().bridgeUrl()), clock);
-            backends.add(bridge);
-            worker.setBridgeForwarder(new GovernedSceneForwarder(bridge::submit));
+            backends.add(new BridgeBackend(bridgeTransport, URI.create(config.get().bridgeUrl()), clock));
         }
         this.coordinator = new BackendCoordinator(backends);
-        this.lifecycle = new LifecycleController(coordinator, config);
+        this.worker = new HapticWorker(sceneGovernor, coordinator, clock, config);
+        this.lifecycle = new LifecycleController(worker, config);
         this.watchdog = new Watchdog(worker, clock, WATCHDOG_STALL_MS);
     }
 
@@ -147,16 +146,22 @@ public final class HapticRuntime {
         recipe.tickStroke(cfg, now).ifPresent(scene -> sceneGovernor.submit(scene, now));
     }
 
-    /** Run a single worker cycle now (used by the real loop and by tests). */
+    /**
+     * Advance one cycle now and return the Buttplug commands it dispatched (used by the real loop and by
+     * tests). The driver renders nothing itself; the commands come from the Buttplug rendering backend.
+     */
     public List<net.minegasm.buttplug.OutputCommand> pump(long nowNs) {
-        return worker.cycle(nowNs);
+        worker.cycle(nowNs);
+        return buttplug.lastCommands();
     }
 
     public void start() {
         coordinator.start();
+        worker.start();
     }
 
     public void shutdown() {
+        worker.shutdown();
         coordinator.close();
     }
 

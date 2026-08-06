@@ -1,5 +1,6 @@
 package net.minegasm.backend;
 
+import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
 
 import java.util.ArrayList;
@@ -33,6 +34,36 @@ public final class BackendCoordinator implements AutoCloseable {
         for (HapticBackend b : backends) {
             guard(() -> b.start());
         }
+    }
+
+    /**
+     * Fan the governed scene set to every backend for this cycle (ADR-018). Inline and guarded, so one
+     * backend's render or forward failing cannot skip another or block the driver.
+     */
+    public void onGovernedScenes(final List<HapticScene> governed, final long nowNs) {
+        for (final HapticBackend b : backends) {
+            guard(() -> b.onGovernedScenes(governed, nowNs));
+        }
+    }
+
+    /** Whether any rendering backend is currently able to drive the body, so fatigue should accrue. */
+    public boolean anyRenderingActive() {
+        for (HapticBackend b : backends) {
+            if (b.isRenderingActive()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether any backend's device set changed while paused, so frozen scenes must be discarded. */
+    public boolean anyRegistryChangedSincePause() {
+        for (HapticBackend b : backends) {
+            if (b.registryChangedSincePause()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

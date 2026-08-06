@@ -2,10 +2,12 @@ package net.minegasm.bridge;
 
 import net.minegasm.backend.HapticBackend;
 import net.minegasm.core.HapticScene;
+import net.minegasm.runtime.GovernedSceneForwarder;
 import net.minegasm.runtime.StopReason;
 import net.minegasm.time.Clock;
 
 import java.net.URI;
+import java.util.List;
 
 /**
  * The local-bridge backend (brief 0002 §4.3, 0003 §3.4): fans each scene out as a versioned JSON
@@ -31,22 +33,31 @@ public final class BridgeBackend implements HapticBackend {
     private final BridgeTransport transport;
     private final BridgeCodec codec = new BridgeCodec();
     private final OutboundQueue outbound;
+    private final GovernedSceneForwarder forwarder;
     private final URI endpoint;
+    private final String id;
     private final Clock clock;
 
     private volatile boolean outputEnabled = true;
     private volatile long lastHealthyCycleNs;
 
     public BridgeBackend(BridgeTransport transport, URI endpoint, Clock clock) {
+        this(transport, endpoint, "bridge", clock);
+    }
+
+    /** @param id stable per-endpoint identifier, so several bridges can coexist (multi-endpoint). */
+    public BridgeBackend(BridgeTransport transport, URI endpoint, String id, Clock clock) {
         this.transport = transport;
         this.endpoint = endpoint;
+        this.id = id == null || id.trim().isEmpty() ? "bridge" : id;
         this.clock = clock;
         this.outbound = new OutboundQueue(QUEUE_CAPACITY, transport::send);
+        this.forwarder = new GovernedSceneForwarder(this::submit);
     }
 
     @Override
     public String id() {
-        return "bridge";
+        return id;
     }
 
     @Override
@@ -55,12 +66,15 @@ public final class BridgeBackend implements HapticBackend {
         lastHealthyCycleNs = clock.nanoTime();
     }
 
-    /**
-     * Deliver one already-governed scene to the adapter (the sink for {@link
-     * net.minegasm.runtime.GovernedSceneForwarder}). Not part of {@link HapticBackend}: scenes reach the
-     * bridge change-driven from the governed set, not through the coordinator's lifecycle fan-out.
-     */
-    public void submit(HapticScene scene) {
+    @Override
+    public void onGovernedScenes(List<HapticScene> governed, long nowNs) {
+        // Change-driven: this backend's forwarder decides what actually goes on the wire (steady effects
+        // sent once, TTL re-armed). It self-gates via submit() below when panicked or disconnected.
+        forwarder.forward(governed, nowNs);
+    }
+
+    /** The forwarder's sink: encode one governed scene as an effect frame if the adapter can receive it. */
+    private void submit(HapticScene scene) {
         if (!outputEnabled || !transport.isOpen()) {
             return; // panic-latched or no adapter connected: drop, do not buffer stale output
         }
@@ -70,9 +84,11 @@ public final class BridgeBackend implements HapticBackend {
 
     @Override
     public void stop(StopReason reason) {
-        // Send stop-all even while output is disabled. clearAndOffer drops every queued effect so none
-        // can be delivered after the stop; a single already-in-flight effect completes first. Every
-        // effect also carries a TTL, so a dropped connection self-clears regardless.
+        // Forget forwarding state first so the stop frame is never suppressed and the next real scene is
+        // sent afresh. Then send stop-all even while output is disabled: clearAndOffer drops every queued
+        // effect so none can be delivered after the stop; a single already-in-flight effect completes
+        // first. Every effect also carries a TTL, so a dropped connection self-clears regardless.
+        forwarder.reset();
         outbound.clearAndOffer(codec.encodeStop());
     }
 

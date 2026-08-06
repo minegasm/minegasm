@@ -19,23 +19,24 @@ Central governance     (net.minegasm.runtime, ADR-018)
   SceneGovernor: SceneStore (hold, coalesce latest-wins, expiry, bounded) + FatigueGovernor
                  (decay, account, bake per-role attenuation) → governed HapticScene set
               ▼
-Backends               (net.minegasm.backend, net.minegasm.bridge)
-  BackendCoordinator fans lifecycle (start/stop/pause/close) to every backend; scenes reach each
-  backend from the governor, not the coordinator:
-    ├─ ButtplugBackend  (lifecycle) → HapticWorker pulls the governed set each ~15 ms cycle
-    │     SceneMixer → EndpointTarget → FeatureScheduler → OutputCommand   (net.minegasm.runtime/render)
+Driver + backends      (net.minegasm.runtime, net.minegasm.backend, net.minegasm.bridge)
+  HapticWorker (neutral driver) advances govern() once per ~15 ms cycle and fans the governed set to
+  every backend via BackendCoordinator; it renders nothing itself. Rendering and semantic backends run
+  concurrently off the one governed set:
+    ├─ ButtplugBackend  (rendering) onGovernedScenes → SceneMixer → FeatureScheduler → OutputCommand
     │       → ButtplugProvider → ButtplugCodec → ButtplugTransport → Intiface → devices
-    └─ BridgeBackend    (net.minegasm.bridge)
-          GovernedSceneForwarder (change-driven) → BridgeCodec → OutboundQueue → BridgeTransport (TCP) → adapter
+    ├─ (a future native integration implements the same seam and runs alongside)
+    └─ BridgeBackend    (semantic) onGovernedScenes → GovernedSceneForwarder (change-driven)
+          → BridgeCodec → OutboundQueue → BridgeTransport (TCP) → adapter
 ```
 
 ## Threading (brief §6)
 
 - **Client thread** only samples state, builds immutable objects, and submits scenes to the
   `SceneGovernor` (a small monitor guards its bounded store). It never blocks on I/O.
-- **Haptic worker** (single thread, ~15 ms cadence) pulls the governed scene set from the governor and
-  owns the scheduler and dispatch; it also fans the governed set to the bridge change-driven. All
-  durations/expiry/cooldowns use `System.nanoTime()` via the `Clock` abstraction, so behaviour is
+- **Governance driver** (`HapticWorker`, single thread, ~15 ms cadence) advances the governor once per
+  cycle and fans the governed set to every backend; each backend renders or forwards it on that thread.
+  All durations/expiry/cooldowns use `System.nanoTime()` via the `Clock` abstraction, so behaviour is
   identical under tick-rate changes or stalls.
 - **Provider thread(s)** parse protocol frames into immutable messages; they never call Minecraft.
 
@@ -63,9 +64,10 @@ Backends               (net.minegasm.backend, net.minegasm.bridge)
 
 ## Extension seams
 
-- `HapticBackend`: add an output backend (the Buttplug worker, the bridge, a future one) behind the
-  `BackendCoordinator`, which fans lifecycle to it; scenes reach it from the central `SceneGovernor`,
-  already coalesced and fatigue-governed (brief 0003 §3.2, ADR-018).
+- `HapticBackend`: add an output backend by implementing `onGovernedScenes` (render it to devices, or
+  forward it). The driver fans the central governed set to every backend each cycle, so a native
+  integration runs concurrently with Buttplug and the bridge with no privileged path (brief 0003 §3.2,
+  ADR-018).
 - `BridgeTransport`: swap the bridge's transport (TCP by default, a future WebSocket/OSC) without
   touching the backend or codec.
 - `ButtplugTransport`: swap the JDK WebSocket for a client library without touching the engine.

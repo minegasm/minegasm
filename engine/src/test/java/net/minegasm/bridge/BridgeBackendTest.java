@@ -36,14 +36,14 @@ class BridgeBackendTest {
     @Test
     void submitSendsAnEffectWhenOpenAndEnabled() {
         backend.start();
-        backend.submit(scene());
+        backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
         assertEquals(1, transport.sent.size());
         assertEquals("effect", type(transport.sent.get(0)));
     }
 
     @Test
     void submitDropsWhenNoAdapterConnected() {
-        backend.submit(scene()); // never started, so transport not open
+        backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime()); // never started, so transport not open
         assertTrue(transport.sent.isEmpty());
     }
 
@@ -51,7 +51,7 @@ class BridgeBackendTest {
     void submitDropsWhenOutputDisabled() {
         backend.start();
         backend.setOutputEnabled(false);
-        backend.submit(scene());
+        backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
         assertTrue(transport.sent.isEmpty(), "a panic-latched backend must not emit");
     }
 
