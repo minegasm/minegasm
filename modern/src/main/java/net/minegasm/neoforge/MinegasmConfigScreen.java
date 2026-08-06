@@ -3,7 +3,6 @@ package net.minegasm.neoforge;
 import net.minegasm.buttplug.ConnectionState;
 import net.minegasm.buttplug.ProviderStatus;
 import net.minegasm.client.MinegasmClient;
-import net.minegasm.config.HapticConfig;
 
 //? if >=26.1.2 {
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -67,11 +66,6 @@ public final class MinegasmConfigScreen extends Screen {
                 }, rightX + columnWidth - 44, 117, 44, 14));
         clearErrors.active = !errors.isEmpty();
 
-        addRenderableWidget(button(
-                Component.translatable(enabled ? "minegasm.output.on" : "minegasm.output.off"),
-                b -> toggleEnabled(), leftX, y, columnWidth, h));
-        y += gap;
-
         String adapter = client.backend();
         addRenderableWidget(button(Component.translatable("minegasm.adapter.short",
                         Component.translatable("minegasm.adapter." + adapter.toLowerCase(Locale.ROOT))),
@@ -107,31 +101,15 @@ public final class MinegasmConfigScreen extends Screen {
         boolean panic = !client.runtime().worker().isOutputEnabled();
         Button test = addRenderableWidget(button(
                 Component.translatable("minegasm.devices.test_output"),
-                b -> client.testPulse(0.25f), leftX, y, half, h));
+                b -> client.testPulse(0.25f), leftX, y, columnWidth, h));
         test.active = enabled && connected && deviceCount > 0 && !panic;
-
-        addRenderableWidget(button(
-                Component.translatable(panic
-                        ? "minegasm.safety.resume" : "minegasm.safety.stop"),
-                b -> togglePanic(), leftX + half + 4, y, half, h));
         y += gap;
 
-        addRenderableWidget(button(Component.translatable("minegasm.settings.button"),
-                b -> openSettings(), leftX, y, half, h));
-        addRenderableWidget(button(Component.translatable("minegasm.packs.button"),
-                b -> openScenePacks(), leftX + half + 4, y, half, h));
-        y += gap;
-
-        addRenderableWidget(button(Component.translatable("minegasm.customization.button"),
-                b -> openCustomization(), leftX, y, half, h));
+        // Device editor is Buttplug-specific (per-device tuning), so it stays on this integration screen;
+        // the global screens (settings, packs, customization, legacy import) live on the hub.
         addRenderableWidget(button(Component.translatable("minegasm.devices.editor.button"),
-                b -> openDeviceEditor(), leftX + half + 4, y, half, h));
+                b -> openDeviceEditor(), leftX, y, columnWidth, h));
         y += gap;
-
-        if (client.hasLegacyConfig()) {
-            addRenderableWidget(button(Component.translatable("minegasm.legacy.button"),
-                    b -> openLegacyImport(), leftX, y, columnWidth, h));
-        }
 
         addRenderableWidget(button(
                 Component.translatable("gui.done"),
@@ -155,20 +133,6 @@ public final class MinegasmConfigScreen extends Screen {
         }
     }
 
-    private void toggleEnabled() {
-        HapticConfig cfg = client.config().raw();
-        var g = cfg.global();
-        var updated = new HapticConfig(cfg.schemaVersion(), cfg.profile(),
-                new HapticConfig.Global(!g.enabled(), g.intensity(), g.variation(),
-                        g.fatigueProtection(), g.pauseBehavior(), g.stopOnWorldUnload(), g.panicKey(),
-                        g.testMaxPercent(), g.testMaxDurationMs(),
-                        g.unsafeTestMaxPercent(), g.unsafeTestMaxDurationMs()),
-                cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
-                cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), cfg.bridges());
-        client.updateConfig(updated);
-        rebuildWidgets();
-    }
-
     private void toggleConnection() {
         if (client.isConnected()) {
             client.disconnect();
@@ -185,43 +149,11 @@ public final class MinegasmConfigScreen extends Screen {
         rebuildWidgets();
     }
 
-    private void openLegacyImport() {
-        //? if >=26.2 {
-        this.minecraft.gui.setScreen(new LegacyImportScreen(this, client));
-        //?} else {
-        /*this.minecraft.setScreen(new LegacyImportScreen(this, client));
-        *///?}
-    }
-
-    private void openSettings() {
-        //? if >=26.2 {
-        this.minecraft.gui.setScreen(new MinegasmSettingsScreen(this, client));
-        //?} else {
-        /*this.minecraft.setScreen(new MinegasmSettingsScreen(this, client));
-        *///?}
-    }
-
-    private void openCustomization() {
-        //? if >=26.2 {
-        this.minecraft.gui.setScreen(new MinegasmCustomizationScreen(this, client));
-        //?} else {
-        /*this.minecraft.setScreen(new MinegasmCustomizationScreen(this, client));
-        *///?}
-    }
-
     private void openDeviceEditor() {
         //? if >=26.2 {
         this.minecraft.gui.setScreen(new MinegasmDeviceEditorScreen(this, client));
         //?} else {
         /*this.minecraft.setScreen(new MinegasmDeviceEditorScreen(this, client));
-        *///?}
-    }
-
-    private void openScenePacks() {
-        //? if >=26.2 {
-        this.minecraft.gui.setScreen(new MinegasmScenePackScreen(this, client));
-        //?} else {
-        /*this.minecraft.setScreen(new MinegasmScenePackScreen(this, client));
         *///?}
     }
 
@@ -234,15 +166,6 @@ public final class MinegasmConfigScreen extends Screen {
 
     private void refreshDevices() {
         client.refreshDevices().whenComplete((result, error) -> refreshAfterAsyncAction());
-    }
-
-    private void togglePanic() {
-        if (client.runtime().worker().isOutputEnabled()) {
-            client.panic();
-        } else {
-            client.clearPanic();
-        }
-        rebuildWidgets();
     }
 
     private void refreshAfterAsyncAction() {

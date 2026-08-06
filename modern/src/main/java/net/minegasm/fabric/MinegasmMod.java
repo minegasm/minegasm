@@ -9,7 +9,7 @@ import net.minegasm.config.MinegasmMode;
 import net.minegasm.config.TestOutputLimits;
 import net.minegasm.neoforge.McCompat;
 import net.minegasm.neoforge.MinecraftSampler;
-import net.minegasm.neoforge.MinegasmConfigScreen;
+import net.minegasm.neoforge.MinegasmHubScreen;
 import net.minegasm.neoforge.ProviderFactory;
 
 import org.lwjgl.glfw.GLFW;
@@ -144,7 +144,7 @@ public final class MinegasmMod implements ClientModInitializer {
             }
         }
         while (configKey.consumeClick()) {
-            McCompat.setScreen(mc, new MinegasmConfigScreen(null, client));
+            McCompat.setScreen(mc, new MinegasmHubScreen(null, client));
         }
 
         long nowNs = System.nanoTime();

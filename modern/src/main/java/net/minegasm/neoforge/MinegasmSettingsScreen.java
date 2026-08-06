@@ -120,8 +120,6 @@ public final class MinegasmSettingsScreen extends Screen {
             cycleUnsafeTestLimit();
             b.setMessage(unsafeTestLimitLabel());
         }, right, 168, columnWidth, h));
-        addRenderableWidget(button(Component.translatable("minegasm.settings.bridges"),
-                b -> openBridges(), right, 192, columnWidth, h));
 
         addRenderableWidget(button(resetLabel(), b -> {
             if (resetArmed) {
@@ -212,14 +210,6 @@ public final class MinegasmSettingsScreen extends Screen {
                 unsafeTestMaxPercent + "% / " + unsafeTestMaxDurationMs / 1_000.0 + "s");
     }
 
-    private void openBridges() {
-        pendingServerUrl = serverUrl.getValue(); // keep an unsaved URL edit across the round trip
-        //? if >=26.2 {
-        this.minecraft.gui.setScreen(new MinegasmBridgesScreen(this, client));
-        //?} else {
-        /*this.minecraft.setScreen(new MinegasmBridgesScreen(this, client));
-        *///?}
-    }
 
     private void cycleNormalTestLimit() {
         int[][] profiles = {{25, 400}, {50, 2_000}, {75, 5_000}, {100, 10_000}};

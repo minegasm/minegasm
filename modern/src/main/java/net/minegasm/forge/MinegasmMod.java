@@ -9,7 +9,7 @@ import net.minegasm.config.MinegasmMode;
 import net.minegasm.config.TestOutputLimits;
 import net.minegasm.neoforge.McCompat;
 import net.minegasm.neoforge.MinecraftSampler;
-import net.minegasm.neoforge.MinegasmConfigScreen;
+import net.minegasm.neoforge.MinegasmHubScreen;
 import net.minegasm.neoforge.ProviderFactory;
 
 import org.lwjgl.glfw.GLFW;
@@ -133,11 +133,11 @@ public final class MinegasmMod {
         //? if >=1.21.1 {
         context.registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                 () -> new ConfigScreenHandler.ConfigScreenFactory(
-                        (mc, parent) -> new MinegasmConfigScreen(parent, client)));
+                        (mc, parent) -> new MinegasmHubScreen(parent, client)));
         //?} else {
         /^ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                 () -> new ConfigScreenHandler.ConfigScreenFactory(
-                        (mc, parent) -> new MinegasmConfigScreen(parent, client)));
+                        (mc, parent) -> new MinegasmHubScreen(parent, client)));
         ^///?}
     }
 

@@ -2,7 +2,7 @@
 /*package net.minegasm.fabric;
 
 import net.minegasm.client.MinegasmClient;
-import net.minegasm.neoforge.MinegasmConfigScreen;
+import net.minegasm.neoforge.MinegasmHubScreen;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
@@ -31,7 +31,7 @@ public final class ModMenuIntegration implements ModMenuApi {
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
         return parent -> {
             MinegasmClient client = MinegasmMod.activeClient();
-            return client == null ? null : new MinegasmConfigScreen(parent, client);
+            return client == null ? null : new MinegasmHubScreen(parent, client);
         };
     }
 }

@@ -108,7 +108,7 @@ public final class MinegasmMod {
 
         // In-game config screen from the mods list (brief §11.2).
         container.registerExtensionPoint(IConfigScreenFactory.class,
-                (mc, parent) -> new MinegasmConfigScreen(parent, client));
+                (mc, parent) -> new MinegasmHubScreen(parent, client));
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
