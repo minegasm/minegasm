@@ -31,7 +31,7 @@ class BridgeBackendTest {
 
     private final FakeClock clock = new FakeClock(1_000_000_000L);
     private final FakeBridgeTransport transport = new FakeBridgeTransport();
-    private final BridgeBackend backend = new BridgeBackend(transport, ENDPOINT, clock);
+    private final BridgeBackend backend = new BridgeBackend(() -> transport, ENDPOINT, clock);
 
     @Test
     void submitSendsAnEffectWhenOpenAndEnabled() {

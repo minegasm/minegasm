@@ -27,7 +27,7 @@ class HapticRuntimeBridgeTest {
     private final ButtplugProvider provider = new ButtplugProvider(new FakeButtplugServer(), "test");
 
     private static BridgeEndpoint endpoint(String id) {
-        return new BridgeEndpoint(id, URI.create("tcp://127.0.0.1:12347"), new NoopTransport());
+        return new BridgeEndpoint(id, URI.create("tcp://127.0.0.1:12347"), NoopTransport::new);
     }
 
     @Test

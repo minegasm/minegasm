@@ -8,6 +8,10 @@ import net.minegasm.time.Clock;
 
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * The local-bridge backend (brief 0002 §4.3, 0003 §3.4): fans each scene out as a versioned JSON
@@ -30,7 +34,10 @@ public final class BridgeBackend implements HapticBackend {
     /** Outbound frame bound: a burst beyond this drops oldest rather than growing memory. */
     private static final int QUEUE_CAPACITY = 64;
 
-    private final BridgeTransport transport;
+    /** How often the supervisor retries a dead connection, so the adapter can start or restart anytime. */
+    private static final long RECONNECT_INTERVAL_MS = 2_000;
+
+    private final Supplier<BridgeTransport> transportFactory;
     private final BridgeCodec codec = new BridgeCodec();
     private final OutboundQueue outbound;
     private final GovernedSceneForwarder forwarder;
@@ -38,20 +45,24 @@ public final class BridgeBackend implements HapticBackend {
     private final String id;
     private final Clock clock;
 
+    private volatile BridgeTransport transport;
+    private volatile boolean connecting;
+    private volatile boolean stopped;
     private volatile boolean outputEnabled = true;
     private volatile long lastHealthyCycleNs;
+    private ScheduledExecutorService reconnect;
 
-    public BridgeBackend(BridgeTransport transport, URI endpoint, Clock clock) {
-        this(transport, endpoint, "bridge", clock);
+    public BridgeBackend(Supplier<BridgeTransport> transportFactory, URI endpoint, Clock clock) {
+        this(transportFactory, endpoint, "bridge", clock);
     }
 
     /** @param id stable per-endpoint identifier, so several bridges can coexist (multi-endpoint). */
-    public BridgeBackend(BridgeTransport transport, URI endpoint, String id, Clock clock) {
-        this.transport = transport;
+    public BridgeBackend(Supplier<BridgeTransport> transportFactory, URI endpoint, String id, Clock clock) {
+        this.transportFactory = transportFactory;
         this.endpoint = endpoint;
         this.id = id == null || id.trim().isEmpty() ? "bridge" : id;
         this.clock = clock;
-        this.outbound = new OutboundQueue(QUEUE_CAPACITY, transport::send);
+        this.outbound = new OutboundQueue(QUEUE_CAPACITY, this::sendFrame);
         this.forwarder = new GovernedSceneForwarder(this::submit);
     }
 
@@ -62,8 +73,45 @@ public final class BridgeBackend implements HapticBackend {
 
     @Override
     public void start() {
-        transport.connect(endpoint, this::onMessage, this::onClose);
-        lastHealthyCycleNs = clock.nanoTime();
+        stopped = false;
+        ensureConnected(); // dial once now (so tests and a ready adapter connect immediately)
+        // Then keep a supervisor dialing: retry until the adapter is up, reconnect if it restarts.
+        reconnect = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "minegasm-bridge-reconnect-" + id);
+            t.setDaemon(true);
+            return t;
+        });
+        reconnect.scheduleAtFixedRate(this::ensureConnected, RECONNECT_INTERVAL_MS,
+                RECONNECT_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    /** Dial a fresh transport when there is no open connection; a no-op while one is up or in flight. */
+    private synchronized void ensureConnected() {
+        if (stopped || connecting) {
+            return;
+        }
+        BridgeTransport current = transport;
+        if (current != null && current.isOpen()) {
+            return;
+        }
+        connecting = true;
+        BridgeTransport fresh = transportFactory.get();
+        transport = fresh;
+        fresh.connect(endpoint, this::onMessage, this::onClose).whenComplete((v, error) -> {
+            connecting = false;
+            if (error == null) {
+                lastHealthyCycleNs = clock.nanoTime();
+            }
+        });
+    }
+
+    /** Send a frame through whatever transport is currently connected; dropped if there is none. */
+    private java.util.concurrent.CompletionStage<Void> sendFrame(String frame) {
+        BridgeTransport current = transport;
+        if (current != null) {
+            return current.send(frame);
+        }
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -75,7 +123,8 @@ public final class BridgeBackend implements HapticBackend {
 
     /** The forwarder's sink: encode one governed scene as an effect frame if the adapter can receive it. */
     private void submit(HapticScene scene) {
-        if (!outputEnabled || !transport.isOpen()) {
+        BridgeTransport current = transport;
+        if (!outputEnabled || current == null || !current.isOpen()) {
             return; // panic-latched or no adapter connected: drop, do not buffer stale output
         }
         outbound.offer(codec.encodeEffect(scene, clock.nanoTime()));
@@ -119,8 +168,15 @@ public final class BridgeBackend implements HapticBackend {
 
     @Override
     public void close() {
+        stopped = true;
+        if (reconnect != null) {
+            reconnect.shutdownNow();
+        }
         outbound.close();
-        transport.close();
+        BridgeTransport current = transport;
+        if (current != null) {
+            current.close();
+        }
     }
 
     private void onMessage(String frame) {
@@ -130,6 +186,7 @@ public final class BridgeBackend implements HapticBackend {
     }
 
     private void onClose(Throwable cause) {
-        // The transport reports closed via isOpen(); nothing to clear here. submit() drops while closed.
+        // The transport reports closed via isOpen(); the reconnect supervisor dials a fresh one on its
+        // next tick, so a dropped or restarted adapter reconnects without a game restart.
     }
 }

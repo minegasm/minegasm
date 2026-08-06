@@ -79,7 +79,8 @@ public final class HapticRuntime {
         backends.add(buttplug);
         if (bridgeEndpoints != null) {
             for (BridgeEndpoint endpoint : bridgeEndpoints) {
-                backends.add(new BridgeBackend(endpoint.transport(), endpoint.uri(), endpoint.id(), clock));
+                backends.add(new BridgeBackend(endpoint.transportFactory(), endpoint.uri(),
+                        endpoint.id(), clock));
             }
         }
         this.coordinator = new BackendCoordinator(backends);

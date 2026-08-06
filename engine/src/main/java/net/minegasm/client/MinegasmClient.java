@@ -149,7 +149,7 @@ public final class MinegasmClient {
                         + "' is not available in this build");
                 continue;
             }
-            endpoints.add(new BridgeEndpoint(bridge.name(), uri, new TcpLineBridgeTransport()));
+            endpoints.add(new BridgeEndpoint(bridge.name(), uri, TcpLineBridgeTransport::new));
         }
         return endpoints;
     }
