@@ -39,12 +39,9 @@ public final class BridgesScreen16 extends Screen {
                     b -> minecraft.setScreen(new BridgeEditScreen16(this, client, index))));
             y += gap;
         }
-        addButton(new Button(x, y, w, h, new TextComponent("Add bridge"), b -> {
-            BridgeList.add(client);
-            buttons.clear();
-            children.clear();
-            init();
-        }));
+        final int addIndex = bridges.size();
+        addButton(new Button(x, y, w, h, new TextComponent("Add bridge"),
+                b -> minecraft.setScreen(new BridgeEditScreen16(this, client, addIndex))));
         addButton(new Button(x, height - 24, w, h, new TextComponent("Done"), b -> onClose()));
     }
 

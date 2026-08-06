@@ -10,15 +10,14 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Bridge-endpoint manager for 1.12.2: one row per endpoint with a toggle and a remove, plus Add. Name
- * and URL are edited in the config file on this loader; the modern and 1.16.5 screens edit them in-game.
+ * Bridge-endpoint manager for 1.12.2: one row per endpoint, opening {@link ClassicBridgeEditScreen};
+ * Add opens the editor for a new one. Matches the 1.16.5 and modern managers (ADR-018).
  */
 public final class ClassicBridgesScreen extends GuiScreen {
 
     private static final int ID_ADD = 1;
     private static final int ID_DONE = 2;
-    private static final int TOGGLE_BASE = 100;
-    private static final int REMOVE_BASE = 200;
+    private static final int ROW_BASE = 100;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
@@ -37,14 +36,15 @@ public final class ClassicBridgesScreen extends GuiScreen {
         int h = 20;
         List<HapticConfig.Bridge> bridges = BridgeList.bridges(client);
         for (int i = 0; i < bridges.size(); i++) {
-            HapticConfig.Bridge b = bridges.get(i);
-            addButton(new GuiButton(TOGGLE_BASE + i, x, y, w - 54, h,
-                    b.name() + " [" + (b.enabled() ? "ON" : "OFF") + "]"));
-            addButton(new GuiButton(REMOVE_BASE + i, x + w - 50, y, 50, h, "Remove"));
+            addButton(new GuiButton(ROW_BASE + i, x, y, w, h, rowLabel(bridges.get(i))));
             y += 24;
         }
         addButton(new GuiButton(ID_ADD, x, y, w, h, "Add bridge"));
         addButton(new GuiButton(ID_DONE, x, height - 26, w, h, "Done"));
+    }
+
+    private String rowLabel(HapticConfig.Bridge b) {
+        return b.name() + " [" + (b.enabled() ? "ON" : "OFF") + "] - " + b.url();
     }
 
     @Override
@@ -52,27 +52,17 @@ public final class ClassicBridgesScreen extends GuiScreen {
         if (button.id == ID_DONE) {
             mc.displayGuiScreen(parent);
         } else if (button.id == ID_ADD) {
-            BridgeList.add(client);
-            refresh();
-        } else if (button.id >= REMOVE_BASE) {
-            BridgeList.remove(client, button.id - REMOVE_BASE);
-            refresh();
-        } else if (button.id >= TOGGLE_BASE) {
-            BridgeList.toggle(client, button.id - TOGGLE_BASE);
-            refresh();
+            mc.displayGuiScreen(new ClassicBridgeEditScreen(this, BridgeList.bridges(client).size()));
+        } else if (button.id >= ROW_BASE) {
+            mc.displayGuiScreen(new ClassicBridgeEditScreen(this, button.id - ROW_BASE));
         }
-    }
-
-    private void refresh() {
-        buttonList.clear();
-        initGui();
     }
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
         drawCenteredString(fontRenderer, "Minegasm bridges", width / 2, 8, 0xFFFFFF);
-        drawCenteredString(fontRenderer, "Local adapters; edit name/URL in the config file",
+        drawCenteredString(fontRenderer, "Local adapters that receive governed scenes",
                 width / 2, 22, 0xA0A0A0);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
