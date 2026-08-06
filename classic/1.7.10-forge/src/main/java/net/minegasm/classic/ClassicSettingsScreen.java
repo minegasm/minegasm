@@ -109,7 +109,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
         allowRemoteBtn = new GuiButton(ID_ALLOWREMOTE, rx, y0 + 3 * dy, 150, 20, allowRemoteLabel());
         normalTestBtn = new GuiButton(ID_NORMALTEST, rx, y0 + 4 * dy, 150, 20, normalTestLabel());
         unsafeTestBtn = new GuiButton(ID_UNSAFETEST, rx, y0 + 5 * dy, 150, 20, unsafeTestLabel());
-        bridgeBtn = new GuiButton(ID_BRIDGE, rx, y0 + 6 * dy, 150, 20, bridgeLabel());
+        bridgeBtn = new GuiButton(ID_BRIDGE, rx, y0 + 6 * dy, 150, 20, "Bridges...");
         buttonList.add(autoConnectBtn);
         buttonList.add(autoScanBtn);
         buttonList.add(allowRemoteBtn);
@@ -174,8 +174,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
                 unsafeTestBtn.displayString = unsafeTestLabel();
                 break;
             case ID_BRIDGE:
-                model.bridgeEnabled = !model.bridgeEnabled;
-                bridgeBtn.displayString = bridgeLabel();
+                mc.displayGuiScreen(new ClassicBridgesScreen(this));
                 break;
             case ID_SAVE:
                 String url = serverField.getText().trim();
@@ -282,12 +281,6 @@ public final class ClassicSettingsScreen extends GuiScreen {
     private String unsafeTestLabel() {
         return "Unsafe cap: " + model.unsafeTestMaxPercent + "% / "
                 + (model.unsafeTestMaxDurationMs / 1000.0) + "s";
-    }
-
-    private String bridgeLabel() {
-        // The bridge backend is built at startup, so a changed value needs a restart to take effect.
-        boolean changed = model.bridgeEnabled != client.config().raw().bridges().get(0).enabled();
-        return "Bridge: " + onOff(model.bridgeEnabled) + (changed ? " (restart)" : "");
     }
 
     private String resetLabel() {

@@ -104,10 +104,8 @@ public final class SettingsScreen16 extends Screen {
             model.cycleUnsafeTestLimit();
             b.setMessage(unsafeTestLabel());
         }));
-        addButton(new Button(rx, y0 + 6 * dy, 150, 20, bridgeLabel(), b -> {
-            model.bridgeEnabled = !model.bridgeEnabled;
-            b.setMessage(bridgeLabel());
-        }));
+        addButton(new Button(rx, y0 + 6 * dy, 150, 20, new TextComponent("Bridges..."),
+                b -> minecraft.setScreen(new BridgesScreen16(this, client))));
 
         // Reset fills the left column; Save/Cancel split the right, so nothing crowds the reset button.
         addButton(new Button(lx, height - 26, 150, 20, resetLabel(), b -> {
@@ -203,13 +201,6 @@ public final class SettingsScreen16 extends Screen {
     private Component unsafeTestLabel() {
         return new TextComponent("Unsafe cap: " + model.unsafeTestMaxPercent + "% / "
                 + (model.unsafeTestMaxDurationMs / 1000.0) + "s");
-    }
-
-    private Component bridgeLabel() {
-        // The bridge backend is built at startup, so a changed value needs a restart to take effect.
-        boolean changed = model.bridgeEnabled != client.config().raw().bridges().get(0).enabled();
-        return new TextComponent("Bridge: " + onOff(model.bridgeEnabled)
-                + (changed ? " (restart)" : ""));
     }
 
     private static String onOff(boolean value) {

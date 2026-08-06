@@ -100,7 +100,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
         allowRemoteBtn = addButton(new GuiButton(ID_ALLOWREMOTE, rx, y0 + 3 * dy, 150, 20, allowRemoteLabel()));
         normalTestBtn = addButton(new GuiButton(ID_NORMALTEST, rx, y0 + 4 * dy, 150, 20, normalTestLabel()));
         unsafeTestBtn = addButton(new GuiButton(ID_UNSAFETEST, rx, y0 + 5 * dy, 150, 20, unsafeTestLabel()));
-        bridgeBtn = addButton(new GuiButton(ID_BRIDGE, rx, y0 + 6 * dy, 150, 20, bridgeLabel()));
+        bridgeBtn = addButton(new GuiButton(ID_BRIDGE, rx, y0 + 6 * dy, 150, 20, "Bridges..."));
 
         // Reset fills the left column; Save/Cancel split the right, so nothing crowds the reset button.
         resetBtn = addButton(new GuiButton(ID_RESET, lx, height - 26, 150, 20, resetLabel()));
@@ -158,8 +158,7 @@ public final class ClassicSettingsScreen extends GuiScreen {
                 unsafeTestBtn.displayString = unsafeTestLabel();
                 break;
             case ID_BRIDGE:
-                model.bridgeEnabled = !model.bridgeEnabled;
-                bridgeBtn.displayString = bridgeLabel();
+                mc.displayGuiScreen(new ClassicBridgesScreen(this));
                 break;
             case ID_SAVE:
                 String url = serverField.getText().trim();
@@ -266,12 +265,6 @@ public final class ClassicSettingsScreen extends GuiScreen {
     private String unsafeTestLabel() {
         return "Unsafe cap: " + model.unsafeTestMaxPercent + "% / "
                 + (model.unsafeTestMaxDurationMs / 1000.0) + "s";
-    }
-
-    private String bridgeLabel() {
-        // The bridge backend is built at startup, so a changed value needs a restart to take effect.
-        boolean changed = model.bridgeEnabled != client.config().raw().bridges().get(0).enabled();
-        return "Bridge: " + onOff(model.bridgeEnabled) + (changed ? " (restart)" : "");
     }
 
     private String resetLabel() {

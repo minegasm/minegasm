@@ -40,7 +40,6 @@ public final class ClassicConfigModel {
     public int testMaxDurationMs;
     public int unsafeTestMaxPercent;
     public int unsafeTestMaxDurationMs;
-    public boolean bridgeEnabled;
 
     public ClassicConfigModel(HapticConfig original) {
         this.original = original;
@@ -63,7 +62,6 @@ public final class ClassicConfigModel {
         this.testMaxDurationMs = g.testMaxDurationMs();
         this.unsafeTestMaxPercent = g.unsafeTestMaxPercent();
         this.unsafeTestMaxDurationMs = g.unsafeTestMaxDurationMs();
-        this.bridgeEnabled = original.bridges().get(0).enabled();
     }
 
     /** Step the pause behavior through Stop -> Pause -> Continue -> Stop. */
@@ -144,19 +142,21 @@ public final class ClassicConfigModel {
         HapticConfig.Buttplug newButtplug = new HapticConfig.Buttplug(
                 serverUrl, autoConnect, autoScan, allowRemote, b.reconnect(), b.client());
 
-        java.util.List<HapticConfig.Bridge> newBridges = new java.util.ArrayList<>(original.bridges());
-        HapticConfig.Bridge ob = newBridges.get(0);
-        newBridges.set(0, new HapticConfig.Bridge(
-                ob.name(), bridgeEnabled, ob.url(), ob.transport(), ob.allowRemote()));
-
         return new HapticConfig(original.schemaVersion(), newIdentity, newGlobal, newButtplug,
                 original.events(), original.outputPolicy(), original.devices(),
                 original.positionCalibrations(), original.accumulation(), original.customIntensity(),
-                newBridges);
+                original.bridges());
     }
 
-    /** Persist the edits through the shared client (which stops output on an enable->disable change). */
+    /**
+     * Persist the edits through the shared client (which stops output on an enable->disable change).
+     * Bridges are managed on their own screen, so re-read the current list at save time rather than the
+     * snapshot this model captured, or a Save here would revert edits made there meanwhile.
+     */
     public void apply(MinegasmClient client) {
-        client.updateConfig(toConfig());
+        HapticConfig c = toConfig();
+        client.updateConfig(new HapticConfig(c.schemaVersion(), c.profile(), c.global(), c.buttplug(),
+                c.events(), c.outputPolicy(), c.devices(), c.positionCalibrations(), c.accumulation(),
+                c.customIntensity(), client.config().raw().bridges()));
     }
 }
