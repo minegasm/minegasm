@@ -48,11 +48,13 @@ class BridgeBackendTest {
     }
 
     @Test
-    void submitDropsWhenOutputDisabled() {
+    void disablingOutputStopsThenDropsEffects() {
         backend.start();
         backend.setOutputEnabled(false);
+        assertEquals(1, transport.sent.size(), "disabling output sends a stop so the adapter zeros now");
+        assertEquals("stop", type(transport.sent.get(0)));
         backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
-        assertTrue(transport.sent.isEmpty(), "a panic-latched backend must not emit");
+        assertEquals(1, transport.sent.size(), "a disabled backend must not emit effects");
     }
 
     @Test

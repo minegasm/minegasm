@@ -19,6 +19,7 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
     private static final int ID_SAVE = 3;
     private static final int ID_REMOVE = 4;
     private static final int ID_CANCEL = 5;
+    private static final int ID_TEST = 6;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
@@ -68,8 +69,16 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
         buttonList.add(new GuiButton(ID_SAVE, x, 160, w, 20, "Save"));
         if (existing) {
             buttonList.add(new GuiButton(ID_REMOVE, x, 184, w, 20, "Remove"));
+            int half = (w - 4) / 2;
+            GuiButton test = new GuiButton(ID_TEST, x, height - 26, half, 20, "Test output");
+            test.enabled = client.config().enabled()
+                    && client.runtime().worker().isOutputEnabled()
+                    && client.bridgeConnected(BridgeList.bridges(client).get(index).name());
+            buttonList.add(test);
+            buttonList.add(new GuiButton(ID_CANCEL, x + half + 4, height - 26, half, 20, "Cancel"));
+        } else {
+            buttonList.add(new GuiButton(ID_CANCEL, x, height - 26, w, 20, "Cancel"));
         }
-        buttonList.add(new GuiButton(ID_CANCEL, x, height - 26, w, 20, "Cancel"));
     }
 
     private String enabledLabel() {
@@ -97,6 +106,9 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
             case ID_REMOVE:
                 BridgeList.remove(client, index);
                 mc.displayGuiScreen(parent);
+                break;
+            case ID_TEST:
+                client.testBridgeOutput(BridgeList.bridges(client).get(index).name(), 0.25f);
                 break;
             case ID_CANCEL:
                 mc.displayGuiScreen(parent);

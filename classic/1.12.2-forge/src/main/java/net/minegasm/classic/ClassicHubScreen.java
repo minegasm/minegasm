@@ -26,10 +26,14 @@ public final class ClassicHubScreen extends GuiScreen {
     private static final int ID_CUSTOM = 7;
     private static final int ID_LEGACY = 8;
     private static final int ID_DONE = 9;
+    private static final int ID_SCROLL_UP = 10;
+    private static final int ID_SCROLL_DOWN = 11;
     private static final int BRIDGE_BASE = 100;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
+    private int observedBridgeConn;
+    private RowScroller scroller;
 
     public ClassicHubScreen(GuiScreen parent) {
         this.parent = parent;
@@ -48,25 +52,57 @@ public final class ClassicHubScreen extends GuiScreen {
         addButton(new GuiButton(ID_ENABLED, x, 44, half, h, enabledLabel()));
         addButton(new GuiButton(ID_PANIC, x + half + 4, 44, half, h, panicLabel()));
 
-        int y = 92;
-        addButton(new GuiButton(ID_BUTTPLUG, x, y, w, h, buttplugLabel()));
-        y += gap;
-        List<HapticConfig.Bridge> bridges = client.config().raw().bridges();
-        for (int i = 0; i < bridges.size(); i++) {
-            addButton(new GuiButton(BRIDGE_BASE + i, x, y, w, h, bridgeLabel(bridges.get(i))));
-            y += gap;
-        }
-        addButton(new GuiButton(ID_ADD, x, y, w, h, "Add bridge"));
-        y += gap + 6;
+        // Fixed bottom block, anchored to the screen bottom so it never scrolls away.
+        int doneY = height - 24;
+        int customY = doneY - gap;
+        int utilY = customY - gap;
+        int addY = utilY - (gap + 6);
 
-        addButton(new GuiButton(ID_SETTINGS, x, y, half, h, "Settings..."));
-        addButton(new GuiButton(ID_PACKS, x + half + 4, y, half, h, "Scene packs..."));
-        y += gap;
-        addButton(new GuiButton(ID_CUSTOM, x, y, half, h, "Customization..."));
-        if (client.hasLegacyConfig()) {
-            addButton(new GuiButton(ID_LEGACY, x + half + 4, y, half, h, "Legacy import..."));
+        // Integrations, all peers: Buttplug first, then each configured bridge. Only this list scrolls,
+        // since bridges are the one unbounded set; everything else is pinned. Up/down buttons page it.
+        List<HapticConfig.Bridge> bridges = client.config().raw().bridges();
+        int rowCount = 1 + bridges.size();
+        int viewportTop = 92;
+        int viewportBottom = addY - 6;
+        int visibleRows = Math.max(1, (viewportBottom - viewportTop) / gap);
+        if (scroller == null) {
+            scroller = new RowScroller(visibleRows, rowCount);
+        } else {
+            scroller.resize(visibleRows, rowCount);
         }
-        addButton(new GuiButton(ID_DONE, x, height - 24, w, h, "Done"));
+        boolean needsScroll = rowCount > visibleRows;
+        int rowW = needsScroll ? w - 20 : w;
+
+        for (int i = 0; i < rowCount; i++) {
+            if (!scroller.isVisible(i)) {
+                continue;
+            }
+            int ry = viewportTop + (i - scroller.first()) * gap;
+            if (i == 0) {
+                addButton(new GuiButton(ID_BUTTPLUG, x, ry, rowW, h, buttplugLabel()));
+            } else {
+                addButton(new GuiButton(BRIDGE_BASE + (i - 1), x, ry, rowW, h,
+                        bridgeLabel(bridges.get(i - 1))));
+            }
+        }
+        if (needsScroll) {
+            int scrollX = x + w - 20;
+            GuiButton up = addButton(new GuiButton(ID_SCROLL_UP, scrollX, viewportTop, 20, h, "^"));
+            up.enabled = scroller.canScrollUp();
+            GuiButton down = addButton(new GuiButton(ID_SCROLL_DOWN, scrollX, viewportBottom - 20, 20, h, "v"));
+            down.enabled = scroller.canScrollDown();
+        }
+
+        addButton(new GuiButton(ID_ADD, x, addY, w, h, "Add bridge"));
+
+        addButton(new GuiButton(ID_SETTINGS, x, utilY, half, h, "Settings..."));
+        addButton(new GuiButton(ID_PACKS, x + half + 4, utilY, half, h, "Scene packs..."));
+        addButton(new GuiButton(ID_CUSTOM, x, customY, half, h, "Customization..."));
+        if (client.hasLegacyConfig()) {
+            addButton(new GuiButton(ID_LEGACY, x + half + 4, customY, half, h, "Legacy import..."));
+        }
+        addButton(new GuiButton(ID_DONE, x, doneY, w, h, "Done"));
+        observedBridgeConn = bridgeConnMask();
     }
 
     @Override
@@ -86,6 +122,14 @@ public final class ClassicHubScreen extends GuiScreen {
             case ID_ADD:
                 mc.displayGuiScreen(new ClassicBridgeEditScreen(this,
                         client.config().raw().bridges().size()));
+                break;
+            case ID_SCROLL_UP:
+                scroller.up();
+                initGui();
+                break;
+            case ID_SCROLL_DOWN:
+                scroller.down();
+                initGui();
                 break;
             case ID_SETTINGS:
                 mc.displayGuiScreen(new ClassicSettingsScreen(this));
@@ -119,6 +163,27 @@ public final class ClassicHubScreen extends GuiScreen {
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
+    @Override
+    public void updateScreen() {
+        // Rebuild when a bridge's adapter link comes up or drops, so the connection labels stay live.
+        if (bridgeConnMask() != observedBridgeConn) {
+            initGui();
+        }
+    }
+
+    /** A bit per configured bridge that is connected to its adapter, so the rows refresh as links come up. */
+    private int bridgeConnMask() {
+        int mask = 0;
+        int i = 0;
+        for (HapticConfig.Bridge b : client.config().raw().bridges()) {
+            if (b.enabled() && client.bridgeConnected(b.name())) {
+                mask |= 1 << (i & 31);
+            }
+            i++;
+        }
+        return mask;
+    }
+
     private void toggleEnabled() {
         ClassicConfigModel model = new ClassicConfigModel(client.config().raw());
         model.enabled = !model.enabled;
@@ -148,6 +213,8 @@ public final class ClassicHubScreen extends GuiScreen {
     }
 
     private String bridgeLabel(HapticConfig.Bridge b) {
-        return "Bridge " + b.name() + " [" + (b.enabled() ? "ON" : "OFF") + "]";
+        String state = !b.enabled() ? "off"
+                : client.bridgeConnected(b.name()) ? "connected" : "waiting for adapter";
+        return "Bridge " + b.name() + ": " + state;
     }
 }

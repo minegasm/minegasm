@@ -334,6 +334,9 @@ public final class MinegasmClient {
         if (previous.enabled() && !updated.global().enabled()) {
             runtime.lifecycle().onConfigReset();
         }
+        // Bring bridge backends in line with the new config so enabling, disabling, adding, or re-pointing
+        // a bridge connects or disconnects live, no game restart (buildBridgeEndpoints reads current config).
+        runtime.reconcileBridges(buildBridgeEndpoints());
     }
 
     // --- connection -----------------------------------------------------------------------
@@ -497,18 +500,59 @@ public final class MinegasmClient {
         return testPulse(level, TEST_PULSE_MS);
     }
 
-    /** Fire a bounded UI/command test pulse and return the number of targeted features. */
+    /**
+     * Fire a bounded test through the governor so it reaches every integration at once (Buttplug and each
+     * bridge). This is the global test behind {@code /mg test}; the per-integration screens use the
+     * isolated {@link #testButtplugOutput} and {@link #testBridgeOutput} instead. Returns the Buttplug
+     * feature count (the scene still fires to bridges when it is 0).
+     */
     public int testPulse(float level, long durationMs) {
-        if (!config.get().enabled() || !runtime.worker().isOutputEnabled()) {
-            return 0; // master-disabled or panic-latched; neither path may emit test output
+        if (testBlocked()) {
+            return 0;
         }
-        DeviceRegistrySnapshot snapshot = provider.devices();
-        float capped = HapticMath.clamp01(level);
-        long boundedDurationMs = Math.max(TestOutputLimits.MIN_DURATION_MS,
-                Math.min(durationMs, TestOutputLimits.MAX_DURATION_MS));
+        int[] tf = targetedFeatures();
+        runtime.worker().offer(buildTestScene(level, durationMs, tf[1] != 0));
+        return tf[0];
+    }
+
+    /** Fire an isolated test on the Buttplug integration only. Returns its targeted feature count. */
+    public int testButtplugOutput(float level, long durationMs) {
+        if (testBlocked()) {
+            return 0;
+        }
+        int[] tf = targetedFeatures();
+        runtime.testButtplug(buildTestScene(level, durationMs, tf[1] != 0), clock.nanoTime());
+        return tf[0];
+    }
+
+    /** Fire an isolated test on one bridge only (nothing else buzzes). */
+    public void testBridgeOutput(String name, float level, long durationMs) {
+        if (testBlocked()) {
+            return;
+        }
+        runtime.testBridge(name, buildTestScene(level, durationMs, false), clock.nanoTime());
+    }
+
+    /** Convenience: isolated Buttplug test at the default duration. */
+    public int testButtplugOutput(float level) {
+        return testButtplugOutput(level, TEST_PULSE_MS);
+    }
+
+    /** Convenience: isolated bridge test at the default duration. */
+    public void testBridgeOutput(String name, float level) {
+        testBridgeOutput(name, level, TEST_PULSE_MS);
+    }
+
+    /** Master-disabled or panic-latched: no test path may emit output. */
+    private boolean testBlocked() {
+        return !config.get().enabled() || !runtime.worker().isOutputEnabled();
+    }
+
+    /** {targeted feature count, 1 if any is a motion feature else 0} across enabled Buttplug devices. */
+    private int[] targetedFeatures() {
         int targeted = 0;
         boolean anyMotion = false;
-        for (HapticDevice device : snapshot.all()) {
+        for (HapticDevice device : provider.devices().all()) {
             if (!config.get().deviceSetting(device.identityKey()).enabled()) {
                 continue;
             }
@@ -523,27 +567,52 @@ public final class MinegasmClient {
                 anyMotion |= motion;
             }
         }
-        if (targeted > 0) {
-            long nowNs = clock.nanoTime();
-            long durationNs = boundedDurationMs * 1_000_000L;
-            List<HapticLayer> layers = new ArrayList<>();
-            layers.add(new HapticLayer("test:hold", HapticRole.IMPACT,
-                    new HapticPrimitive.Hold(capped, (int) boundedDurationMs, 0, 0),
-                    HapticRoute.buzzAll(), CouplingMode.EXCLUSIVE, Priorities.CONTROL,
+        return new int[] {targeted, anyMotion ? 1 : 0};
+    }
+
+    /** A bounded test scene: a steady buzz, plus a visible stroke when {@code includeStroke}. */
+    private HapticScene buildTestScene(float level, long durationMs, boolean includeStroke) {
+        float capped = HapticMath.clamp01(level);
+        long boundedDurationMs = Math.max(TestOutputLimits.MIN_DURATION_MS,
+                Math.min(durationMs, TestOutputLimits.MAX_DURATION_MS));
+        long nowNs = clock.nanoTime();
+        long durationNs = boundedDurationMs * 1_000_000L;
+        List<HapticLayer> layers = new ArrayList<>();
+        layers.add(new HapticLayer("test:hold", HapticRole.IMPACT,
+                new HapticPrimitive.Hold(capped, (int) boundedDurationMs, 0, 0),
+                HapticRoute.buzzAll(), CouplingMode.EXCLUSIVE, Priorities.CONTROL,
+                0, durationNs, "test"));
+        if (includeStroke) {
+            // A clearly visible test stroke, bounded like all motion by the travel window downstream.
+            float strokeDepth = HapticMath.clamp01(Math.max(capped, 0.7f));
+            int periodMs = (int) Math.max(700L, boundedDurationMs);
+            layers.add(new HapticLayer("test:stroke", HapticRole.IMPACT,
+                    new HapticPrimitive.Oscillation(strokeDepth, periodMs, (int) boundedDurationMs),
+                    TEST_MOTION_ROUTE, CouplingMode.EXCLUSIVE, Priorities.CONTROL,
                     0, durationNs, "test"));
-            if (anyMotion) {
-                // A clearly visible test stroke, bounded like all motion by the travel window downstream.
-                float strokeDepth = HapticMath.clamp01(Math.max(capped, 0.7f));
-                int periodMs = (int) Math.max(700L, boundedDurationMs);
-                layers.add(new HapticLayer("test:stroke", HapticRole.IMPACT,
-                        new HapticPrimitive.Oscillation(strokeDepth, periodMs, (int) boundedDurationMs),
-                        TEST_MOTION_ROUTE, CouplingMode.EXCLUSIVE, Priorities.CONTROL,
-                        0, durationNs, "test"));
-            }
-            runtime.worker().offer(new HapticScene("test", GameEventKind.AMBIENT,
-                    Priorities.CONTROL, layers, nowNs, nowNs + durationNs, "test"));
         }
-        return targeted;
+        return new HapticScene("test", GameEventKind.AMBIENT,
+                Priorities.CONTROL, layers, nowNs, nowNs + durationNs, "test");
+    }
+
+    /** Whether the named bridge has a live outbound link to its adapter (false if disabled or absent). */
+    public boolean bridgeConnected(String name) {
+        return runtime.bridgeConnected(name);
+    }
+
+    /**
+     * One display line per configured bridge for {@code /mg status}, alongside the Buttplug status the
+     * command already prints: disabled, or the adapter link up or waiting. This reflects the
+     * mod-to-adapter link, not whether the adapter's own onward connection (e.g. XToys) is up.
+     */
+    public List<String> bridgeStatusLines() {
+        List<String> lines = new ArrayList<>();
+        for (HapticConfig.Bridge bridge : config.get().bridges()) {
+            String state = !bridge.enabled() ? "disabled"
+                    : bridgeConnected(bridge.name()) ? "adapter connected" : "waiting for adapter";
+            lines.add("Bridge " + bridge.name() + ": " + state);
+        }
+        return lines;
     }
 
     public HapticRuntime runtime() {

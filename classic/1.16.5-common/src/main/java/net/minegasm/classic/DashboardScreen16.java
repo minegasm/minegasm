@@ -120,7 +120,7 @@ public final class DashboardScreen16 extends Screen {
 
         boolean panic = !client.runtime().worker().isOutputEnabled();
         Button test = addButton(new Button(leftX, y, columnWidth, h,
-                new TextComponent("Test"), b -> client.testPulse(0.25f)));
+                new TextComponent("Test"), b -> client.testButtplugOutput(0.25f)));
         test.active = enabled && connected && devices.size() > 0 && !panic;
         y += gap;
 

@@ -32,6 +32,8 @@ public final class MinegasmHubScreen extends Screen {
     private ConnectionState observedState;
     private long observedGeneration = -1;
     private boolean observedEnabled;
+    private int observedBridgeConn;
+    private RowScroller scroller;
 
     public MinegasmHubScreen(Screen parent, MinegasmClient client) {
         super(Component.translatable("minegasm.title"));
@@ -57,39 +59,75 @@ public final class MinegasmHubScreen extends Screen {
                 Component.translatable(panic ? "minegasm.safety.resume" : "minegasm.safety.stop"),
                 b -> togglePanic(), x + half + 4, 44, half, h));
 
-        // Integrations, all peers. Buttplug first, then each configured bridge.
-        int y = 92;
-        addRenderableWidget(button(buttplugLabel(), b -> openButtplug(), x, y, w, h));
-        y += gap;
+        // Fixed bottom block (add-bridge, utilities, done), anchored to the screen bottom so it never
+        // scrolls away no matter how many bridges are configured.
+        int doneY = this.height - 24;
+        int customY = doneY - gap;
+        int utilY = customY - gap;
+        int addY = utilY - (gap + 6);
 
+        // Integrations, all peers: Buttplug first, then each configured bridge. Only this list scrolls,
+        // since bridges are the one unbounded set; everything else is pinned.
         List<HapticConfig.Bridge> bridges = client.config().raw().bridges();
-        for (int i = 0; i < bridges.size(); i++) {
-            final int index = i;
-            addRenderableWidget(button(bridgeLabel(bridges.get(i)), b -> openBridge(index), x, y, w, h));
-            y += gap;
+        int rowCount = 1 + bridges.size();
+        int viewportTop = 92;
+        int viewportBottom = addY - 6;
+        int visibleRows = Math.max(1, (viewportBottom - viewportTop) / gap);
+        if (scroller == null) {
+            scroller = new RowScroller(visibleRows, rowCount);
+        } else {
+            scroller.resize(visibleRows, rowCount); // resize (not recreate) so a live rebuild keeps position
         }
+        boolean needsScroll = rowCount > visibleRows;
+        int rowW = needsScroll ? w - 20 : w;
+
+        for (int i = 0; i < rowCount; i++) {
+            if (!scroller.isVisible(i)) {
+                continue;
+            }
+            int ry = viewportTop + (i - scroller.first()) * gap;
+            if (i == 0) {
+                addRenderableWidget(button(buttplugLabel(), b -> openButtplug(), x, ry, rowW, h));
+            } else {
+                final int index = i - 1;
+                addRenderableWidget(button(bridgeLabel(bridges.get(index)),
+                        b -> openBridge(index), x, ry, rowW, h));
+            }
+        }
+        if (needsScroll) {
+            int scrollX = x + w - 20;
+            Button up = addRenderableWidget(button(Component.literal("^"), b -> {
+                scroller.up();
+                rebuildWidgets();
+            }, scrollX, viewportTop, 20, h));
+            up.active = scroller.canScrollUp();
+            Button down = addRenderableWidget(button(Component.literal("v"), b -> {
+                scroller.down();
+                rebuildWidgets();
+            }, scrollX, viewportBottom - 20, 20, h));
+            down.active = scroller.canScrollDown();
+        }
+
         addRenderableWidget(button(Component.translatable("minegasm.hub.add_bridge"),
-                b -> openBridge(bridges.size()), x, y, w, h));
-        y += gap + 6;
+                b -> openBridge(bridges.size()), x, addY, w, h));
 
         addRenderableWidget(button(Component.translatable("minegasm.settings.button"),
-                b -> openSettings(), x, y, half, h));
+                b -> openSettings(), x, utilY, half, h));
         addRenderableWidget(button(Component.translatable("minegasm.packs.button"),
-                b -> openScenePacks(), x + half + 4, y, half, h));
-        y += gap;
+                b -> openScenePacks(), x + half + 4, utilY, half, h));
         addRenderableWidget(button(Component.translatable("minegasm.customization.button"),
-                b -> openCustomization(), x, y, half, h));
+                b -> openCustomization(), x, customY, half, h));
         if (client.hasLegacyConfig()) {
             addRenderableWidget(button(Component.translatable("minegasm.legacy.button"),
-                    b -> openLegacyImport(), x + half + 4, y, half, h));
+                    b -> openLegacyImport(), x + half + 4, customY, half, h));
         }
 
-        addRenderableWidget(button(Component.translatable("gui.done"),
-                b -> onClose(), x, this.height - 24, w, h));
+        addRenderableWidget(button(Component.translatable("gui.done"), b -> onClose(), x, doneY, w, h));
 
         observedState = client.status().state();
         observedGeneration = client.provider().devices().generation();
         observedEnabled = enabled;
+        observedBridgeConn = bridgeConnMask();
     }
 
     @Override
@@ -97,9 +135,23 @@ public final class MinegasmHubScreen extends Screen {
         super.tick();
         if (client.status().state() != observedState
                 || client.provider().devices().generation() != observedGeneration
-                || client.config().enabled() != observedEnabled) {
+                || client.config().enabled() != observedEnabled
+                || bridgeConnMask() != observedBridgeConn) {
             rebuildWidgets();
         }
+    }
+
+    /** A bit per configured bridge that is connected to its adapter, so the rows refresh as links come up. */
+    private int bridgeConnMask() {
+        int mask = 0;
+        int i = 0;
+        for (HapticConfig.Bridge b : client.config().raw().bridges()) {
+            if (b.enabled() && client.bridgeConnected(b.name())) {
+                mask |= 1 << (i & 31);
+            }
+            i++;
+        }
+        return mask;
     }
 
     private Component buttplugLabel() {
@@ -111,8 +163,10 @@ public final class MinegasmHubScreen extends Screen {
     }
 
     private Component bridgeLabel(HapticConfig.Bridge b) {
-        return Component.translatable("minegasm.hub.bridge", b.name(),
-                Component.translatable(b.enabled() ? "options.on" : "options.off"));
+        String stateKey = !b.enabled() ? "minegasm.hub.bridge_off"
+                : client.bridgeConnected(b.name()) ? "minegasm.hub.bridge_connected"
+                : "minegasm.hub.bridge_waiting";
+        return Component.translatable("minegasm.hub.bridge", b.name(), Component.translatable(stateKey));
     }
 
     private void toggleEnabled() {
@@ -136,6 +190,40 @@ public final class MinegasmHubScreen extends Screen {
         }
         rebuildWidgets();
     }
+
+    // Wheel scrolls the integration list, page-at-a-time via the scroller. The 4-arg overload with a
+    // horizontal scrollX component was added in 1.21.1; 1.19.2 and 1.20.1 take a single delta.
+    //? if >=1.21.1 {
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scroller != null && scrollY > 0 && scroller.canScrollUp()) {
+            scroller.up();
+            rebuildWidgets();
+            return true;
+        }
+        if (scroller != null && scrollY < 0 && scroller.canScrollDown()) {
+            scroller.down();
+            rebuildWidgets();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+    //?} else {
+    /*@Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (scroller != null && delta > 0 && scroller.canScrollUp()) {
+            scroller.up();
+            rebuildWidgets();
+            return true;
+        }
+        if (scroller != null && delta < 0 && scroller.canScrollDown()) {
+            scroller.down();
+            rebuildWidgets();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+    *///?}
 
     private void openButtplug() {
         setScreen(new MinegasmConfigScreen(this, client));

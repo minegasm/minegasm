@@ -84,9 +84,23 @@ public final class MinegasmBridgeEditScreen extends Screen {
         if (existing) {
             addRenderableWidget(button(Component.translatable("minegasm.bridges.remove"), b -> remove(),
                     x, 184, width, h));
+            // Isolated test on this bridge only, so you can check its adapter without a Buttplug device.
+            // Test and Cancel share the bottom row so the button can never run off a short screen; the
+            // test is gated like Buttplug's: only when output is on and this bridge's adapter is connected.
+            String bridgeName = bridges.get(index).name();
+            boolean canTest = client.config().enabled()
+                    && client.runtime().worker().isOutputEnabled()
+                    && client.bridgeConnected(bridgeName);
+            int half = (width - 4) / 2;
+            Button test = addRenderableWidget(button(Component.translatable("minegasm.devices.test_output"),
+                    b -> client.testBridgeOutput(bridgeName, 0.25f), x, this.height - 24, half, h));
+            test.active = canTest;
+            addRenderableWidget(button(Component.translatable("gui.cancel"), b -> onClose(),
+                    x + half + 4, this.height - 24, half, h));
+        } else {
+            addRenderableWidget(button(Component.translatable("gui.cancel"), b -> onClose(),
+                    x, this.height - 24, width, h));
         }
-        addRenderableWidget(button(Component.translatable("gui.cancel"), b -> onClose(),
-                x, this.height - 24, width, h));
     }
 
     private void save() {

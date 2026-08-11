@@ -71,6 +71,15 @@ public final class BridgeBackend implements HapticBackend {
         return id;
     }
 
+    /**
+     * Whether the outbound connection to the adapter is currently open. This is the mod-to-adapter link
+     * only; it does not say whether the adapter's own connection onward (e.g. XToys) is up.
+     */
+    public boolean isConnected() {
+        BridgeTransport current = transport;
+        return current != null && current.isOpen();
+    }
+
     @Override
     public void start() {
         stopped = false;
@@ -132,6 +141,17 @@ public final class BridgeBackend implements HapticBackend {
     }
 
     @Override
+    public void test(HapticScene scene, long nowNs) {
+        // Send one effect frame straight to this bridge's adapter. It carries a TTL, so the adapter holds
+        // it for the scene's lifetime and releases it; the change-driven forward path stays quiet meanwhile,
+        // so nothing overwrites it. Isolated to this bridge: no other backend sees it.
+        BridgeTransport current = transport;
+        if (outputEnabled && current != null && current.isOpen()) {
+            outbound.offer(codec.encodeEffect(scene, nowNs));
+        }
+    }
+
+    @Override
     public void stop(StopReason reason) {
         // Forget forwarding state first so the stop frame is never suppressed and the next real scene is
         // sent afresh. Then send stop-all even while output is disabled: clearAndOffer drops every queued
@@ -158,7 +178,15 @@ public final class BridgeBackend implements HapticBackend {
 
     @Override
     public void setOutputEnabled(boolean enabled) {
+        boolean was = this.outputEnabled;
         this.outputEnabled = enabled;
+        if (was && !enabled) {
+            // Disabling output (panic/master off) must actively stop the adapter, not just go silent.
+            // Buttplug's next cycle pushes zeros to its devices; the bridge has to send an explicit stop
+            // or the toy would coast until the frame's TTL lapses. stop() also resets the forwarder, so
+            // re-enabling re-sends the next changed scene afresh.
+            stop(StopReason.PANIC);
+        }
     }
 
     @Override

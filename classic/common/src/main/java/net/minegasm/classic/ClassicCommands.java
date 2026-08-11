@@ -226,7 +226,58 @@ public final class ClassicCommands {
         return sb.toString();
     }
 
+    private static void testButtplug(MinegasmClient client, Feedback out) {
+        if (!client.isConnected()) {
+            out.error("Not connected. Run '/minegasm connect' first.");
+            return;
+        }
+        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+            out.error("Haptics are disabled or stopped. Enable and resume first.");
+            return;
+        }
+        int targeted = client.testButtplugOutput(0.25f, 400);
+        if (targeted == 0) {
+            out.error("No connected device has a feature to test.");
+            return;
+        }
+        out.info("Sent a 25% / 400 ms test to Buttplug (" + targeted
+                + (targeted == 1 ? " feature)." : " features)."));
+    }
+
+    private static void testBridge(MinegasmClient client, Feedback out, String name) {
+        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+            out.error("Haptics are disabled or stopped. Enable and resume first.");
+            return;
+        }
+        boolean known = false;
+        for (HapticConfig.Bridge bridge : client.config().raw().bridges()) {
+            if (bridge.enabled() && bridge.name().equals(name)) {
+                known = true;
+                break;
+            }
+        }
+        if (!known) {
+            out.error("No enabled bridge named '" + name + "'.");
+            return;
+        }
+        client.testBridgeOutput(name, 0.25f, 400);
+        out.info("Sent a 25% / 400 ms test to bridge " + name + ".");
+    }
+
     private static void test(MinegasmClient client, Feedback out, String[] args) {
+        // Per-backend targets; a bare "/mg test" (or one that starts with a number) is the global test.
+        if (args.length >= 2 && args[1].equalsIgnoreCase("buttplug")) {
+            testButtplug(client, out);
+            return;
+        }
+        if (args.length >= 2 && args[1].equalsIgnoreCase("bridge")) {
+            if (args.length < 3) {
+                out.error("Usage: /minegasm test bridge <name>");
+                return;
+            }
+            testBridge(client, out, args[2]);
+            return;
+        }
         int percent = TestOutputLimits.DEFAULT_NORMAL_PERCENT;
         int durationMs = 400;
         boolean unsafeConfirmed = false;
@@ -264,7 +315,14 @@ public final class ClassicCommands {
                     + "%, " + global.unsafeTestMaxDurationMs() + " ms).");
             return;
         }
-        if (!client.isConnected()) {
+        boolean anyBridge = false;
+        for (HapticConfig.Bridge b : client.config().raw().bridges()) {
+            if (b.enabled()) {
+                anyBridge = true;
+                break;
+            }
+        }
+        if (!client.isConnected() && !anyBridge) {
             out.error("Not connected. Run '/minegasm connect' first.");
             return;
         }
@@ -273,12 +331,16 @@ public final class ClassicCommands {
             return;
         }
         int targeted = client.testPulse(percent / 100f, durationMs);
-        if (targeted == 0) {
+        if (targeted == 0 && !anyBridge) {
             out.error("No connected device has a feature to test.");
             return;
         }
-        out.info("Sent a " + percent + "% / " + durationMs + " ms test to " + targeted
-                + (targeted == 1 ? " feature." : " features."));
+        if (targeted > 0) {
+            out.info("Sent a " + percent + "% / " + durationMs + " ms test to " + targeted
+                    + (targeted == 1 ? " feature." : " features."));
+        } else {
+            out.info("Sent a " + percent + "% / " + durationMs + " ms test to your bridge(s).");
+        }
     }
 
     private static void trigger(MinegasmClient client, long gameTick, Feedback out, String[] args) {
@@ -338,6 +400,9 @@ public final class ClassicCommands {
                 + ", " + status.deviceCount()
                 + (status.deviceCount() == 1 ? " device" : " devices")
                 + ", adapter " + adapter + ".");
+        for (String line : client.bridgeStatusLines()) {
+            out.info(line);
+        }
     }
 
     private static Integer parseInt(String token) {

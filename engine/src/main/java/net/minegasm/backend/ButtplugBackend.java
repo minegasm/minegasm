@@ -39,6 +39,12 @@ public final class ButtplugBackend implements HapticBackend {
     private long pausedRegistryGeneration;
     private volatile long lastHealthyCycleNs;
     private volatile List<OutputCommand> lastCommands = Collections.emptyList();
+    private volatile HapticScene testScene; // an isolated test injected into this backend's own render
+
+    @Override
+    public void test(HapticScene scene, long nowNs) {
+        this.testScene = scene; // rendered alongside the governed set until its own expiry
+    }
 
     public ButtplugBackend(HapticProvider provider, Supplier<RuntimeConfig> config) {
         this.provider = provider;
@@ -59,8 +65,9 @@ public final class ButtplugBackend implements HapticBackend {
     public void onGovernedScenes(List<HapticScene> governed, long nowNs) {
         RuntimeConfig cfg = config.get();
         DeviceRegistrySnapshot snapshot = provider.devices();
+        List<HapticScene> effective = withTest(governed, nowNs);
         Map<String, EndpointTarget> targets = (cfg.enabled() && outputEnabled)
-                ? mixer.render(governed, snapshot, cfg, nowNs)
+                ? mixer.render(effective, snapshot, cfg, nowNs)
                 : Collections.emptyMap(); // drive any held endpoints to zero, then stay silent
         List<OutputCommand> commands = scheduler.accept(targets, snapshot, nowNs);
         for (OutputCommand command : commands) {
@@ -68,6 +75,21 @@ public final class ButtplugBackend implements HapticBackend {
         }
         lastCommands = commands;
         lastHealthyCycleNs = nowNs;
+    }
+
+    /** Append a live isolated test scene to the governed set, dropping it once its lifetime has passed. */
+    private List<HapticScene> withTest(List<HapticScene> governed, long nowNs) {
+        HapticScene test = testScene;
+        if (test == null) {
+            return governed;
+        }
+        if (nowNs >= test.expiresAtNs()) {
+            testScene = null;
+            return governed;
+        }
+        List<HapticScene> combined = new java.util.ArrayList<>(governed);
+        combined.add(test);
+        return combined;
     }
 
     @Override

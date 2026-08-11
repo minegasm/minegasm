@@ -227,6 +227,14 @@ public final class MinegasmMod implements ClientModInitializer {
                                 .executes(context -> adapterFromCommand(context.getSource(), "buttplug4j"))))
                 .then(ClientCommands.literal("test")
                         .executes(context -> testFromCommand(context.getSource(), 25, 400, false))
+                        .then(ClientCommands.literal("buttplug")
+                                .executes(context -> testButtplugFromCommand(context.getSource())))
+                        .then(ClientCommands.literal("bridge")
+                                .then(ClientCommands.argument("name", StringArgumentType.word())
+                                        .suggests((c, b) -> SharedSuggestionProvider.suggest(
+                                                enabledBridgeNames(), b))
+                                        .executes(context -> testBridgeFromCommand(context.getSource(),
+                                                StringArgumentType.getString(context, "name")))))
                         .then(ClientCommands.argument("strength-percent", IntegerArgumentType.integer(
                                 TestOutputLimits.MIN_PERCENT, TestOutputLimits.MAX_PERCENT))
                                 .executes(context -> testFromCommand(context.getSource(),
@@ -266,6 +274,53 @@ public final class MinegasmMod implements ClientModInitializer {
         return 1;
     }
 
+    private int testButtplugFromCommand(FabricClientCommandSource source) {
+        if (!client.isConnected()) {
+            source.sendError(Component.translatable("minegasm.command.test_disconnected"));
+            return 0;
+        }
+        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+            source.sendError(Component.translatable("minegasm.command.test_disabled"));
+            return 0;
+        }
+        int targeted = client.testButtplugOutput(0.25f, 400);
+        if (targeted == 0) {
+            source.sendError(Component.translatable("minegasm.command.test_no_features"));
+            return 0;
+        }
+        source.sendFeedback(Component.translatable("minegasm.command.test_sent", targeted, 25, 400));
+        return targeted;
+    }
+
+    private int testBridgeFromCommand(FabricClientCommandSource source, String name) {
+        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+            source.sendError(Component.translatable("minegasm.command.test_disabled"));
+            return 0;
+        }
+        if (!bridgeEnabled(name)) {
+            source.sendError(Component.translatable("minegasm.command.test_bridge_unknown", name));
+            return 0;
+        }
+        client.testBridgeOutput(name, 0.25f, 400);
+        source.sendFeedback(Component.translatable("minegasm.command.test_sent_bridge", 25, 400));
+        return 1;
+    }
+
+    private java.util.List<String> enabledBridgeNames() {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (net.minegasm.config.HapticConfig.Bridge bridge : client.config().raw().bridges()) {
+            if (bridge.enabled()) {
+                names.add(bridge.name());
+            }
+        }
+        return names;
+    }
+
+    private boolean bridgeEnabled(String name) {
+        return client.config().raw().bridges().stream()
+                .anyMatch(bridge -> bridge.enabled() && bridge.name().equals(name));
+    }
+
     private int testFromCommand(FabricClientCommandSource source, int strengthPercent, int durationMs,
                                 boolean unsafeConfirmed) {
         var global = client.config().raw().global();
@@ -281,7 +336,9 @@ public final class MinegasmMod implements ClientModInitializer {
                     global.unsafeTestMaxPercent(), global.unsafeTestMaxDurationMs()));
             return 0;
         }
-        if (!client.isConnected()) {
+        boolean anyBridge = client.config().raw().bridges().stream()
+                .anyMatch(net.minegasm.config.HapticConfig.Bridge::enabled);
+        if (!client.isConnected() && !anyBridge) {
             source.sendError(Component.translatable("minegasm.command.test_disconnected"));
             return 0;
         }
@@ -290,12 +347,17 @@ public final class MinegasmMod implements ClientModInitializer {
             return 0;
         }
         int targeted = client.testPulse(strengthPercent / 100f, durationMs);
-        if (targeted == 0) {
+        if (targeted == 0 && !anyBridge) {
             source.sendError(Component.translatable("minegasm.command.test_no_features"));
             return 0;
         }
-        source.sendFeedback(Component.translatable("minegasm.command.test_sent",
-                targeted, strengthPercent, durationMs));
+        if (targeted > 0) {
+            source.sendFeedback(Component.translatable("minegasm.command.test_sent",
+                    targeted, strengthPercent, durationMs));
+        } else {
+            source.sendFeedback(Component.translatable("minegasm.command.test_sent_bridge",
+                    strengthPercent, durationMs));
+        }
         return targeted;
     }
 
@@ -439,6 +501,9 @@ public final class MinegasmMod implements ClientModInitializer {
                 status.deviceCount(),
                 Component.translatable("minegasm.adapter."
                         + client.config().raw().buttplug().client().toLowerCase(Locale.ROOT))));
+        for (String line : client.bridgeStatusLines()) {
+            source.sendFeedback(Component.literal(line));
+        }
         if (!shortAliasAvailable) {
             source.sendFeedback(Component.translatable("minegasm.command.alias_unavailable"));
         }

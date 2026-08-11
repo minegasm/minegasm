@@ -71,8 +71,21 @@ public final class BridgeEditScreen16 extends Screen {
                 BridgeList.remove(client, index);
                 onClose();
             }));
+            // Isolated test on this bridge only. Test and Cancel share the bottom row so nothing runs off a
+            // short screen; the test is gated like Buttplug's: output on and this bridge's adapter connected.
+            String bridgeName = bridges.get(index).name();
+            boolean canTest = client.config().enabled()
+                    && client.runtime().worker().isOutputEnabled()
+                    && client.bridgeConnected(bridgeName);
+            int half = (w - 4) / 2;
+            Button test = addButton(new Button(x, height - 26, half, h, new TextComponent("Test output"),
+                    b -> client.testBridgeOutput(bridgeName, 0.25f)));
+            test.active = canTest;
+            addButton(new Button(x + half + 4, height - 26, half, h, new TextComponent("Cancel"),
+                    b -> onClose()));
+        } else {
+            addButton(new Button(x, height - 26, w, h, new TextComponent("Cancel"), b -> onClose()));
         }
-        addButton(new Button(x, height - 26, w, h, new TextComponent("Cancel"), b -> onClose()));
     }
 
     private TextComponent enabledLabel() {

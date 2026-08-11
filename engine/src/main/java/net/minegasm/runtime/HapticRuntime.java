@@ -8,6 +8,7 @@ import net.minegasm.bridge.BridgeEndpoint;
 import net.minegasm.buttplug.HapticProvider;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.core.HapticIntent;
+import net.minegasm.core.HapticScene;
 import net.minegasm.core.RawGameEvent;
 import net.minegasm.observe.ClientStateSnapshot;
 import net.minegasm.observe.HapticAggregator;
@@ -18,8 +19,12 @@ import net.minegasm.pack.PackRegistry;
 import net.minegasm.recipe.RecipeEngine;
 import net.minegasm.time.Clock;
 
+import java.net.URI;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
@@ -46,6 +51,12 @@ public final class HapticRuntime {
     private final Watchdog watchdog;
     private final Clock clock;
     private final Supplier<RuntimeConfig> config;
+
+    // Bridge backends managed live, keyed by bridge name, so enabling/adding a bridge takes effect without
+    // a game restart (reconcileBridges). The uri map lets reconcile detect an endpoint whose address changed.
+    private final Map<String, BridgeBackend> bridgeBackends = new ConcurrentHashMap<>();
+    private final Map<String, URI> bridgeUris = new ConcurrentHashMap<>();
+    private volatile boolean started;
 
     private boolean gameActive;
     private boolean worldPresent;
@@ -79,8 +90,11 @@ public final class HapticRuntime {
         backends.add(buttplug);
         if (bridgeEndpoints != null) {
             for (BridgeEndpoint endpoint : bridgeEndpoints) {
-                backends.add(new BridgeBackend(endpoint.transportFactory(), endpoint.uri(),
-                        endpoint.id(), clock));
+                BridgeBackend backend = new BridgeBackend(endpoint.transportFactory(), endpoint.uri(),
+                        endpoint.id(), clock);
+                backends.add(backend);
+                bridgeBackends.put(endpoint.id(), backend);
+                bridgeUris.put(endpoint.id(), endpoint.uri());
             }
         }
         this.coordinator = new BackendCoordinator(backends);
@@ -158,6 +172,7 @@ public final class HapticRuntime {
     }
 
     public void start() {
+        started = true;
         coordinator.start();
         worker.start();
     }
@@ -165,6 +180,69 @@ public final class HapticRuntime {
     public void shutdown() {
         worker.shutdown();
         coordinator.close();
+    }
+
+    /**
+     * Bring the running bridge backends in line with {@code desired} (the enabled, allowed bridges the
+     * client built from current config), so enabling, disabling, adding, or re-pointing a bridge takes
+     * effect without a game restart. A bridge no longer wanted, or whose address changed, is stopped and
+     * closed; a newly wanted one is built, started, and joins the fan-out. Buttplug is untouched.
+     *
+     * <p>Called from the client thread on any config change; the copy-on-write coordinator lets the worker
+     * keep cycling meanwhile. Keyed by bridge name.
+     */
+    public synchronized void reconcileBridges(List<BridgeEndpoint> desired) {
+        Map<String, BridgeEndpoint> want = new LinkedHashMap<>();
+        if (desired != null) {
+            for (BridgeEndpoint endpoint : desired) {
+                want.put(endpoint.id(), endpoint);
+            }
+        }
+        // Drop backends that are gone or now point somewhere else.
+        for (String id : new ArrayList<>(bridgeBackends.keySet())) {
+            BridgeEndpoint w = want.get(id);
+            if (w == null || !w.uri().equals(bridgeUris.get(id))) {
+                BridgeBackend gone = bridgeBackends.remove(id);
+                bridgeUris.remove(id);
+                if (gone != null) {
+                    coordinator.remove(gone);
+                    gone.stop(StopReason.CONFIG_RESET); // tell the adapter to zero before we drop the socket
+                    gone.close();
+                }
+            }
+        }
+        // Add backends newly wanted (including a re-pointed one, dropped just above).
+        for (BridgeEndpoint endpoint : want.values()) {
+            if (!bridgeBackends.containsKey(endpoint.id())) {
+                BridgeBackend fresh = new BridgeBackend(endpoint.transportFactory(), endpoint.uri(),
+                        endpoint.id(), clock);
+                if (started) {
+                    fresh.start();
+                }
+                coordinator.add(fresh);
+                bridgeBackends.put(endpoint.id(), fresh);
+                bridgeUris.put(endpoint.id(), endpoint.uri());
+            }
+        }
+    }
+
+    /** Whether the named bridge has a live outbound link to its adapter (false if disabled or absent). */
+    public boolean bridgeConnected(String name) {
+        BridgeBackend backend = bridgeBackends.get(name);
+        return backend != null && backend.isConnected();
+    }
+
+    /** Fire an isolated test on the Buttplug backend only (its own devices), not the other integrations. */
+    public void testButtplug(HapticScene scene, long nowNs) {
+        buttplug.test(scene, nowNs);
+    }
+
+    /** Fire an isolated test on one bridge only, or nothing if that bridge is disabled or absent. */
+    public void testBridge(String name, HapticScene scene, long nowNs) {
+        BridgeBackend backend = bridgeBackends.get(name);
+        if (backend != null) {
+            backend.test(scene, nowNs);
+        }
     }
 
     public HapticWorker worker() {

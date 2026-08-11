@@ -127,7 +127,7 @@ public final class ClassicConfigScreen extends GuiScreen {
                 client.refreshDevices();
                 break;
             case ID_TEST:
-                client.testPulse(0.25f);
+                client.testButtplugOutput(0.25f);
                 break;
             case ID_CLEAR_ERRORS:
                 client.clearErrorHistory();

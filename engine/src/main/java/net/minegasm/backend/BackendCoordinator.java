@@ -3,9 +3,9 @@ package net.minegasm.backend;
 import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Owns every enabled {@link HapticBackend} and fans lifecycle calls to all of them (brief 0003 §3.2),
@@ -20,14 +20,26 @@ import java.util.List;
  */
 public final class BackendCoordinator implements AutoCloseable {
 
-    private final List<HapticBackend> backends;
+    // Copy-on-write so the worker thread can fan out lock-free while the client thread adds or removes a
+    // bridge backend live (an enable toggle or a newly added bridge, no game restart).
+    private final CopyOnWriteArrayList<HapticBackend> backends;
 
     public BackendCoordinator(List<HapticBackend> backends) {
-        this.backends = Collections.unmodifiableList(new ArrayList<>(backends));
+        this.backends = new CopyOnWriteArrayList<>(backends);
     }
 
     public List<HapticBackend> backends() {
-        return backends;
+        return Collections.unmodifiableList(backends);
+    }
+
+    /** Add a backend that is already started, so it joins the fan-out from the next cycle. */
+    public void add(HapticBackend backend) {
+        backends.add(backend);
+    }
+
+    /** Remove a backend from the fan-out; the caller stops and closes it. */
+    public void remove(HapticBackend backend) {
+        backends.remove(backend);
     }
 
     public void start() {

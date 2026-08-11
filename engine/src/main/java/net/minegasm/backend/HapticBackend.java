@@ -53,6 +53,15 @@ public interface HapticBackend extends AutoCloseable {
         return false;
     }
 
+    /**
+     * Fire an isolated, bounded test on just this backend, outside the governed pipeline so it does not
+     * fan to other backends (the per-integration "test output" buttons). The backend holds the scene for
+     * its lifetime and releases it; the driver keeps cycling meanwhile, so a rendering backend must inject
+     * the scene into its own render until it expires rather than being overwritten. Default no-op.
+     */
+    default void test(HapticScene scene, long nowNs) {
+    }
+
     /** Stop all output for this backend now. Must be non-blocking and take effect synchronously. */
     void stop(StopReason reason);
 
