@@ -1,0 +1,141 @@
+{
+  "initialActions": [],
+  "finalActions": [],
+  "globalTriggers": [
+    {
+      "type": "componentState",
+      "event": "set",
+      "action": "minegasm-impact",
+      "actions": [
+        {
+          "type": "updateComponent",
+          "action": "setVolume",
+          "channel": "generic-1-a",
+          "percentVolume": "{trigger-intensity}",
+          "volumeChannel": "all"
+        }
+      ],
+      "channel": "webhook-a",
+      "parsedAction": "minegasm-impact"
+    },
+    {
+      "type": "componentState",
+      "event": "set",
+      "action": "minegasm-reward",
+      "actions": [
+        {
+          "type": "updateComponent",
+          "action": "setVolume",
+          "channel": "generic-2-a",
+          "percentVolume": "{trigger-intensity}",
+          "volumeChannel": "all"
+        }
+      ],
+      "channel": "webhook-a",
+      "parsedAction": "minegasm-reward"
+    },
+    {
+      "type": "componentState",
+      "event": "set",
+      "action": "minegasm-texture",
+      "actions": [
+        {
+          "type": "updateComponent",
+          "action": "setVolume",
+          "channel": "generic-3-a",
+          "percentVolume": "{trigger-intensity}",
+          "volumeChannel": "all"
+        }
+      ],
+      "channel": "webhook-a",
+      "parsedAction": "minegasm-texture"
+    },
+    {
+      "type": "componentState",
+      "event": "set",
+      "action": "minegasm-warning",
+      "actions": [
+        {
+          "type": "updateComponent",
+          "action": "setVolume",
+          "channel": "generic-4-a",
+          "percentVolume": "{trigger-intensity}",
+          "volumeChannel": "all"
+        }
+      ],
+      "channel": "webhook-a",
+      "parsedAction": "minegasm-warning"
+    },
+    {
+      "type": "componentState",
+      "event": "set",
+      "action": "minegasm-ambient",
+      "actions": [
+        {
+          "type": "updateComponent",
+          "action": "setVolume",
+          "channel": "generic-5-a",
+          "percentVolume": "{trigger-intensity}",
+          "volumeChannel": "all"
+        }
+      ],
+      "channel": "webhook-a",
+      "parsedAction": "minegasm-ambient"
+    },
+    {
+      "type": "componentState",
+      "event": "set",
+      "action": "minegasm-control",
+      "actions": [
+        {
+          "type": "updateComponent",
+          "action": "setVolume",
+          "channel": "generic-6-a",
+          "percentVolume": "{trigger-intensity}",
+          "volumeChannel": "all"
+        }
+      ],
+      "channel": "webhook-a",
+      "parsedAction": "minegasm-control"
+    }
+  ],
+  "jobs": {},
+  "queues": [],
+  "channels": {
+    "webhook-a": {
+      "type": "webhook"
+    },
+    "generic-1-a": {
+      "name": "IMPACT",
+      "type": "generic-1"
+    },
+    "generic-2-a": {
+      "name": "REWARD",
+      "type": "generic-2"
+    },
+    "generic-3-a": {
+      "name": "TEXTURE",
+      "type": "generic-3"
+    },
+    "generic-4-a": {
+      "name": "WARNING",
+      "type": "generic-4"
+    },
+    "generic-5-a": {
+      "name": "AMBIENT",
+      "type": "generic-5"
+    },
+    "generic-6-a": {
+      "name": "CONTROL",
+      "type": "generic-6"
+    }
+  },
+  "controls": [],
+  "controlPresets": [],
+  "media": {
+    "audio": {},
+    "voices": {},
+    "patterns": {}
+  },
+  "customFunctions": ""
+}
