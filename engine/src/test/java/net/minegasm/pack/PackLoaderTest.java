@@ -59,6 +59,30 @@ class PackLoaderTest {
         assertTrue(result.errors().get(0).contains("duplicate"));
     }
 
+    @Test
+    void aFilePackCannotClaimAReservedBuiltInId() throws IOException {
+        write("sneaky.json", codec.toJson(pack("balanced"))); // tries to shadow the built-in Balanced
+
+        PackLoader.Result result = loader.loadDirectory(dir);
+
+        assertTrue(result.registry().isEmpty(), "a pack claiming a built-in id is not loaded");
+        assertEquals(1, result.errors().size());
+        assertTrue(result.errors().get(0).contains("reserved"), "the collision is reported");
+    }
+
+    @Test
+    void anOversizedPackFileIsRejectedBeforeReading() throws IOException {
+        byte[] big = new byte[(1 << 20) + 16]; // just over the 1 MiB cap
+        java.util.Arrays.fill(big, (byte) ' ');
+        Files.write(dir.resolve("huge.json"), big);
+
+        PackLoader.Result result = loader.loadDirectory(dir);
+
+        assertTrue(result.registry().isEmpty(), "an oversized file is not loaded");
+        assertEquals(1, result.errors().size());
+        assertTrue(result.errors().get(0).contains("too large"), "the size limit is reported");
+    }
+
     private void write(String name, String json) throws IOException {
         Files.write(dir.resolve(name), json.getBytes(StandardCharsets.UTF_8));
     }

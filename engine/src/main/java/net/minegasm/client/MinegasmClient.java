@@ -7,6 +7,7 @@ import net.minegasm.buttplug.SwappableProvider;
 import net.minegasm.config.ConfigStore;
 import net.minegasm.config.HapticConfig;
 import net.minegasm.config.LegacyMinegasmImporter;
+import net.minegasm.config.RecipePackId;
 import net.minegasm.config.RuntimeConfig;
 import net.minegasm.config.TestOutputLimits;
 import net.minegasm.core.DeliveryMode;
@@ -111,6 +112,14 @@ public final class MinegasmClient {
             errorHistory.add("[scene-packs] " + packError);
         }
         this.scenePacks = packs.registry();
+        // A selected pack that is neither a built-in nor a loaded file pack silently falls back to
+        // Balanced in the recipe engine; report it so the change of feel is not a mystery (review P2-7).
+        String selectedPack = config.get().recipePackName();
+        if (RecipePackId.fromString(selectedPack, null) == null
+                && !scenePacks.find(selectedPack).isPresent()) {
+            errorHistory.add("[scene-packs] selected pack '" + selectedPack
+                    + "' not found; using Balanced");
+        }
         this.runtime = new HapticRuntime(provider, clock, config::get, scenePacks, buildBridgeEndpoints());
         provider.setStatusListener(this::recordProviderError);
     }

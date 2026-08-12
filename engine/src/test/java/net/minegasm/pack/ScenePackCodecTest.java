@@ -15,6 +15,7 @@ import java.util.EnumSet;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Codec fidelity: every primitive type survives a JSON round trip unchanged. */
@@ -36,6 +37,33 @@ class ScenePackCodecTest {
                 "oscillation"}) {
             assertTrue(json.contains("\"" + type + "\""), "expected primitive type " + type + " in output");
         }
+    }
+
+    @Test
+    void unsupportedDeliveryModeIsRejected() {
+        // A destination-selection mode the mixer ignores must fail closed, not silently fan to every
+        // device (review P2-1).
+        String json = codec.toJson(allPrimitivesPack()).replaceFirst("ALL_COMPATIBLE", "BEST_GLOBAL");
+        PackFormatException ex = assertThrows(PackFormatException.class, () -> codec.fromJson(json));
+        assertTrue(ex.getMessage().contains("BEST_GLOBAL"), "the error names the unsupported mode");
+    }
+
+    @Test
+    void tooManyTriggersIsRejected() {
+        // Structural cardinality is bounded even when each entry is tiny, so a pack can't exhaust memory
+        // with a huge array (review P2-5).
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"schemaVersion\":").append(ScenePack.SCHEMA_VERSION)
+                .append(",\"packId\":\"big\",\"triggers\":[");
+        for (int i = 0; i <= 512; i++) { // 513 entries, over the 512 cap
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append("{\"event\":\"HURT\",\"scene\":{}}");
+        }
+        sb.append("]}");
+        PackFormatException ex = assertThrows(PackFormatException.class, () -> codec.fromJson(sb.toString()));
+        assertTrue(ex.getMessage().contains("triggers"), "the over-limit array is named");
     }
 
     private static ScenePack allPrimitivesPack() {

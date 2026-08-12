@@ -29,6 +29,12 @@ public final class TcpLineBridgeTransport implements BridgeTransport {
 
     private static final int CONNECT_TIMEOUT_MS = 3_000;
 
+    /**
+     * Cap on a single inbound line, so a peer (an explicitly allowed remote adapter especially) cannot
+     * grow memory by never sending a newline (review P2-5). Frames are small JSON; 64k is generous.
+     */
+    private static final int MAX_LINE_CHARS = 64 * 1024;
+
     private volatile Socket socket;
     private volatile OutputStream out;
     private volatile boolean open;
@@ -117,9 +123,24 @@ public final class TcpLineBridgeTransport implements BridgeTransport {
         reader = new Thread(() -> {
             try (BufferedReader in = new BufferedReader(
                     new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while (!closed && (line = in.readLine()) != null) {
-                    onMsg.accept(line);
+                // Bounded line read (not BufferedReader.readLine, which is unbounded): a line that grows
+                // past the cap without a newline is a protocol violation, so fail closed instead of
+                // buffering it forever. The reconnect supervisor will redial.
+                StringBuilder line = new StringBuilder();
+                int ch;
+                while (!closed && (ch = in.read()) != -1) {
+                    if (ch == '\n') {
+                        if (line.length() > 0 && line.charAt(line.length() - 1) == '\r') {
+                            line.setLength(line.length() - 1);
+                        }
+                        onMsg.accept(line.toString());
+                        line.setLength(0);
+                    } else {
+                        line.append((char) ch);
+                        if (line.length() > MAX_LINE_CHARS) {
+                            throw new IOException("inbound line exceeded " + MAX_LINE_CHARS + " chars");
+                        }
+                    }
                 }
                 fail(null); // clean end of stream
             } catch (IOException read) {

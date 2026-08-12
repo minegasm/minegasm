@@ -41,6 +41,14 @@ public final class ScenePackCodec {
      *  absurd multi-hour effect and bounds the ns conversion. */
     static final int MAX_DURATION_MS = 60_000;
 
+    // Structural caps so a shared or hostile pack cannot exhaust memory with enormous cardinalities even
+    // when every individual value is in range (review P2-5). Generous for real packs, finite for junk.
+    static final int MAX_STRING_LENGTH = 512;
+    static final int MAX_TRIGGERS = 512;
+    static final int MAX_LAYERS_PER_SCENE = 64;
+    static final int MAX_BEATS = 128;
+    static final int MAX_ALLOWED_OUTPUTS = 64;
+
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .disableHtmlEscaping()
@@ -86,7 +94,7 @@ public final class ScenePackCodec {
         String description = optString(o, "description", "");
         List<PackTrigger> triggers = new ArrayList<>();
         if (has(o, "triggers")) {
-            for (JsonElement el : o.getAsJsonArray("triggers")) {
+            for (JsonElement el : boundedArray(o, "triggers", MAX_TRIGGERS)) {
                 triggers.add(readTrigger(el.getAsJsonObject()));
             }
         }
@@ -104,7 +112,7 @@ public final class ScenePackCodec {
         String continuousKey = optNullableString(o, "continuousKey");
         List<LayerTemplate> layers = new ArrayList<>();
         if (has(o, "layers")) {
-            for (JsonElement el : o.getAsJsonArray("layers")) {
+            for (JsonElement el : boundedArray(o, "layers", MAX_LAYERS_PER_SCENE)) {
                 layers.add(readLayer(el.getAsJsonObject()));
             }
         }
@@ -117,6 +125,7 @@ public final class ScenePackCodec {
         HapticPrimitive primitive = readPrimitive(reqObject(o, "primitive"));
         Set<OutputKind> allowed = readOutputs(o);
         DeliveryMode delivery = optEnum(DeliveryMode.class, o, "delivery", null);
+        requireImplementedDelivery(delivery);
         CouplingMode coupling = optEnum(CouplingMode.class, o, "coupling", null);
         int priority = optInt(o, "priority", 0);
         int startOffsetMs = boundMs(optInt(o, "startOffsetMs", 0));
@@ -161,7 +170,7 @@ public final class ScenePackCodec {
     private static List<HapticPrimitive.Beat> readBeats(JsonObject o) {
         List<HapticPrimitive.Beat> beats = new ArrayList<>();
         if (has(o, "beats")) {
-            for (JsonElement el : o.getAsJsonArray("beats")) {
+            for (JsonElement el : boundedArray(o, "beats", MAX_BEATS)) {
                 JsonObject b = el.getAsJsonObject();
                 beats.add(new HapticPrimitive.Beat(dur(b, "atMs"), level(b), dur(b, "durationMs")));
             }
@@ -174,7 +183,7 @@ public final class ScenePackCodec {
             return Collections.emptySet();
         }
         EnumSet<OutputKind> set = EnumSet.noneOf(OutputKind.class);
-        for (JsonElement el : o.getAsJsonArray("allowedOutputs")) {
+        for (JsonElement el : boundedArray(o, "allowedOutputs", MAX_ALLOWED_OUTPUTS)) {
             String raw = el.getAsString();
             try {
                 set.add(OutputKind.valueOf(raw.trim().toUpperCase(Locale.ROOT)));
@@ -260,15 +269,34 @@ public final class ScenePackCodec {
         if (!has(o, field)) {
             throw new PackFormatException("missing required '" + field + "'");
         }
-        return o.get(field).getAsString();
+        return capString(field, o.get(field).getAsString());
     }
 
     private static String optString(JsonObject o, String field, String dflt) {
-        return has(o, field) ? o.get(field).getAsString() : dflt;
+        return has(o, field) ? capString(field, o.get(field).getAsString()) : dflt;
     }
 
     private static String optNullableString(JsonObject o, String field) {
-        return has(o, field) ? o.get(field).getAsString() : null;
+        return has(o, field) ? capString(field, o.get(field).getAsString()) : null;
+    }
+
+    /** Reject an over-long string outright rather than store an unbounded value from a file (P2-5). */
+    private static String capString(String field, String value) {
+        if (value != null && value.length() > MAX_STRING_LENGTH) {
+            throw new PackFormatException("'" + field + "' is too long ("
+                    + value.length() + " > " + MAX_STRING_LENGTH + ")");
+        }
+        return value;
+    }
+
+    /** Return the named array, failing closed if it exceeds {@code max} entries (P2-5). */
+    private static com.google.gson.JsonArray boundedArray(JsonObject o, String field, int max) {
+        com.google.gson.JsonArray arr = o.getAsJsonArray(field);
+        if (arr.size() > max) {
+            throw new PackFormatException("'" + field + "' has " + arr.size()
+                    + " entries, over the limit of " + max);
+        }
+        return arr;
     }
 
     private static int reqInt(JsonObject o, String field) {
@@ -324,5 +352,19 @@ public final class ScenePackCodec {
 
     private static <E extends Enum<E>> E optEnum(Class<E> type, JsonObject o, String field, E dflt) {
         return has(o, field) ? reqEnum(type, o, field) : dflt;
+    }
+
+    /**
+     * Reject the delivery modes the mixer does not actually honor (review P2-1). Only ALL_COMPATIBLE and
+     * SUPPLEMENTAL are wired end to end; the destination-selection modes have no effect, so accepting one
+     * would silently render to every compatible feature instead of the single destination the author
+     * asked for. Fail closed rather than pretend a smaller-than-advertised routing works.
+     */
+    private static void requireImplementedDelivery(DeliveryMode delivery) {
+        if (delivery == DeliveryMode.BEST_PER_DEVICE || delivery == DeliveryMode.BEST_GLOBAL
+                || delivery == DeliveryMode.EXCLUSIVE) {
+            throw new PackFormatException("delivery '" + delivery.name()
+                    + "' is not supported yet; use ALL_COMPATIBLE or SUPPLEMENTAL");
+        }
     }
 }

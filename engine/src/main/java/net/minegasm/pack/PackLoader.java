@@ -22,6 +22,14 @@ import java.util.stream.Stream;
  */
 public final class PackLoader {
 
+    // Built-in pack names (and their aliases) that a file pack may not claim, or it would silently
+    // replace the built-in behavior under the same selection (review P2-7).
+    private static final java.util.Set<String> RESERVED_IDS = new java.util.HashSet<>(
+            java.util.Arrays.asList("classic", "balanced", "modern"));
+
+    /** Reject a pack file larger than this before reading it into memory (review P2-5). */
+    private static final long MAX_PACK_BYTES = 1L << 20; // 1 MiB
+
     private final ScenePackCodec codec = new ScenePackCodec();
 
     public Result loadDirectory(Path dir) {
@@ -46,8 +54,18 @@ public final class PackLoader {
         for (Path file : files) {
             String name = file.getFileName().toString();
             try {
+                long size = Files.size(file);
+                if (size > MAX_PACK_BYTES) {
+                    errors.add(name + ": too large (" + size + " bytes, limit " + MAX_PACK_BYTES + ")");
+                    continue;
+                }
                 String text = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
                 ScenePack pack = codec.fromJson(text);
+                if (isReserved(pack.packId())) {
+                    errors.add(name + ": pack id '" + pack.packId()
+                            + "' is reserved for a built-in, ignored");
+                    continue;
+                }
                 if (registry.find(pack.packId()).isPresent()) {
                     errors.add(name + ": duplicate pack id '" + pack.packId() + "', ignored");
                     continue;
@@ -61,6 +79,10 @@ public final class PackLoader {
             }
         }
         return new Result(registry, errors);
+    }
+
+    private static boolean isReserved(String id) {
+        return id != null && RESERVED_IDS.contains(id.trim().toLowerCase(Locale.ROOT));
     }
 
     /** The loaded registry plus a human-readable error per file that failed. */

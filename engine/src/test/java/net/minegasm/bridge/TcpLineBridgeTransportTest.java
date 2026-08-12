@@ -81,6 +81,34 @@ class TcpLineBridgeTransportTest {
     }
 
     @Test
+    void anOverlongInboundLineFailsClosed() throws Exception {
+        server = new ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"));
+        URI uri = URI.create("tcp://127.0.0.1:" + server.getLocalPort());
+        CountDownLatch closed = new CountDownLatch(1);
+
+        Thread acceptor = new Thread(() -> {
+            try {
+                Socket s = server.accept();
+                OutputStream os = s.getOutputStream();
+                byte[] blob = new byte[70 * 1024]; // over the 64k cap, and no newline
+                java.util.Arrays.fill(blob, (byte) 'x');
+                os.write(blob);
+                os.flush();
+            } catch (IOException ignored) {
+            }
+        });
+        acceptor.setDaemon(true);
+        acceptor.start();
+
+        transport = new TcpLineBridgeTransport();
+        transport.connect(uri, m -> {}, t -> closed.countDown())
+                .toCompletableFuture().get(3, TimeUnit.SECONDS);
+
+        assertTrue(closed.await(3, TimeUnit.SECONDS), "an unbounded inbound line must fail closed");
+        assertFalse(transport.isOpen());
+    }
+
+    @Test
     void sendIsANoOpWhenNotConnected() throws Exception {
         transport = new TcpLineBridgeTransport();
         // never connected: send completes without throwing and reports not open
