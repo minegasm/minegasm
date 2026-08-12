@@ -126,6 +126,27 @@ class ConfigStoreTest {
     }
 
     @Test
+    void aBridgeGetsAStableIdThatSurvivesReload(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("config.json");
+        // A config written before bridges had an id: the bridge has no "id" member.
+        String noId = "{\"schemaVersion\":1,\"bridges\":[{\"name\":\"xtoys\",\"enabled\":true,"
+                + "\"url\":\"tcp://127.0.0.1:12347\",\"transport\":\"tcp\",\"allowRemote\":false}]}";
+        Files.writeString(file, noId, StandardCharsets.UTF_8);
+        ConfigStore store = new ConfigStore(file);
+
+        ConfigStore.LoadResult first = store.load();
+        assertTrue(first.migrated(), "assigning the missing id counts as a change");
+        String id = first.config().bridges().get(0).id();
+        assertFalse(id.isEmpty(), "the bridge is given an id");
+
+        // Persist the assigned id, then reload: it must be identical, never regenerated.
+        store.save(first.config());
+        ConfigStore.LoadResult second = store.load();
+        assertEquals(id, second.config().bridges().get(0).id(), "the id is stable across reloads");
+        assertFalse(second.migrated(), "once the id is present no further change is needed");
+    }
+
+    @Test
     void atomicSaveLeavesNoTempFiles(@TempDir Path dir) throws IOException {
         ConfigStore store = new ConfigStore(dir.resolve("config.json"));
         store.save(HapticConfig.defaults());

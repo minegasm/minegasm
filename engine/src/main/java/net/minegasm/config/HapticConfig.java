@@ -464,19 +464,40 @@ public final class HapticConfig implements ConfigValue {
         private final String url;
         private final String transport;
         private final boolean allowRemote;
+        // Immutable internal identity, kept separate from the display name. The runtime keys backends on
+        // this, so renaming a bridge keeps its connection instead of tearing it down, and two rows can be
+        // told apart even if their names momentarily match. Declared last so the config adapter's
+        // field-order constructor still lines up and an older file without it reads through migration.
+        private final String id;
 
+        /** Convenience for new bridges: generates a fresh id. Not used by the config adapter. */
         public Bridge(String name, boolean enabled, String url, String transport, boolean allowRemote) {
+            this(name, enabled, url, transport, allowRemote, generateId());
+        }
+
+        public Bridge(String name, boolean enabled, String url, String transport, boolean allowRemote,
+                      String id) {
             this.name = name == null || name.trim().isEmpty() ? "bridge" : name.trim();
             this.enabled = enabled;
             this.url = url == null || url.trim().isEmpty() ? "tcp://127.0.0.1:12347" : url;
             this.transport = transport == null || transport.trim().isEmpty()
                     ? "tcp" : transport.trim().toLowerCase(java.util.Locale.ROOT);
             this.allowRemote = allowRemote;
+            this.id = id == null || id.trim().isEmpty() ? generateId() : id.trim();
         }
 
-        /** A user-facing label unique among endpoints, so several bridges can be told apart. */
+        private static String generateId() {
+            return java.util.UUID.randomUUID().toString().substring(0, 8);
+        }
+
+        /** A user-facing label, unique among endpoints, so several bridges can be told apart. */
         public String name() {
             return name;
+        }
+
+        /** Immutable internal identity the runtime keys on; stable across a rename. */
+        public String id() {
+            return id;
         }
 
         public boolean enabled() {
@@ -498,7 +519,8 @@ public final class HapticConfig implements ConfigValue {
         }
 
         public static Bridge defaults() {
-            return new Bridge("local", false, "tcp://127.0.0.1:12347", "tcp", false);
+            // A fixed id so the seed bridge is deterministic across fresh installs and round trips.
+            return new Bridge("local", false, "tcp://127.0.0.1:12347", "tcp", false, "local");
         }
 
         @Override
@@ -514,18 +536,19 @@ public final class HapticConfig implements ConfigValue {
                     && allowRemote == other.allowRemote
                     && Objects.equals(name, other.name)
                     && Objects.equals(url, other.url)
-                    && Objects.equals(transport, other.transport);
+                    && Objects.equals(transport, other.transport)
+                    && Objects.equals(id, other.id);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(name, enabled, url, transport, allowRemote);
+            return Objects.hash(name, enabled, url, transport, allowRemote, id);
         }
 
         @Override
         public String toString() {
             return "Bridge[name=" + name + ", enabled=" + enabled + ", url=" + url + ", transport="
-                    + transport + ", allowRemote=" + allowRemote + "]";
+                    + transport + ", allowRemote=" + allowRemote + ", id=" + id + "]";
         }
     }
 

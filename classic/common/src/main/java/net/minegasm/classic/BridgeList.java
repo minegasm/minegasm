@@ -58,7 +58,7 @@ public final class BridgeList {
         }
         HapticConfig.Bridge b = list.get(index);
         list.set(index, new HapticConfig.Bridge(b.name(), !b.enabled(), b.url(), b.transport(),
-                b.allowRemote()));
+                b.allowRemote(), b.id())); // preserve the id so a toggle doesn't reconnect the endpoint
         write(client, list);
     }
 
@@ -82,11 +82,12 @@ public final class BridgeList {
     public static void save(MinegasmClient client, int index, String name, boolean enabled, String url,
                             boolean allowRemote) {
         List<HapticConfig.Bridge> list = new ArrayList<HapticConfig.Bridge>(bridges(client));
-        HapticConfig.Bridge edited = new HapticConfig.Bridge(name, enabled, url, "tcp", allowRemote);
         if (index >= 0 && index < list.size()) {
-            list.set(index, edited);
+            // Editing: keep the existing id so a rename doesn't reconnect the endpoint (review P1-7).
+            String id = list.get(index).id();
+            list.set(index, new HapticConfig.Bridge(name, enabled, url, "tcp", allowRemote, id));
         } else {
-            list.add(edited);
+            list.add(new HapticConfig.Bridge(name, enabled, url, "tcp", allowRemote)); // new: fresh id
         }
         write(client, list);
     }

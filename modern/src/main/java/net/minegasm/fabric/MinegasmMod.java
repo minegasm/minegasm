@@ -428,7 +428,8 @@ public final class MinegasmMod implements ClientModInitializer {
         HapticConfig cfg = client.config().raw();
         java.util.List<HapticConfig.Bridge> bridges = new java.util.ArrayList<>(cfg.bridges());
         HapticConfig.Bridge b = bridges.get(0);
-        bridges.set(0, new HapticConfig.Bridge(b.name(), enable, b.url(), b.transport(), b.allowRemote()));
+        bridges.set(0, new HapticConfig.Bridge(b.name(), enable, b.url(), b.transport(), b.allowRemote(),
+                b.id())); // preserve the id so a toggle doesn't reconnect the endpoint
         client.updateConfig(new HapticConfig(cfg.schemaVersion(), cfg.profile(), cfg.global(),
                 cfg.buttplug(), cfg.events(), cfg.outputPolicy(), cfg.devices(),
                 cfg.positionCalibrations(), cfg.accumulation(), cfg.customIntensity(), bridges));

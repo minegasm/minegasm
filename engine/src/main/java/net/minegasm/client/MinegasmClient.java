@@ -100,7 +100,9 @@ public final class MinegasmClient {
         this.configStore = new ConfigStore(configFile);
         ConfigStore.LoadResult loaded = configStore.load();
         this.firstRun = !loaded.wasPresent() || loaded.recoveredFromCorruption();
-        if (firstRun) {
+        // Persist a first run, and also a migrated load, so an added field (e.g. a bridge's generated id)
+        // is written once and stays stable across later loads instead of being regenerated each time.
+        if (firstRun || loaded.migrated()) {
             configStore.save(loaded.config());
         }
         this.config = new AtomicReference<>(RuntimeConfig.of(loaded.config()));
@@ -137,15 +139,15 @@ public final class MinegasmClient {
      */
     private List<BridgeEndpoint> buildBridgeEndpoints() {
         List<BridgeEndpoint> endpoints = new ArrayList<>();
-        java.util.Set<String> seenNames = new java.util.HashSet<>();
+        java.util.Set<String> seenIds = new java.util.HashSet<>();
         for (HapticConfig.Bridge bridge : config.get().bridges()) {
             if (!bridge.enabled()) {
                 continue;
             }
-            if (!seenNames.add(bridge.name())) {
-                // The name is the runtime identity; a duplicate would orphan a backend that later can't be
-                // addressed to remove or disable it. Keep the first, skip and report the rest (review P1-7).
-                errorHistory.add("[bridge:" + bridge.name() + "] duplicate name, ignored");
+            if (!seenIds.add(bridge.id())) {
+                // The id is the runtime identity; a duplicate (a hand-copied config) would orphan a backend
+                // that later can't be addressed to remove or disable it. Keep the first, skip the rest.
+                errorHistory.add("[bridge:" + bridge.name() + "] duplicate id, ignored");
                 continue;
             }
             URI uri;
@@ -165,7 +167,7 @@ public final class MinegasmClient {
                         + "' is not available in this build");
                 continue;
             }
-            endpoints.add(new BridgeEndpoint(bridge.name(), uri, TcpLineBridgeTransport::new));
+            endpoints.add(new BridgeEndpoint(bridge.id(), uri, TcpLineBridgeTransport::new));
         }
         return endpoints;
     }
@@ -551,12 +553,27 @@ public final class MinegasmClient {
         return tf[0];
     }
 
-    /** Fire an isolated test on one bridge only (nothing else buzzes). */
+    /** Fire an isolated test on one bridge only (nothing else buzzes). Takes the display name. */
     public void testBridgeOutput(String name, float level, long durationMs) {
         if (testBlocked()) {
             return;
         }
-        runtime.testBridge(name, buildTestScene(level, durationMs, false), clock.nanoTime());
+        runtime.testBridge(bridgeIdForName(name), buildTestScene(level, durationMs, false),
+                clock.nanoTime());
+    }
+
+    /**
+     * Resolve a bridge's display name to its immutable runtime id. Names are unique among bridges (the
+     * editors enforce it), so this is unambiguous; the UI keeps passing names while the runtime keys on ids
+     * (so a rename keeps the connection). An unknown name falls through and simply misses.
+     */
+    private String bridgeIdForName(String name) {
+        for (HapticConfig.Bridge b : config.get().bridges()) {
+            if (b.name().equals(name)) {
+                return b.id();
+            }
+        }
+        return name;
     }
 
     /** Convenience: isolated Buttplug test at the default duration. */
@@ -623,7 +640,7 @@ public final class MinegasmClient {
 
     /** Whether the named bridge has a live outbound link to its adapter (false if disabled or absent). */
     public boolean bridgeConnected(String name) {
-        return runtime.bridgeConnected(name);
+        return runtime.bridgeConnected(bridgeIdForName(name));
     }
 
     /**

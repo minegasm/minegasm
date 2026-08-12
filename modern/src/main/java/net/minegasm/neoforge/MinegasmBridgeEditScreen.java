@@ -121,11 +121,12 @@ public final class MinegasmBridgeEditScreen extends Screen {
         }
         HapticConfig cfg = client.config().raw();
         List<HapticConfig.Bridge> bridges = new ArrayList<>(cfg.bridges());
-        HapticConfig.Bridge edited = new HapticConfig.Bridge(name, enabled, url, transport, allowRemote);
         if (existing) {
-            bridges.set(index, edited);
+            // Keep the existing id so a rename doesn't reconnect the endpoint (review P1-7).
+            String id = bridges.get(index).id();
+            bridges.set(index, new HapticConfig.Bridge(name, enabled, url, transport, allowRemote, id));
         } else {
-            bridges.add(edited);
+            bridges.add(new HapticConfig.Bridge(name, enabled, url, transport, allowRemote)); // fresh id
         }
         writeBridges(cfg, bridges);
         onClose();
