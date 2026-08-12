@@ -44,6 +44,11 @@ public final class Buttplug4jProvider implements HapticProvider {
     private final DeviceRegistry registry = new DeviceRegistry();
     private final AtomicReference<ProviderStatus> status =
             new AtomicReference<>(ProviderStatus.disconnected());
+    // Bumped on every connect and disconnect. A blocking connect running on the executor captures the
+    // value at its start and refuses to publish its result if a later disconnect or connect changed it,
+    // so a connection that completes after the user disconnected can't rebuild live state (review P2-2).
+    private final java.util.concurrent.atomic.AtomicLong connectGeneration =
+            new java.util.concurrent.atomic.AtomicLong();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "minegasm-buttplug4j");
         t.setDaemon(true);
@@ -123,11 +128,25 @@ public final class Buttplug4jProvider implements HapticProvider {
         if (status.get().state() != ConnectionState.DISCONNECTED) {
             return CompletableFuture.completedFuture(status.get());
         }
+        final long gen = connectGeneration.incrementAndGet();
         setState(ConnectionState.CONNECTING);
         return CompletableFuture.supplyAsync(() -> {
             try {
+                if (gen != connectGeneration.get()) {
+                    return status.get(); // superseded before we even started
+                }
                 setState(ConnectionState.NEGOTIATING);
                 client.connect(uri);       // blocking; negotiates v4 and handshakes
+                if (gen != connectGeneration.get()) {
+                    // A disconnect (or newer connect) happened while this one was connecting. Don't publish
+                    // this stale connection's registry or status; tear the socket we just opened back down.
+                    try {
+                        client.disconnect();
+                    } catch (RuntimeException ignored) {
+                        // best effort
+                    }
+                    return status.get();
+                }
                 // connect() already requests and processes the initial DeviceList.
                 rebuildRegistry();
                 return status.get();
@@ -268,6 +287,7 @@ public final class Buttplug4jProvider implements HapticProvider {
 
     @Override
     public void disconnect() {
+        connectGeneration.incrementAndGet(); // invalidate any connect still in flight
         try {
             client.disconnect();
         } catch (RuntimeException ignored) {
