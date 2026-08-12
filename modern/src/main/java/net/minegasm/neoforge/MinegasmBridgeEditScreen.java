@@ -115,8 +115,8 @@ public final class MinegasmBridgeEditScreen extends Screen {
             return;
         }
         String name = nameBox.getValue().trim();
-        if (name.isEmpty()) {
-            nameBox.setTextColor(0xFF5555);
+        if (name.isEmpty() || nameTaken(name)) {
+            nameBox.setTextColor(0xFF5555); // empty or already used by another bridge
             return;
         }
         HapticConfig cfg = client.config().raw();
@@ -129,6 +129,17 @@ public final class MinegasmBridgeEditScreen extends Screen {
         }
         writeBridges(cfg, bridges);
         onClose();
+    }
+
+    /** Whether the name is already used by a bridge other than the one being edited (review P1-7). */
+    private boolean nameTaken(String name) {
+        List<HapticConfig.Bridge> bridges = client.config().raw().bridges();
+        for (int i = 0; i < bridges.size(); i++) {
+            if ((!existing || i != index) && bridges.get(i).name().equalsIgnoreCase(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void remove() {

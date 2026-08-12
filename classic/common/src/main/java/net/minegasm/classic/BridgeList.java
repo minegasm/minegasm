@@ -22,6 +22,22 @@ public final class BridgeList {
         return client.config().raw().bridges();
     }
 
+    /**
+     * Whether {@code name} is already used by a bridge other than the one at {@code index}. The name is
+     * the runtime identity, so the editors reject a duplicate before it can orphan a backend (review
+     * P1-7). Case-insensitive so two names that differ only in case can't collide at the command line.
+     */
+    public static boolean nameTaken(MinegasmClient client, String name, int index) {
+        String trimmed = name == null ? "" : name.trim();
+        List<HapticConfig.Bridge> list = bridges(client);
+        for (int i = 0; i < list.size(); i++) {
+            if (i != index && list.get(i).name().equalsIgnoreCase(trimmed)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Persist the given list, preserving every other config section; never leaves the list empty. */
     public static void write(MinegasmClient client, List<HapticConfig.Bridge> bridges) {
         List<HapticConfig.Bridge> out = bridges;

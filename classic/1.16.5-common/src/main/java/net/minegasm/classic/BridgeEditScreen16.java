@@ -108,8 +108,8 @@ public final class BridgeEditScreen16 extends Screen {
             return;
         }
         String name = nameField.getValue().trim();
-        if (name.isEmpty()) {
-            nameField.setTextColor(0xFF5555);
+        if (name.isEmpty() || BridgeList.nameTaken(client, name, index)) {
+            nameField.setTextColor(0xFF5555); // empty or already used by another bridge
             return;
         }
         BridgeList.save(client, index, name, enabled, url, allowRemote);
