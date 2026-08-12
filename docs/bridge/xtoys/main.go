@@ -62,12 +62,13 @@ func main() {
 	}
 
 	x := &xtoys{
-		wsURL:   strings.TrimRight(*endpoint, "/") + "/" + *webhook,
-		scale:   *scale,
-		min:     *min,
-		verbose: *verbose,
-		last:    map[string]int{},
-		active:  map[string]liveScene{},
+		wsURL:     strings.TrimRight(*endpoint, "/") + "/" + *webhook,
+		scale:     *scale,
+		min:       *min,
+		verbose:   *verbose,
+		last:      map[string]int{},
+		active:    map[string]liveScene{},
+		listeners: map[net.Conn]bool{},
 	}
 	x.connect() // best-effort; send() redials if this fails or the socket later drops
 
@@ -92,8 +93,10 @@ func main() {
 func handle(conn net.Conn, x *xtoys) {
 	peer := conn.RemoteAddr()
 	log.Printf("[bridge] connected: %s", peer)
+	x.addListener(conn) // greet with a hello carrying the current XToys link state
 	defer func() {
 		log.Printf("[bridge] disconnected: %s", peer)
+		x.removeListener(conn)
 		x.stopAll()
 		conn.Close()
 	}()
@@ -228,12 +231,53 @@ type xtoys struct {
 	min     int
 	verbose bool
 
-	mu       sync.Mutex
-	conn     *websocket.Conn
-	last     map[string]int
-	nextDial time.Time // throttle: don't hammer a down server on every frame
-	active   map[string]liveScene
-	timer    *time.Timer
+	mu        sync.Mutex
+	conn      *websocket.Conn
+	last      map[string]int
+	nextDial  time.Time // throttle: don't hammer a down server on every frame
+	active    map[string]liveScene
+	timer     *time.Timer
+	listeners map[net.Conn]bool // Minegasm connections to notify of downstream (XToys) state
+}
+
+// downstreamWord is what the mod is told about the onward XToys link. Caller holds x.mu.
+func (x *xtoys) downstreamWord() string {
+	if x.conn != nil {
+		return "ready"
+	}
+	return "unavailable"
+}
+
+// writeControl sends one control line (hello/status) back to a Minegasm connection so it can show the
+// whole chain, not just that this adapter is running. Best-effort with a short deadline so a slow mod
+// socket can't stall the XToys path (see docs/bridge/PROTOCOL.md).
+func writeControl(conn net.Conn, typ, downstream string) {
+	payload, _ := json.Marshal(map[string]interface{}{"v": 1, "type": typ, "downstream": downstream})
+	conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	conn.Write(append(payload, '\n'))
+}
+
+// addListener registers a Minegasm connection and greets it with the current downstream state. Caller
+// does not hold x.mu.
+func (x *xtoys) addListener(conn net.Conn) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	x.listeners[conn] = true
+	writeControl(conn, "hello", x.downstreamWord())
+}
+
+func (x *xtoys) removeListener(conn net.Conn) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	delete(x.listeners, conn)
+}
+
+// notifyDownstream pushes a status line to every connected mod on an XToys connect/drop. Caller holds x.mu.
+func (x *xtoys) notifyDownstream() {
+	word := x.downstreamWord()
+	for conn := range x.listeners {
+		writeControl(conn, "status", word)
+	}
 }
 
 // scaleLevel maps a role level in [0,1] to an XToys intensity. Zero stays zero (off); any nonzero level
@@ -334,6 +378,7 @@ func (x *xtoys) send(role string, level int) {
 		log.Printf("[xtoys] send failed: %v", err)
 		x.conn.Close()
 		x.conn = nil
+		x.notifyDownstream() // the onward link just dropped
 		return
 	}
 	x.last[role] = level
@@ -365,6 +410,7 @@ func (x *xtoys) dial() bool {
 	}
 	x.conn = conn
 	log.Printf("[xtoys] connected to %s", x.wsURL)
+	x.notifyDownstream() // tell the mod the onward link is up now
 	go x.readLoop(conn)
 	return true
 }
@@ -377,6 +423,7 @@ func (x *xtoys) readLoop(conn *websocket.Conn) {
 			x.mu.Lock()
 			if x.conn == conn {
 				x.conn = nil
+				x.notifyDownstream() // the onward link just dropped
 			}
 			x.mu.Unlock()
 			conn.Close()

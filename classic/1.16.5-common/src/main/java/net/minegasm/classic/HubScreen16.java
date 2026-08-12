@@ -154,17 +154,9 @@ public final class HubScreen16 extends Screen {
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
-    /** A bit per configured bridge that is connected to its adapter, so the rows refresh as links come up. */
+    /** A rolling hash of each bridge's chain state, so the rows refresh as links come up or drop. */
     private int bridgeConnMask() {
-        int mask = 0;
-        int i = 0;
-        for (HapticConfig.Bridge b : client.config().raw().bridges()) {
-            if (b.enabled() && client.bridgeConnected(b.name())) {
-                mask |= 1 << (i & 31);
-            }
-            i++;
-        }
-        return mask;
+        return BridgeStatus.hash(client);
     }
 
     private String buttplugLabel() {
@@ -174,9 +166,7 @@ public final class HubScreen16 extends Screen {
     }
 
     private String bridgeLabel(HapticConfig.Bridge b) {
-        String state = !b.enabled() ? "off"
-                : client.bridgeConnected(b.name()) ? "connected" : "waiting for adapter";
-        return "Bridge " + b.name() + ": " + state;
+        return "Bridge " + b.name() + ": " + BridgeStatus.label(client, b);
     }
 
     private void toggleEnabled() {

@@ -141,17 +141,16 @@ public final class MinegasmHubScreen extends Screen {
         }
     }
 
-    /** A bit per configured bridge that is connected to its adapter, so the rows refresh as links come up. */
+    /** A rolling hash of each bridge's chain state, so the rows refresh as links come up or drop. */
     private int bridgeConnMask() {
-        int mask = 0;
-        int i = 0;
+        int hash = 1;
         for (HapticConfig.Bridge b : client.config().raw().bridges()) {
-            if (b.enabled() && client.bridgeConnected(b.name())) {
-                mask |= 1 << (i & 31);
-            }
-            i++;
+            int state = !b.enabled() ? 0
+                    : !client.bridgeConnected(b.name()) ? 1
+                    : 2 + client.bridgeDownstream(b.name()).ordinal();
+            hash = hash * 31 + state;
         }
-        return mask;
+        return hash;
     }
 
     private Component buttplugLabel() {
@@ -163,9 +162,23 @@ public final class MinegasmHubScreen extends Screen {
     }
 
     private Component bridgeLabel(HapticConfig.Bridge b) {
-        String stateKey = !b.enabled() ? "minegasm.hub.bridge_off"
-                : client.bridgeConnected(b.name()) ? "minegasm.hub.bridge_connected"
-                : "minegasm.hub.bridge_waiting";
+        String stateKey;
+        if (!b.enabled()) {
+            stateKey = "minegasm.hub.bridge_off";
+        } else if (!client.bridgeConnected(b.name())) {
+            stateKey = "minegasm.hub.bridge_waiting";
+        } else {
+            switch (client.bridgeDownstream(b.name())) {
+                case READY:
+                    stateKey = "minegasm.hub.bridge_ready";
+                    break;
+                case UNAVAILABLE:
+                    stateKey = "minegasm.hub.bridge_downstream_off";
+                    break;
+                default:
+                    stateKey = "minegasm.hub.bridge_connected";
+            }
+        }
         return Component.translatable("minegasm.hub.bridge", b.name(), Component.translatable(stateKey));
     }
 

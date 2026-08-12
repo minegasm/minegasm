@@ -70,6 +70,34 @@ Sent on any stop or panic. Stop all output immediately.
 { "v": 1, "type": "stop" }
 ```
 
+## Adapter to Minegasm messages (optional)
+
+An adapter may send messages back on the same connection to report the next link in the chain, so
+Minegasm can show more than "the adapter socket is open." These are optional: an adapter that sends
+nothing works exactly as before, and Minegasm ignores any message type it does not recognize, so a newer
+adapter and an older mod (or the reverse) still interoperate. Do not make them mandatory.
+
+### hello
+
+Sent once when Minegasm connects. It reports the adapter's onward link (`downstream`), which is
+`"ready"` when that link is up (for the XToys adapter, the webhook WebSocket is connected) or
+`"unavailable"` when it is not.
+
+```json
+{ "v": 1, "type": "hello", "downstream": "ready" }
+```
+
+### status
+
+Sent whenever the onward link changes (connects or drops), with the same `downstream` field.
+
+```json
+{ "v": 1, "type": "status", "downstream": "unavailable" }
+```
+
+Minegasm renders this as a distinct step: waiting for the adapter, adapter connected (an adapter that
+does not report `downstream`), ready, or adapter up but downstream offline.
+
 ## Reference adapter
 
 `reference-adapter.py` is a dependency-free Python adapter that prints each message. Run it, enable

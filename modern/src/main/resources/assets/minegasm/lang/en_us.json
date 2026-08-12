@@ -6,6 +6,8 @@
   "minegasm.hub.bridge": "Bridge %s: %s",
   "minegasm.hub.bridge_off": "off",
   "minegasm.hub.bridge_connected": "connected",
+  "minegasm.hub.bridge_ready": "ready",
+  "minegasm.hub.bridge_downstream_off": "downstream offline",
   "minegasm.hub.bridge_waiting": "waiting for adapter",
   "minegasm.hub.add_bridge": "Add bridge",
   "minegasm.screen.connection": "Connection",

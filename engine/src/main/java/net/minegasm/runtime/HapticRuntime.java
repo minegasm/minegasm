@@ -240,6 +240,12 @@ public final class HapticRuntime {
         return backend != null && backend.isConnected();
     }
 
+    /** What the named bridge's adapter reports about its onward link (UNKNOWN if disabled or absent). */
+    public net.minegasm.bridge.DownstreamState bridgeDownstream(String name) {
+        BridgeBackend backend = bridgeBackends.get(name);
+        return backend == null ? net.minegasm.bridge.DownstreamState.UNKNOWN : backend.downstream();
+    }
+
     /** Fire an isolated test on the Buttplug backend only (its own devices), not the other integrations. */
     public void testButtplug(HapticScene scene, long nowNs) {
         buttplug.test(scene, nowNs);

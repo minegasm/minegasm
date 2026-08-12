@@ -94,6 +94,21 @@ class BridgeCodecTest {
         assertEquals(BridgeCodec.PROTOCOL_VERSION, o.get("v").getAsInt());
     }
 
+    @Test
+    void decodesDownstreamFromHelloAndStatus() {
+        assertEquals(DownstreamState.READY,
+                codec.decodeDownstream("{\"v\":1,\"type\":\"hello\",\"downstream\":\"ready\"}"));
+        assertEquals(DownstreamState.UNAVAILABLE,
+                codec.decodeDownstream("{\"v\":1,\"type\":\"status\",\"downstream\":\"unavailable\"}"));
+    }
+
+    @Test
+    void ignoresFramesWithoutDownstreamInfo() {
+        assertEquals(null, codec.decodeDownstream("{\"type\":\"ack\"}"), "an unmodeled frame changes nothing");
+        assertEquals(null, codec.decodeDownstream("{\"type\":\"status\"}"), "no downstream field");
+        assertEquals(null, codec.decodeDownstream("not json"), "a malformed line is ignored");
+    }
+
     private static HapticLayer layer() {
         return new HapticLayer("hit", HapticRole.IMPACT, new HapticPrimitive.Impulse(0.8f, 250, 10, 40),
                 HapticRoute.buzzAll(), CouplingMode.MAX, 100, 0L, 300L * 1_000_000L, null);

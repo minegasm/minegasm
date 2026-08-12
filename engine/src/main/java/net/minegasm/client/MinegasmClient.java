@@ -643,18 +643,21 @@ public final class MinegasmClient {
         return runtime.bridgeConnected(bridgeIdForName(name));
     }
 
+    /** What the named bridge's adapter reports about its onward link (XToys webhook, device, ...). */
+    public net.minegasm.bridge.DownstreamState bridgeDownstream(String name) {
+        return runtime.bridgeDownstream(bridgeIdForName(name));
+    }
+
     /**
      * Integration status lines for {@code /mg status}, alongside the Buttplug status the command already
-     * prints: one line per configured bridge (disabled, or the adapter link up or waiting), then a health
-     * line if any backend has faulted during output. The bridge line reflects the mod-to-adapter link, not
-     * whether the adapter's own onward connection (e.g. XToys) is up.
+     * prints: one line per configured bridge, then a health line if any backend has faulted during output.
+     * The bridge line shows the whole chain it can see: the mod-to-adapter link, and, when the adapter
+     * reports it, whether its own onward connection (e.g. the XToys webhook) is up.
      */
     public List<String> bridgeStatusLines() {
         List<String> lines = new ArrayList<>();
         for (HapticConfig.Bridge bridge : config.get().bridges()) {
-            String state = !bridge.enabled() ? "disabled"
-                    : bridgeConnected(bridge.name()) ? "adapter connected" : "waiting for adapter";
-            lines.add("Bridge " + bridge.name() + ": " + state);
+            lines.add("Bridge " + bridge.name() + ": " + bridgeStateLabel(bridge));
         }
         long faults = runtime.backendFaultCount();
         if (faults > 0) {
@@ -663,6 +666,29 @@ public final class MinegasmClient {
             lines.add("Output faults: " + faults + last);
         }
         return lines;
+    }
+
+    /**
+     * The connection-chain state for one bridge as plain text: disabled, waiting for the adapter, or the
+     * adapter connected plus whatever the adapter reports about its onward link (ready, or up but the
+     * downstream unavailable). An adapter that doesn't report downstream shows just "adapter connected".
+     */
+    private String bridgeStateLabel(HapticConfig.Bridge bridge) {
+        if (!bridge.enabled()) {
+            return "disabled";
+        }
+        if (!bridgeConnected(bridge.name())) {
+            return "waiting for adapter";
+        }
+        switch (bridgeDownstream(bridge.name())) {
+            case READY:
+                return "ready";
+            case UNAVAILABLE:
+                return "adapter up, downstream unavailable";
+            case UNKNOWN:
+            default:
+                return "adapter connected";
+        }
     }
 
     public HapticRuntime runtime() {

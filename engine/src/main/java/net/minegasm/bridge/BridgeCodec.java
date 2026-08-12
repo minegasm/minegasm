@@ -4,6 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import java.util.Locale;
 
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticScene;
@@ -46,6 +49,35 @@ public final class BridgeCodec {
         }
         o.add("layers", layers);
         return GSON.toJson(o);
+    }
+
+    /**
+     * Parse an adapter-to-mod message for the downstream state it reports. A {@code hello} (sent once on
+     * connect) or a {@code status} update carries a {@code downstream} field of {@code "ready"} or
+     * {@code "unavailable"}. Returns null for any other or malformed frame, so an adapter that predates
+     * these messages (or sends an ack we don't model) simply leaves the state unchanged.
+     */
+    public DownstreamState decodeDownstream(String frame) {
+        try {
+            JsonObject o = JsonParser.parseString(frame).getAsJsonObject();
+            if (!o.has("type") || !o.has("downstream")) {
+                return null;
+            }
+            String type = o.get("type").getAsString();
+            if (!"hello".equals(type) && !"status".equals(type)) {
+                return null;
+            }
+            String downstream = o.get("downstream").getAsString().trim().toLowerCase(Locale.ROOT);
+            if ("ready".equals(downstream)) {
+                return DownstreamState.READY;
+            }
+            if ("unavailable".equals(downstream)) {
+                return DownstreamState.UNAVAILABLE;
+            }
+            return null;
+        } catch (RuntimeException malformed) {
+            return null; // never let a bad inbound line disturb the backend
+        }
     }
 
     /** Encode a first-class stop-all message. */

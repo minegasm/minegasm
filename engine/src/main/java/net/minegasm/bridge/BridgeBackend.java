@@ -50,6 +50,9 @@ public final class BridgeBackend implements HapticBackend {
     private volatile boolean stopped;
     private volatile boolean outputEnabled = true;
     private volatile long lastHealthyCycleNs;
+    // What the adapter reports about its own onward link (XToys webhook, device, ...). UNKNOWN until the
+    // adapter says otherwise, and reset to UNKNOWN when the socket drops.
+    private volatile DownstreamState downstream = DownstreamState.UNKNOWN;
     // Set when a fresh link comes up; the next worker cycle resets the forwarder so an in-flight
     // continuous effect resynchronizes to the new adapter now instead of waiting for its re-arm.
     private volatile boolean resyncOnNextCycle;
@@ -81,6 +84,14 @@ public final class BridgeBackend implements HapticBackend {
     public boolean isConnected() {
         BridgeTransport current = transport;
         return current != null && current.isOpen();
+    }
+
+    /**
+     * What the adapter last reported about its onward link (the next hop past the mod-to-adapter socket).
+     * {@link DownstreamState#UNKNOWN} if the adapter hasn't said (an older adapter, or not yet connected).
+     */
+    public DownstreamState downstream() {
+        return isConnected() ? downstream : DownstreamState.UNKNOWN;
     }
 
     @Override
@@ -239,13 +250,19 @@ public final class BridgeBackend implements HapticBackend {
     }
 
     private void onMessage(String frame) {
-        // v1 does not act on adapter messages (acks/health are a later addition); receiving one still
-        // shows the adapter is alive.
+        // Receiving anything shows the adapter is alive. A hello/status frame also tells us the adapter's
+        // onward link state (downstream), which the UI surfaces as a distinct step in the chain.
         lastHealthyCycleNs = clock.nanoTime();
+        DownstreamState reported = codec.decodeDownstream(frame);
+        if (reported != null) {
+            downstream = reported;
+        }
     }
 
     private void onClose(Throwable cause) {
         // The transport reports closed via isOpen(); the reconnect supervisor dials a fresh one on its
-        // next tick, so a dropped or restarted adapter reconnects without a game restart.
+        // next tick, so a dropped or restarted adapter reconnects without a game restart. We no longer
+        // know the downstream state once the socket is gone.
+        downstream = DownstreamState.UNKNOWN;
     }
 }

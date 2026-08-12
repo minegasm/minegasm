@@ -67,6 +67,23 @@ class BridgeBackendTest {
     }
 
     @Test
+    void tracksDownstreamStateFromAdapterMessages() {
+        backend.start();
+        assertEquals(DownstreamState.UNKNOWN, backend.downstream(),
+                "unknown until the adapter reports its onward link");
+
+        transport.deliver("{\"v\":1,\"type\":\"hello\",\"downstream\":\"unavailable\"}");
+        assertEquals(DownstreamState.UNAVAILABLE, backend.downstream());
+
+        transport.deliver("{\"v\":1,\"type\":\"status\",\"downstream\":\"ready\"}");
+        assertEquals(DownstreamState.READY, backend.downstream());
+
+        backend.close();
+        assertEquals(DownstreamState.UNKNOWN, backend.downstream(),
+                "downstream is unknown again once the socket is gone");
+    }
+
+    @Test
     void stopSendsStopAll() {
         backend.start();
         backend.stop(StopReason.PANIC);
@@ -106,10 +123,17 @@ class BridgeBackendTest {
     private static final class FakeBridgeTransport implements BridgeTransport {
         final List<String> sent = new ArrayList<>();
         boolean open;
+        private Consumer<String> onMessage = m -> {};
+
+        /** Simulate the adapter sending a line to the mod. */
+        void deliver(String frame) {
+            onMessage.accept(frame);
+        }
 
         @Override
         public CompletionStage<Void> connect(URI uri, Consumer<String> onMessage,
                                               Consumer<Throwable> onClose) {
+            this.onMessage = onMessage;
             open = true;
             return CompletableFuture.completedFuture(null);
         }
