@@ -22,7 +22,7 @@ import java.util.function.Consumer;
  */
 public final class WebSocketTransport implements ButtplugTransport {
 
-    private static final int MAX_FRAME_CHARS = 1 << 20; // 1 MiB cap on a single message (brief §12.2)
+    static final int MAX_FRAME_CHARS = 1 << 20; // 1 MiB cap on a single message (brief §12.2)
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -35,13 +35,7 @@ public final class WebSocketTransport implements ButtplugTransport {
     @Override
     public CompletionStage<Void> connect(URI uri, Consumer<String> onMessage,
                                          Consumer<Throwable> onClose) {
-        this.onMessage = onMessage == null ? m -> {} : onMessage;
-        this.onClose = onClose == null ? t -> {} : onClose;
-        Conn conn = new Conn();
-        Conn previous = current.getAndSet(conn);
-        if (previous != null) {
-            previous.abort(); // a new connect supersedes any earlier attempt on this transport
-        }
+        Conn conn = beginAttempt(onMessage, onClose);
         return http.newWebSocketBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .buildAsync(uri, conn)
@@ -54,6 +48,26 @@ public final class WebSocketTransport implements ButtplugTransport {
                         ws.abort();
                     }
                 });
+    }
+
+    /**
+     * Register a fresh attempt as the current one, superseding any earlier attempt. Package-private so a
+     * test can drive the listener callbacks directly without standing up a real WebSocket server.
+     */
+    Conn beginAttempt(Consumer<String> onMessage, Consumer<Throwable> onClose) {
+        this.onMessage = onMessage == null ? m -> {} : onMessage;
+        this.onClose = onClose == null ? t -> {} : onClose;
+        Conn conn = new Conn();
+        Conn previous = current.getAndSet(conn);
+        if (previous != null) {
+            previous.abort(); // a new connect supersedes any earlier attempt on this transport
+        }
+        return conn;
+    }
+
+    /** Whether {@code conn} is still the current attempt, for tests to assert generation scoping. */
+    boolean isCurrent(Conn conn) {
+        return current.get() == conn;
     }
 
     @Override
@@ -80,12 +94,16 @@ public final class WebSocketTransport implements ButtplugTransport {
         }
     }
 
-    /** One connection attempt: owns its socket, reassembly buffer, and lifecycle notification. */
-    private final class Conn implements WebSocket.Listener {
+    /**
+     * One connection attempt: owns its socket, reassembly buffer, and lifecycle notification. Package-
+     * private (not truly private) so the transport's test can create one via {@link #beginAttempt} and
+     * exercise the listener callbacks with a fake {@link WebSocket}.
+     */
+    final class Conn implements WebSocket.Listener {
         private final StringBuilder partial = new StringBuilder();
         private boolean frameOverflowed;
-        private volatile WebSocket socket;
-        private volatile boolean aborted;
+        volatile WebSocket socket;
+        volatile boolean aborted;
         private volatile boolean closedNotified;
 
         void abort() {
