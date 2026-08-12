@@ -14,11 +14,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -62,6 +65,22 @@ public final class Buttplug4jProvider implements HapticProvider {
         t.setDaemon(true);
         return t;
     });
+    // Device writes go through buttplug4j's blocking run*Float calls. Running them on the worker thread
+    // lets a hung write wedge the whole driver cycle (review P1-1), so they run here instead, one at a
+    // time on a bounded queue that drops the oldest pending write under backpressure (the scheduler
+    // re-sends current state next cycle, so a drop self-heals). The worker's send() returns immediately.
+    private final ExecutorService sendExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<Runnable>(256),
+            r -> {
+                Thread t = new Thread(r, "minegasm-buttplug4j-send");
+                t.setDaemon(true);
+                return t;
+            },
+            new ThreadPoolExecutor.DiscardOldestPolicy());
+    // Bumped on every stop-all. A queued write captures the epoch at submit and skips itself if a stop
+    // changed it, so no write can reach a device after the stop that was meant to silence it.
+    private final java.util.concurrent.atomic.AtomicLong sendEpoch =
+            new java.util.concurrent.atomic.AtomicLong();
 
     private volatile Consumer<ProviderStatus> statusListener = s -> {};
     private volatile Consumer<DeviceRegistrySnapshot> registryListener = s -> {};
@@ -213,6 +232,23 @@ public final class Buttplug4jProvider implements HapticProvider {
                 || command.registryGeneration() != registry.snapshot().generation()) {
             return CompletableFuture.completedFuture(null); // stale target (brief §9.5)
         }
+        final long epoch = sendEpoch.get();
+        // Run the blocking library call off the worker thread so a hung device write can never wedge the
+        // driver cycle (review P1-1). If a stop-all bumped the epoch after this was queued, drop it so no
+        // write reaches a device after the stop meant to silence it.
+        try {
+            sendExecutor.execute(() -> {
+                if (epoch == sendEpoch.get()) {
+                    dispatch(command);
+                }
+            });
+        } catch (RuntimeException rejected) {
+            // executor shutting down during close: nothing to send
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
+    private void dispatch(OutputCommand command) {
         findFeature(command.deviceIndex(), command.featureIndex()).ifPresent(feature -> {
             float f = command.value() / (float) B4jDeviceMapper.RESOLUTION;
             int durationMs = command.durationMs() == null ? 0 : command.durationMs();
@@ -250,13 +286,15 @@ public final class Buttplug4jProvider implements HapticProvider {
                 // A single failed output must not disturb the worker (brief §9.4).
             }
         });
-        return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletionStage<Void> stop(StopSelection selection) {
         if (!canSendMessages()) {
             return CompletableFuture.completedFuture(null);
+        }
+        if (selection instanceof StopSelection.All) {
+            sendEpoch.incrementAndGet(); // invalidate any queued device writes so none run after the stop
         }
         return CompletableFuture.runAsync(() -> {
             try {
@@ -302,6 +340,7 @@ public final class Buttplug4jProvider implements HapticProvider {
         disconnect();
         executor.shutdownNow();
         stopExecutor.shutdownNow();
+        sendExecutor.shutdownNow();
     }
 
     // --- helpers ---------------------------------------------------------------------------
