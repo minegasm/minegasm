@@ -5,6 +5,7 @@ This directory contains dated, repository-wide and scoped code-review reports.
 ## Reviews
 
 - [2026-08-12 comprehensive code review](2026-08-12-comprehensive-code-review.md). This covers the full maintained implementation at revision `98ee7b4`, including the engine, modern and classic loaders, bridge adapters, safety, tests, and UX.
+- [2026-08-12 review response](2026-08-12-review-response.md). Tracks what was fixed, fixed in a measured form, mitigated, or deferred against the findings above.
 
 ## Convention
 
