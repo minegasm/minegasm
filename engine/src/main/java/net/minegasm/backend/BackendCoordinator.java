@@ -107,6 +107,16 @@ public final class BackendCoordinator implements AutoCloseable {
         return false;
     }
 
+    /** Whether any backend is driving the body (a renderer or an active bridge), for fatigue accounting. */
+    public boolean anyBodyDriving() {
+        for (HapticBackend b : backends) {
+            if (b.isBodyDriving()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Whether any backend's device set changed while paused, so frozen scenes must be discarded. */
     public boolean anyRegistryChangedSincePause() {
         for (HapticBackend b : backends) {

@@ -44,6 +44,17 @@ public interface HapticBackend extends AutoCloseable {
     }
 
     /**
+     * Whether this backend is currently driving the body at all, for fatigue accounting. Rendering
+     * backends answer this with {@link #isRenderingActive}. A semantic backend (the bridge) can also drive
+     * a physical device through its adapter, so an active, connected bridge conservatively counts as
+     * body-driving even though it renders no level itself, until richer downstream feedback exists (review
+     * P1-6). Default follows {@link #isRenderingActive}.
+     */
+    default boolean isBodyDriving() {
+        return isRenderingActive();
+    }
+
+    /**
      * Whether this backend's device set changed while paused, so frozen scenes should be dropped rather
      * than resumed onto a different device set. Device-specific; the driver asks every backend on resume.
      * Default false. (Resetting the shared governor on any one backend's change is correct while only one

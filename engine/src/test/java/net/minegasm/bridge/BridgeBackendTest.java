@@ -58,6 +58,15 @@ class BridgeBackendTest {
     }
 
     @Test
+    void aConnectedEnabledBridgeCountsAsBodyDriving() {
+        assertTrue(!backend.isBodyDriving(), "an unconnected bridge does not drive the body");
+        backend.start();
+        assertTrue(backend.isBodyDriving(), "a connected, enabled bridge counts toward fatigue");
+        backend.setOutputEnabled(false);
+        assertTrue(!backend.isBodyDriving(), "a latched-off bridge does not count");
+    }
+
+    @Test
     void stopSendsStopAll() {
         backend.start();
         backend.stop(StopReason.PANIC);

@@ -101,7 +101,7 @@ public final class HapticWorker {
         // Only accrue fatigue when a rendering backend can actually drive the body; with nothing
         // rendering, nothing fatigues (brief §10.6). The governor expires stale scenes, decays and
         // accounts fatigue, and bakes the attenuation into the primitives it hands back.
-        boolean accountLoad = cfg.enabled() && backends.anyRenderingActive();
+        boolean accountLoad = cfg.enabled() && backends.anyBodyDriving();
         List<HapticScene> held = scenes.govern(nowNs, cfg.fatigueProtection(), accountLoad);
         backends.onGovernedScenes(held, nowNs);
         lastHealthyCycleNs.set(nowNs);

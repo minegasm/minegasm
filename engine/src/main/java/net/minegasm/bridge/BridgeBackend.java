@@ -128,6 +128,14 @@ public final class BridgeBackend implements HapticBackend {
     }
 
     @Override
+    public boolean isBodyDriving() {
+        // A connected, output-enabled bridge can drive a physical device through its adapter, so it counts
+        // toward fatigue even though it renders no level itself (review P1-6). Conservative: it counts
+        // whenever the adapter link is up, without waiting for downstream device confirmation.
+        return outputEnabled && isConnected();
+    }
+
+    @Override
     public void onGovernedScenes(List<HapticScene> governed, long nowNs) {
         // Change-driven: this backend's forwarder decides what actually goes on the wire (steady effects
         // sent once, TTL re-armed). It self-gates via submit() below when panicked or disconnected.
