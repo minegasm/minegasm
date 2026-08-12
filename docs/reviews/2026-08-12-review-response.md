@@ -24,12 +24,16 @@ than fully built out.
   (BEST_PER_DEVICE, BEST_GLOBAL, EXCLUSIVE) at load instead of silently fanning to every device.
 - **P2-2 connection generations.** The TCP bridge publishes its connecting socket before the blocking
   connect so close can abort an attempt in flight, and tears the writer executor down if it loses the
-  race; this is covered by a test. The modern Buttplug WebSocket was rewritten so each connect attempt
-  gets its own listener that acts only while it is the current attempt, so a slow handshake can't publish a
-  dead socket after close and a superseded socket's callback can't clear a newer connection. That rewrite
-  is compile-verified and reasoned through but not yet exercised by a test against a live server, so it
-  still wants an in-game smoke test against Intiface (connect, drop, reconnect). The buttplug4j async
-  connect is not separately generation-stamped.
+  race; covered by a test. The modern Buttplug WebSocket was rewritten so each connect attempt gets its
+  own listener that acts only while it is the current attempt, so a slow handshake can't publish a dead
+  socket after close and a superseded socket's callback can't clear a newer connection; covered by a test
+  that drives the listener with a fake WebSocket (the handshake wiring itself still wants an in-game smoke
+  test against Intiface). The buttplug4j async connect is generation-stamped too, so a connect completing
+  after a disconnect can't rebuild live state.
+- **P2-8 pack screen.** The scene-pack screen scrolls in a viewport with up/down buttons (and the wheel on
+  modern), reusing the hub's RowScroller, so installed packs no longer overrun the pinned Done button.
+  Applied on modern and every classic loader. The larger "manager" features (import, open-folder, per-file
+  validation, metadata) are not built.
 - **P2-3 dropped bridge frames counted as delivered.** The forwarder records a frame as sent only when the
   sink accepts it, retries a drop once the link returns, resyncs on reconnect, and keys change detection on
   structure as well as peak amplitude.
@@ -46,23 +50,30 @@ than fully built out.
 
 ## Fixed, measured
 
-- **P1-1 out-of-band stop.** The watchdog now uses an out-of-band emergency stop: it stops every backend's
-  hardware without taking the cycle monitor, doing only thread-safe work on that path (the synchronized
-  outbound queue, a provider stop dispatched off-thread). A watchdog can no longer deadlock behind a
-  backend hung inside a cycle. It deliberately does not latch master output off, because a stall is
-  usually transient and the old watchdog auto-recovered; a real panic still latches. The larger rework the
-  review describes, isolating each backend behind a bounded queue so the cycle never runs backend I/O
-  inline at all, is not done; a provider call that hangs still wedges its own worker thread, but the
-  devices are stopped out of band meanwhile.
-- **P1-6 central governance.** The contained bug is fixed: two exclusive layers colliding on one endpoint
-  now duck by priority first, so a quieter high-priority effect wins over a louder low-priority one. Moving
-  all priority and ducking resolution into one backend-neutral stage, and counting an active bridge toward
-  fatigue, are not done and remain as described in the review.
-- **P1-7 bridge identity.** The safety core is fixed: a duplicate name can no longer create a hidden,
-  unremovable backend. Runtime construction skips a duplicate id and the client drops and reports a
-  duplicate name rather than orphaning a backend the maps can't address. The full split into an immutable
-  internal id plus an editable display name, with inline uniqueness rejection across the editors and a
-  config migration, is deferred.
+- **P1-1 out-of-band stop.** Two parts. First, the watchdog uses an out-of-band emergency stop: it stops
+  every backend's hardware without taking the cycle monitor, doing only thread-safe work on that path (the
+  synchronized outbound queue, a provider stop dispatched off-thread), so it can't deadlock behind a
+  backend hung inside a cycle. It does not latch master output off, since a stall is usually transient and
+  the old watchdog auto-recovered; a real panic still latches. Second, the buttplug4j provider now runs its
+  blocking device writes off the worker thread on a bounded queue, so the concrete inline call that could
+  wedge a cycle no longer does, with a send epoch guaranteeing no write reaches a device after a stop-all.
+  The full rearchitecture into a per-backend actor for every backend is not done; the buttplug4j change is
+  compile-verified (that provider has no injectable seam for a unit test), so it wants an in-game smoke
+  test.
+- **P1-6 central governance.** Two parts done: two exclusive layers colliding on one endpoint now duck by
+  priority first, so a quieter high-priority effect wins over a louder low-priority one; and an active,
+  connected bridge now counts toward fatigue, so a bridge-only session fatigues instead of never doing so.
+  Moving all priority and ducking resolution into one backend-neutral stage keyed on logical destinations
+  is not done: it needs a logical-destination model that does not exist yet, and centralizing ducking means
+  removing it from the Buttplug mixer to avoid double-ducking, which can't be validated by feel without
+  hardware. That central rewrite is the residual.
+- **P1-7 bridge identity.** The safety core plus inline rejection: a duplicate name can no longer create a
+  hidden, unremovable backend (runtime construction skips a duplicate id and the client drops and reports a
+  duplicate name), and the editors now refuse to save a name already used by another bridge on modern and
+  every classic loader. The remaining split into an immutable internal id plus an editable display name,
+  so a rename keeps the same connection instead of reconnecting, is the residual: it is a wide change to
+  config serialization and every bridge screen plus a schema migration, for a rename-blip nicety now that
+  duplicates are rejected at the source.
 
 ## Mitigated
 
@@ -74,7 +85,10 @@ than fully built out.
 
 ## Deferred
 
-- Most of the UX recommendations (persistent stopped-state banner, full connection-chain states, the
-  bridge-identity UX, structured test results, unified editing semantics, presenter extraction) are larger
-  UX work and are not addressed here beyond the status and identity fixes above.
-- The scene-pack manager screen (P2-8) remains a startup-only, unscrollable selector.
+- The remaining UX recommendations (persistent stopped-state banner, structured test results, unified
+  editing semantics, presenter extraction) are bounded UX work not yet done beyond the status, identity,
+  and scrolling fixes above.
+- Full connection-chain states in the UI (Minegasm to adapter to downstream device) need a bridge protocol
+  extension: hello/version, capability declaration, downstream-ready/armed, acknowledgements. That changes
+  a shipped wire format (PROTOCOL.md, the Go adapter, and the mod), so it is left for an explicit protocol
+  revision rather than changed silently.
