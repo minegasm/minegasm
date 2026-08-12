@@ -122,14 +122,16 @@ public final class HapticWorker {
 
     /**
      * Out-of-band safety stop for the watchdog (brief §12.4). Deliberately <em>not</em> synchronized: it
-     * latches master output off and fans an emergency stop to every backend without taking the cycle
-     * monitor, so a backend hung inside {@link #cycle} cannot keep this from tripping the way a
-     * synchronized {@link #stopAll} would. The governor is not reset here (that needs the monitor); output
-     * stays latched off, so any held scenes cannot drive a backend until output is explicitly re-enabled.
+     * fans an emergency stop to every backend without taking the cycle monitor, so a backend hung inside
+     * {@link #cycle} cannot keep it from reaching the devices the way a synchronized {@link #stopAll}
+     * would deadlock. It stops the hardware but does not latch master output off: a watchdog stall is
+     * usually a transient hitch (a GC pause, a world-load spike), and while the worker is stalled it
+     * produces no new output anyway, so once it resumes healthy cycling output recovers on its own rather
+     * than staying stopped until the user clears a panic. It does not touch the governor (that needs the
+     * monitor); a real panic still latches through {@link #setOutputEnabled}.
      */
     public void emergencyStop(StopReason reason) {
         this.lastStopReason = reason;
-        this.outputEnabled = false; // volatile master latch; every backend gates its output on its own copy
         backends.emergencyStop(reason);
     }
 

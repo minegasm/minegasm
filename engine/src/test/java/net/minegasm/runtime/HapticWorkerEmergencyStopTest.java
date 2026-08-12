@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,12 +43,13 @@ class HapticWorkerEmergencyStopTest {
         assertTrue(inCycle.await(2, TimeUnit.SECONDS), "the cycle entered the blocking backend");
 
         // The cycle thread holds the synchronized cycle monitor while it hangs. emergencyStop is out of
-        // band, so it must return promptly rather than deadlocking behind that monitor.
+        // band, so it must return promptly rather than deadlocking behind that monitor, and it must still
+        // reach the other backend to stop its hardware.
         assertTimeoutPreemptively(Duration.ofSeconds(2),
                 () -> driver.emergencyStop(StopReason.WATCHDOG));
 
-        assertFalse(driver.isOutputEnabled(), "master output is latched off out of band");
         assertTrue(other.emergencyStopped, "the healthy backend received the emergency stop");
+        assertEquals(StopReason.WATCHDOG, driver.lastStopReason(), "the stop reason is recorded");
 
         release.countDown(); // let the hung cycle finish so the thread exits cleanly
         cycleThread.join(2000);

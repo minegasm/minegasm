@@ -22,6 +22,14 @@ than fully built out.
   instead of silently swallowed, so it can't keep holding stale output, and the fault shows up in status.
 - **P2-1 unimplemented delivery modes.** Scene packs reject the delivery modes the mixer doesn't honor
   (BEST_PER_DEVICE, BEST_GLOBAL, EXCLUSIVE) at load instead of silently fanning to every device.
+- **P2-2 connection generations.** The TCP bridge publishes its connecting socket before the blocking
+  connect so close can abort an attempt in flight, and tears the writer executor down if it loses the
+  race; this is covered by a test. The modern Buttplug WebSocket was rewritten so each connect attempt
+  gets its own listener that acts only while it is the current attempt, so a slow handshake can't publish a
+  dead socket after close and a superseded socket's callback can't clear a newer connection. That rewrite
+  is compile-verified and reasoned through but not yet exercised by a test against a live server, so it
+  still wants an in-game smoke test against Intiface (connect, drop, reconnect). The buttplug4j async
+  connect is not separately generation-stamped.
 - **P2-3 dropped bridge frames counted as delivered.** The forwarder records a frame as sent only when the
   sink accepts it, retries a drop once the link returns, resyncs on reconnect, and keys change detection on
   structure as well as peak amplitude.
@@ -38,12 +46,13 @@ than fully built out.
 
 ## Fixed, measured
 
-- **P1-1 out-of-band stop.** The watchdog now uses an out-of-band emergency stop: it latches master output
-  off and stops every backend without taking the cycle monitor, doing only thread-safe work on that path
-  (a volatile latch, the synchronized outbound queue, a provider stop dispatched off-thread). A watchdog
-  can no longer deadlock behind a backend hung inside a cycle. The larger rework the review describes,
-  isolating each backend behind a bounded queue so the cycle never runs backend I/O inline at all, is not
-  done; a provider call that hangs still wedges its own worker thread, but output is latched off and
+- **P1-1 out-of-band stop.** The watchdog now uses an out-of-band emergency stop: it stops every backend's
+  hardware without taking the cycle monitor, doing only thread-safe work on that path (the synchronized
+  outbound queue, a provider stop dispatched off-thread). A watchdog can no longer deadlock behind a
+  backend hung inside a cycle. It deliberately does not latch master output off, because a stall is
+  usually transient and the old watchdog auto-recovered; a real panic still latches. The larger rework the
+  review describes, isolating each backend behind a bounded queue so the cycle never runs backend I/O
+  inline at all, is not done; a provider call that hangs still wedges its own worker thread, but the
   devices are stopped out of band meanwhile.
 - **P1-6 central governance.** The contained bug is fixed: two exclusive layers colliding on one endpoint
   now duck by priority first, so a quieter high-priority effect wins over a louder low-priority one. Moving
@@ -54,11 +63,6 @@ than fully built out.
   duplicate name rather than orphaning a backend the maps can't address. The full split into an immutable
   internal id plus an editable display name, with inline uniqueness rejection across the editors and a
   config migration, is deferred.
-- **P2-2 connection generations.** The TCP bridge publishes its connecting socket before the blocking
-  connect so close can abort an attempt in flight, and tears the writer executor down if it loses the race.
-  The modern WebSocket gives each connect attempt its own listener, so a slow handshake can't publish a
-  dead socket after close and a superseded socket's callback can't clear a newer connection. The buttplug4j
-  async connect is not separately generation-stamped.
 
 ## Mitigated
 
