@@ -111,6 +111,16 @@ public final class ButtplugBackend implements HapticBackend {
     }
 
     @Override
+    public void emergencyStop(StopReason reason) {
+        // Out-of-band (watchdog) path: only thread-safe actions, no scheduler touch, since a cycle may be
+        // running on the driver thread. The volatile latch makes the next render empty; the provider's
+        // stop is dispatched off the caller's thread, so it lands even while the worker is hung.
+        outputEnabled = false;
+        testScene = null;
+        provider.stop(StopSelection.all());
+    }
+
+    @Override
     public void pause() {
         testScene = null; // don't let a test resume when the session does
         pausedRegistryGeneration = provider.devices().generation();

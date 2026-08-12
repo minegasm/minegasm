@@ -4,8 +4,10 @@ import net.minegasm.time.Clock;
 
 /**
  * Lightweight safety watchdog (brief §12.4). If the worker's last healthy cycle is older than the
- * threshold, it requests a best-effort {@code StopAll}, so a stalled worker or provider fails toward
- * stopped output rather than leaving a device running.
+ * threshold, it requests a best-effort out-of-band emergency stop, so a stalled worker or provider fails
+ * toward stopped output rather than leaving a device running. It uses the worker's out-of-band path
+ * rather than the synchronized stop precisely because a stall may be a backend hung inside a cycle, which
+ * would hold the cycle monitor a synchronized stop needs.
  */
 public final class Watchdog {
 
@@ -33,7 +35,7 @@ public final class Watchdog {
         long now = clock.nanoTime();
         if (now - last > thresholdNs && now - lastFiredNs > thresholdNs) {
             lastFiredNs = now;
-            worker.stopAll(StopReason.WATCHDOG);
+            worker.emergencyStop(StopReason.WATCHDOG);
             return true;
         }
         return false;

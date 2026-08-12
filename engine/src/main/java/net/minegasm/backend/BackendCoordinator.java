@@ -127,6 +127,17 @@ public final class BackendCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Fan an out-of-band emergency stop to every backend (the watchdog path). Like the others it never
+     * blocks the caller, but unlike {@link #stopAll} each backend does only thread-safe work here, so this
+     * is safe to call from the watchdog thread while the driver is mid-cycle.
+     */
+    public void emergencyStop(final StopReason reason) {
+        for (final HapticBackend b : backends) {
+            guard(() -> b.emergencyStop(reason));
+        }
+    }
+
     public void pauseAll() {
         for (HapticBackend b : backends) {
             guard(() -> b.pause());

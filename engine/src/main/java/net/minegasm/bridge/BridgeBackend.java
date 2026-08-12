@@ -175,6 +175,15 @@ public final class BridgeBackend implements HapticBackend {
     }
 
     @Override
+    public void emergencyStop(StopReason reason) {
+        // Out-of-band (watchdog) path: only thread-safe actions, no forwarder reset, since a cycle may be
+        // forwarding on the driver thread. The volatile latch makes submit() drop; clearAndOffer goes
+        // through the synchronized queue and replaces any queued effect with a stop.
+        outputEnabled = false;
+        outbound.clearAndOffer(codec.encodeStop());
+    }
+
+    @Override
     public void pause() {
         stop(StopReason.PAUSE); // the bridge holds no resumable state; stopping is the safe pause
     }

@@ -65,6 +65,17 @@ public interface HapticBackend extends AutoCloseable {
     /** Stop all output for this backend now. Must be non-blocking and take effect synchronously. */
     void stop(StopReason reason);
 
+    /**
+     * Out-of-band emergency stop: halt this backend's output from a thread other than the driver, without
+     * waiting on the driver's cycle monitor, so a watchdog can stop a backend even while it is hung inside
+     * a cycle. Implementations must touch only thread-safe state here (a volatile latch, a synchronized
+     * queue, a provider stop dispatched off-thread) and never the single-threaded render bookkeeping that
+     * {@link #stop} clears, since a cycle may be running concurrently. Default no-op. The governor is not
+     * reset on this path, so callers keep output latched off until it is explicitly re-enabled.
+     */
+    default void emergencyStop(StopReason reason) {
+    }
+
     /** Stop hardware but preserve state for a possible resume (pause behavior). */
     void pause();
 
