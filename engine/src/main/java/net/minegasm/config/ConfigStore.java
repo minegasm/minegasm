@@ -44,13 +44,20 @@ public final class ConfigStore {
         private final boolean wasPresent;
         private final boolean recoveredFromCorruption;
         private final boolean migrated;
+        private final boolean fromNewerSchema;
 
         public LoadResult(HapticConfig config, boolean wasPresent, boolean recoveredFromCorruption,
                           boolean migrated) {
+            this(config, wasPresent, recoveredFromCorruption, migrated, false);
+        }
+
+        public LoadResult(HapticConfig config, boolean wasPresent, boolean recoveredFromCorruption,
+                          boolean migrated, boolean fromNewerSchema) {
             this.config = config;
             this.wasPresent = wasPresent;
             this.recoveredFromCorruption = recoveredFromCorruption;
             this.migrated = migrated;
+            this.fromNewerSchema = fromNewerSchema;
         }
 
         public HapticConfig config() {
@@ -67,6 +74,11 @@ public final class ConfigStore {
 
         public boolean migrated() {
             return migrated;
+        }
+
+        /** The file on disk was written by a newer schema; it was left untouched and defaults are used. */
+        public boolean fromNewerSchema() {
+            return fromNewerSchema;
         }
     }
 
@@ -88,6 +100,16 @@ public final class ConfigStore {
             JsonObject tree = GSON.fromJson(text, JsonObject.class);
             if (tree == null) {
                 throw new JsonParseException("empty config");
+            }
+            int version = tree.has("schemaVersion") && tree.get("schemaVersion").isJsonPrimitive()
+                    ? tree.get("schemaVersion").getAsInt()
+                    : 0;
+            if (version > HapticConfig.CURRENT_SCHEMA_VERSION) {
+                // A newer Minegasm wrote this file. Don't parse-and-downgrade it: an older build would
+                // drop fields it doesn't understand and later save a lossy file labelled as current. Keep
+                // the original byte-for-byte, back it up, and run on safe defaults instead.
+                backupNewer();
+                return new LoadResult(HapticConfig.defaults(), true, false, false, true);
             }
             boolean migrated = ConfigMigrations.migrateInPlace(tree);
             HapticConfig cfg = GSON.fromJson(tree, HapticConfig.class);
@@ -129,6 +151,25 @@ public final class ConfigStore {
             Files.move(file, backup, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException ignored) {
             // Best effort: if we cannot back up, defaults are still returned by load().
+        }
+    }
+
+    /**
+     * Copy a newer-schema file aside without touching the original, so a later save can't lose it. Picks
+     * a name that does not already exist ({@code .newer}, then {@code .newer.1}, {@code .newer.2}, ...) so
+     * a backup from an earlier launch is never overwritten.
+     */
+    private void backupNewer() {
+        try {
+            Path backup = file.resolveSibling(file.getFileName() + ".newer");
+            for (int n = 1; Files.exists(backup) && n < 1000; n++) {
+                backup = file.resolveSibling(file.getFileName() + ".newer." + n);
+            }
+            if (!Files.exists(backup)) {
+                Files.copy(file, backup);
+            }
+        } catch (IOException ignored) {
+            // Best effort: the original file is left in place regardless.
         }
     }
 }

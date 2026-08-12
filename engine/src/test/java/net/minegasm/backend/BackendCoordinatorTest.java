@@ -1,5 +1,6 @@
 package net.minegasm.backend;
 
+import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
 import org.junit.jupiter.api.Test;
 
@@ -63,11 +64,31 @@ class BackendCoordinatorTest {
         assertTrue(a.closed && b.closed, "close must reach every backend");
     }
 
+    @Test
+    void aBackendThrowingDuringFanOutIsStoppedAndRecordedNotSwallowed() {
+        FakeBackend boom = new FakeBackend("boom");
+        boom.throwOnGoverned = true;
+        FakeBackend ok = new FakeBackend("ok");
+        BackendCoordinator coordinator = new BackendCoordinator(Arrays.asList(boom, ok));
+
+        int faulted = coordinator.onGovernedScenes(Collections.emptyList(), 1_000L);
+
+        assertEquals(1, faulted, "one backend faulted this cycle");
+        assertTrue(boom.stops.contains(StopReason.BACKEND_FAULT),
+                "a faulted backend is stopped so it can't hold stale output");
+        assertTrue(ok.governedCalls > 0, "the healthy backend still received the fan-out");
+        assertEquals(1, coordinator.faultCount(), "the fault is recorded, not silently swallowed");
+        assertFalse(coordinator.recentFaults().isEmpty(), "the fault is visible for health reporting");
+        coordinator.close();
+    }
+
     /** A backend that records the stops it received and can be told to throw. Stops run synchronously. */
     private static final class FakeBackend implements HapticBackend {
         private final String id;
         final List<StopReason> stops = new ArrayList<>();
         boolean throwOnStop;
+        boolean throwOnGoverned;
+        int governedCalls;
         boolean started;
         boolean closed;
 
@@ -83,6 +104,14 @@ class BackendCoordinatorTest {
         @Override
         public void start() {
             started = true;
+        }
+
+        @Override
+        public void onGovernedScenes(List<HapticScene> governed, long nowNs) {
+            governedCalls++;
+            if (throwOnGoverned) {
+                throw new RuntimeException("render boom from " + id);
+            }
         }
 
         @Override

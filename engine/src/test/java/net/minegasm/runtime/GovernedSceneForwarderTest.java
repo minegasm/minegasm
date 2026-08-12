@@ -33,6 +33,15 @@ class GovernedSceneForwarderTest {
                 createdNs, createdNs + 500 * MS, key);
     }
 
+    /** A continuous scene like {@link #continuous} but with a chosen role, for signature-change tests. */
+    private static HapticScene continuousRole(String key, float level, long createdNs, HapticRole role) {
+        HapticPrimitive.Hold hold = new HapticPrimitive.Hold(level, 600_000, 0, 0);
+        HapticLayer layer = new HapticLayer("l", role, hold, HapticRoute.buzzAll(),
+                CouplingMode.MAX, 0, 0, Long.MAX_VALUE / 4, key);
+        return new HapticScene(key, GameEventKind.AMBIENT, 0, Collections.singletonList(layer),
+                createdNs, createdNs + 500 * MS, key);
+    }
+
     private static HapticScene discrete(String id, long createdNs) {
         HapticLayer layer = new HapticLayer("l", HapticRole.IMPACT,
                 new HapticPrimitive.Impulse(0.8f, 250, 8, 40), HapticRoute.buzzAll(),
@@ -85,6 +94,37 @@ class GovernedSceneForwarderTest {
         // A new instance (same id, later creation) is a distinct hit and forwards again.
         fwd.forward(Collections.singletonList(discrete("hurt", 500 * MS)), 500 * MS);
         assertEquals(2, sent.size(), "a new instance of the same id forwards again");
+    }
+
+    @Test
+    void aDroppedFrameIsRetriedNotMarkedDelivered() {
+        List<HapticScene> attempts = new ArrayList<>();
+        boolean[] deliver = {false};
+        GovernedSceneForwarder fwd = new GovernedSceneForwarder(s -> {
+            attempts.add(s);
+            return deliver[0];
+        });
+        // While the link is down the sink reports "not delivered"; each cycle must retry, not remember.
+        fwd.forward(Collections.singletonList(continuous("acc", 0.5f, 0)), 0);
+        fwd.forward(Collections.singletonList(continuous("acc", 0.5f, 15 * MS)), 15 * MS);
+        assertEquals(2, attempts.size(), "a dropped continuous frame is retried each cycle");
+
+        deliver[0] = true;
+        fwd.forward(Collections.singletonList(continuous("acc", 0.5f, 30 * MS)), 30 * MS);
+        assertEquals(3, attempts.size(), "the retry that lands is the delivered one");
+        fwd.forward(Collections.singletonList(continuous("acc", 0.5f, 45 * MS)), 45 * MS);
+        assertEquals(3, attempts.size(), "once delivered a steady scene is suppressed again");
+    }
+
+    @Test
+    void aStructuralChangeAtTheSamePeakForwards() {
+        List<HapticScene> sent = new ArrayList<>();
+        GovernedSceneForwarder fwd = new GovernedSceneForwarder(sent::add);
+        fwd.forward(Collections.singletonList(continuousRole("acc", 0.5f, 0, HapticRole.IMPACT)), 0);
+        // Same key and same peak, but a different role: the adapter would otherwise play stale semantics.
+        fwd.forward(Collections.singletonList(
+                continuousRole("acc", 0.5f, 15 * MS, HapticRole.WARNING)), 15 * MS);
+        assertEquals(2, sent.size(), "a role change at the same peak is forwarded, not suppressed");
     }
 
     @Test

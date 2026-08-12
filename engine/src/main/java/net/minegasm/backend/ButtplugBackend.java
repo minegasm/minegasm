@@ -104,6 +104,7 @@ public final class ButtplugBackend implements HapticBackend {
 
     @Override
     public void stop(StopReason reason) {
+        testScene = null; // a live isolated test must never outlast a stop and resume onto the body
         scheduler.reset();
         lastCommands = Collections.emptyList(); // nothing is being dispatched after a stop
         provider.stop(StopSelection.all());
@@ -111,6 +112,7 @@ public final class ButtplugBackend implements HapticBackend {
 
     @Override
     public void pause() {
+        testScene = null; // don't let a test resume when the session does
         pausedRegistryGeneration = provider.devices().generation();
         scheduler.reset();
         lastCommands = Collections.emptyList(); // hardware is stopped while paused
@@ -126,12 +128,16 @@ public final class ButtplugBackend implements HapticBackend {
 
     @Override
     public void discardPause() {
+        testScene = null;
         scheduler.reset();
     }
 
     @Override
     public void setOutputEnabled(boolean enabled) {
         this.outputEnabled = enabled;
+        if (!enabled) {
+            testScene = null; // panic/master-off drops any live test so it can't resume on re-enable
+        }
     }
 
     @Override
@@ -141,6 +147,7 @@ public final class ButtplugBackend implements HapticBackend {
 
     @Override
     public void close() {
+        testScene = null;
         // The provider is owned and closed by MinegasmClient.
     }
 

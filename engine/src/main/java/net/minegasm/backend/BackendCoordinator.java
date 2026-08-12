@@ -5,7 +5,9 @@ import net.minegasm.runtime.StopReason;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Owns every enabled {@link HapticBackend} and fans lifecycle calls to all of them (brief 0003 §3.2),
@@ -20,9 +22,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public final class BackendCoordinator implements AutoCloseable {
 
+    /** Cap on retained fault messages, so a chronically failing backend cannot grow memory. */
+    private static final int FAULT_LOG_LIMIT = 32;
+
     // Copy-on-write so the worker thread can fan out lock-free while the client thread adds or removes a
     // bridge backend live (an enable toggle or a newly added bridge, no game restart).
     private final CopyOnWriteArrayList<HapticBackend> backends;
+
+    // Recent render faults, newest last, bounded. A backend that throws in scene fan-out is stopped and
+    // recorded here rather than swallowed, so the failure is visible to health/status reporting.
+    private final ConcurrentLinkedDeque<String> faults = new ConcurrentLinkedDeque<>();
+    private final AtomicLong faultCount = new AtomicLong();
 
     public BackendCoordinator(List<HapticBackend> backends) {
         this.backends = new CopyOnWriteArrayList<>(backends);
@@ -50,12 +60,41 @@ public final class BackendCoordinator implements AutoCloseable {
 
     /**
      * Fan the governed scene set to every backend for this cycle (ADR-018). Inline and guarded, so one
-     * backend's render or forward failing cannot skip another or block the driver.
+     * backend's render or forward failing cannot skip another or block the driver. A backend that throws
+     * is not silently swallowed: its stop is attempted immediately so it can't keep holding the output it
+     * failed to update, and the fault is recorded for health reporting. It stays in the fan-out so it can
+     * recover on a later cycle. Returns the number of backends that faulted this cycle.
      */
-    public void onGovernedScenes(final List<HapticScene> governed, final long nowNs) {
+    public int onGovernedScenes(final List<HapticScene> governed, final long nowNs) {
+        int faulted = 0;
         for (final HapticBackend b : backends) {
-            guard(() -> b.onGovernedScenes(governed, nowNs));
+            if (!guard(() -> b.onGovernedScenes(governed, nowNs))) {
+                faulted++;
+                // Fail toward stopped for this backend: don't let it hold a stale non-zero value after a
+                // failed update. Best-effort; if the stop also throws it is guarded too.
+                guard(() -> b.stop(StopReason.BACKEND_FAULT));
+                recordFault(b.id());
+            }
         }
+        return faulted;
+    }
+
+    private void recordFault(String backendId) {
+        faultCount.incrementAndGet();
+        faults.addLast(backendId + " render fault");
+        while (faults.size() > FAULT_LOG_LIMIT) {
+            faults.pollFirst();
+        }
+    }
+
+    /** Total render faults seen since start, for health/status (not just the retained tail). */
+    public long faultCount() {
+        return faultCount.get();
+    }
+
+    /** A bounded snapshot of the most recent render faults, oldest first. */
+    public List<String> recentFaults() {
+        return Collections.unmodifiableList(new java.util.ArrayList<>(faults));
     }
 
     /** Whether any rendering backend is currently able to drive the body, so fatigue should accrue. */
@@ -120,17 +159,19 @@ public final class BackendCoordinator implements AutoCloseable {
     }
 
     /**
-     * Run one backend action, swallowing a runtime failure so one misbehaving backend cannot affect the
-     * others.
-     *
-     * <p>TODO(0003 §3.2): a backend that throws should surface as unhealthy to the watchdog rather than
-     * failing silently; left as a silent swallow until per-backend health reporting lands.
+     * Run one backend action, isolating a runtime failure so one misbehaving backend cannot affect the
+     * others. Returns true if the action completed, false if it threw. Lifecycle callers ignore the
+     * result (a failed stop still must not skip the next backend); scene fan-out uses it to stop and
+     * record the faulted backend rather than swallowing the failure.
      */
-    private static void guard(Runnable action) {
+    private static boolean guard(Runnable action) {
         try {
             action.run();
+            return true;
         } catch (RuntimeException isolated) {
-            // Intentionally isolated: one backend failing must not stop the fan-out to the others.
+            // Isolated: one backend failing must not stop the fan-out to the others. The caller decides
+            // whether to act on the failure (scene fan-out stops and records it).
+            return false;
         }
     }
 }

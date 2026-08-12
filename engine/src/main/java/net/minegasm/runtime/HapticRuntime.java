@@ -88,17 +88,18 @@ public final class HapticRuntime {
         this.buttplug = new ButtplugBackend(provider, config);
         List<HapticBackend> backends = new ArrayList<>();
         backends.add(buttplug);
+        this.coordinator = new BackendCoordinator(backends);
+        this.worker = new HapticWorker(sceneGovernor, coordinator, clock, config);
         if (bridgeEndpoints != null) {
             for (BridgeEndpoint endpoint : bridgeEndpoints) {
                 BridgeBackend backend = new BridgeBackend(endpoint.transportFactory(), endpoint.uri(),
                         endpoint.id(), clock);
-                backends.add(backend);
+                backend.setOutputEnabled(worker.isOutputEnabled()); // inherit the latch before it goes live
+                coordinator.add(backend);
                 bridgeBackends.put(endpoint.id(), backend);
                 bridgeUris.put(endpoint.id(), endpoint.uri());
             }
         }
-        this.coordinator = new BackendCoordinator(backends);
-        this.worker = new HapticWorker(sceneGovernor, coordinator, clock, config);
         this.lifecycle = new LifecycleController(worker, config);
         this.watchdog = new Watchdog(worker, clock, WATCHDOG_STALL_MS);
     }
@@ -216,6 +217,10 @@ public final class HapticRuntime {
             if (!bridgeBackends.containsKey(endpoint.id())) {
                 BridgeBackend fresh = new BridgeBackend(endpoint.transportFactory(), endpoint.uri(),
                         endpoint.id(), clock);
+                // Inherit the master output latch before the backend is visible to fan-out. Otherwise a
+                // bridge added or re-pointed while panic/master-off is latched would start output-enabled
+                // and forward scenes despite the global stop (its default is enabled).
+                fresh.setOutputEnabled(worker.isOutputEnabled());
                 if (started) {
                     fresh.start();
                 }
@@ -243,6 +248,16 @@ public final class HapticRuntime {
         if (backend != null) {
             backend.test(scene, nowNs);
         }
+    }
+
+    /** Total backend render faults since start (a backend threw during scene fan-out and was stopped). */
+    public long backendFaultCount() {
+        return coordinator.faultCount();
+    }
+
+    /** A bounded snapshot of the most recent backend render faults, oldest first. */
+    public List<String> backendFaults() {
+        return coordinator.recentFaults();
     }
 
     public HapticWorker worker() {

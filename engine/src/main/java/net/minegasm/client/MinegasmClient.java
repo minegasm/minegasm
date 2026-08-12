@@ -326,16 +326,26 @@ public final class MinegasmClient {
         return true;
     }
 
-    /** Apply a new config atomically: persist, swap the runtime snapshot, and stop if now disabled. */
+    /**
+     * Apply a new config, ordering the steps around the fallible save so a write failure never leaves an
+     * unsafe state. A disable (a safety-reducing transition of hardware to off) is published and stopped
+     * <em>before</em> the save, and that safe state is kept even if the write throws. Any other change is
+     * persisted first and only published once it is safely on disk, so a failed save cannot leave the
+     * runtime on a config that was never written. {@code buildBridgeEndpoints} reads the current config, so
+     * reconciliation always follows the snapshot swap.
+     */
     public void updateConfig(HapticConfig updated) {
         RuntimeConfig previous = config.get();
-        config.set(RuntimeConfig.of(updated));
-        configStore.save(updated);
-        if (previous.enabled() && !updated.global().enabled()) {
-            runtime.lifecycle().onConfigReset();
+        boolean disabling = previous.enabled() && !updated.global().enabled();
+        if (disabling) {
+            config.set(RuntimeConfig.of(updated));
+            runtime.lifecycle().onConfigReset(); // stop hardware now, before the write can fail
+            runtime.reconcileBridges(buildBridgeEndpoints());
+            configStore.save(updated); // if this throws we stay safely disabled in memory
+            return;
         }
-        // Bring bridge backends in line with the new config so enabling, disabling, adding, or re-pointing
-        // a bridge connects or disconnects live, no game restart (buildBridgeEndpoints reads current config).
+        configStore.save(updated);
+        config.set(RuntimeConfig.of(updated));
         runtime.reconcileBridges(buildBridgeEndpoints());
     }
 
@@ -601,9 +611,10 @@ public final class MinegasmClient {
     }
 
     /**
-     * One display line per configured bridge for {@code /mg status}, alongside the Buttplug status the
-     * command already prints: disabled, or the adapter link up or waiting. This reflects the
-     * mod-to-adapter link, not whether the adapter's own onward connection (e.g. XToys) is up.
+     * Integration status lines for {@code /mg status}, alongside the Buttplug status the command already
+     * prints: one line per configured bridge (disabled, or the adapter link up or waiting), then a health
+     * line if any backend has faulted during output. The bridge line reflects the mod-to-adapter link, not
+     * whether the adapter's own onward connection (e.g. XToys) is up.
      */
     public List<String> bridgeStatusLines() {
         List<String> lines = new ArrayList<>();
@@ -611,6 +622,12 @@ public final class MinegasmClient {
             String state = !bridge.enabled() ? "disabled"
                     : bridgeConnected(bridge.name()) ? "adapter connected" : "waiting for adapter";
             lines.add("Bridge " + bridge.name() + ": " + state);
+        }
+        long faults = runtime.backendFaultCount();
+        if (faults > 0) {
+            List<String> recent = runtime.backendFaults();
+            String last = recent.isEmpty() ? "" : " (last: " + recent.get(recent.size() - 1) + ")";
+            lines.add("Output faults: " + faults + last);
         }
         return lines;
     }

@@ -50,6 +50,9 @@ public final class BridgeBackend implements HapticBackend {
     private volatile boolean stopped;
     private volatile boolean outputEnabled = true;
     private volatile long lastHealthyCycleNs;
+    // Set when a fresh link comes up; the next worker cycle resets the forwarder so an in-flight
+    // continuous effect resynchronizes to the new adapter now instead of waiting for its re-arm.
+    private volatile boolean resyncOnNextCycle;
     private ScheduledExecutorService reconnect;
 
     public BridgeBackend(Supplier<BridgeTransport> transportFactory, URI endpoint, Clock clock) {
@@ -110,6 +113,7 @@ public final class BridgeBackend implements HapticBackend {
             connecting = false;
             if (error == null) {
                 lastHealthyCycleNs = clock.nanoTime();
+                resyncOnNextCycle = true; // re-send in-flight effects to the newly connected adapter
             }
         });
     }
@@ -127,17 +131,26 @@ public final class BridgeBackend implements HapticBackend {
     public void onGovernedScenes(List<HapticScene> governed, long nowNs) {
         // Change-driven: this backend's forwarder decides what actually goes on the wire (steady effects
         // sent once, TTL re-armed). It self-gates via submit() below when panicked or disconnected.
+        if (resyncOnNextCycle) {
+            resyncOnNextCycle = false;
+            forwarder.reset(); // a link just came up: forget prior state so live effects re-send now
+        }
         forwarder.forward(governed, nowNs);
     }
 
-    /** The forwarder's sink: encode one governed scene as an effect frame if the adapter can receive it. */
-    private void submit(HapticScene scene) {
+    /**
+     * The forwarder's sink: encode one governed scene as an effect frame if the adapter can receive it.
+     * Returns whether the frame was accepted, so the forwarder records it as sent only when it actually
+     * went out and retries a drop on the next cycle rather than treating it as delivered.
+     */
+    private boolean submit(HapticScene scene) {
         BridgeTransport current = transport;
         if (!outputEnabled || current == null || !current.isOpen()) {
-            return; // panic-latched or no adapter connected: drop, do not buffer stale output
+            return false; // panic-latched or no adapter connected: drop, retried when the link returns
         }
         outbound.offer(codec.encodeEffect(scene, clock.nanoTime()));
         lastHealthyCycleNs = clock.nanoTime();
+        return true;
     }
 
     @Override

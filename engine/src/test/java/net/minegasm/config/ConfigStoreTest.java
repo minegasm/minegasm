@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -101,6 +102,27 @@ class ConfigStoreTest {
         assertEquals(HapticConfig.CURRENT_SCHEMA_VERSION, result.config().schemaVersion());
         assertTrue(result.config().global().enabled());
         assertEquals(PauseBehavior.PAUSE, result.config().global().pauseBehaviorMode());
+    }
+
+    @Test
+    void newerSchemaFileIsLeftUntouchedAndDefaultsAreUsed(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("config.json");
+        // A file a future Minegasm wrote: a schema version beyond current, plus a field this build
+        // doesn't know. An older build must not parse-and-downgrade it.
+        String future = "{\"schemaVersion\":" + (HapticConfig.CURRENT_SCHEMA_VERSION + 5)
+                + ",\"global\":{\"enabled\":true},\"unknownFutureField\":42}";
+        Files.writeString(file, future, StandardCharsets.UTF_8);
+        byte[] before = Files.readAllBytes(file);
+
+        ConfigStore store = new ConfigStore(file);
+        ConfigStore.LoadResult result = store.load();
+
+        assertTrue(result.wasPresent());
+        assertTrue(result.fromNewerSchema());
+        assertFalse(result.migrated());
+        assertFalse(result.config().global().enabled(), "runs on safe defaults, not the newer file");
+        assertArrayEquals(before, Files.readAllBytes(file), "the newer file is left byte-for-byte intact");
+        assertTrue(Files.exists(dir.resolve("config.json.newer")), "the newer file is backed up aside");
     }
 
     @Test
