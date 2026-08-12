@@ -8,8 +8,16 @@ to drive your outputs.
 Each scene layer carries a device-independent role (IMPACT, REWARD, TEXTURE, WARNING, AMBIENT, CONTROL).
 The adapter exposes each role as its own XToys output instead of collapsing everything to one level, so
 several actuators can run at once. It makes no device decisions: it sends role and intensity, and you
-route each role to a toy in XToys. XToys' generic output is device-agnostic, so an output drives whatever
-you connect (vibrator, stroker, e-stim, rotator), not vibration alone.
+route each role to a toy in XToys. XToys' generic output is device-agnostic, so an output can drive a
+vibrator, stroker, or rotator.
+
+> **E-stim is not a supported target yet.** Because XToys outputs are generic, you *can* wire a role to an
+> e-stim device, but the adapter only sends a plain 0..100 intensity. None of the safeguards a shock output
+> needs are in place here: no separate arming step, no independent hard limits in the device's own units,
+> no ramp or inter-pulse spacing, no whole-body budget (see `../../adr/ADR-016-electrostim-opt-in-modality.md`
+> and `../../SAFETY.md`). E-stim is planned, but until that opt-in modality lands, routing an ordinary game
+> scene to a shock output is unsupported and at your own risk. Do not do it on a device where an unexpected
+> level could hurt.
 
 It builds to a single self-contained binary (one small pure-Go dependency, no runtime to install).
 Because Minegasm supports several bridges at once, XToys can run alongside Buttplug and other bridge

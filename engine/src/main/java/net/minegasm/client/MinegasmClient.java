@@ -137,8 +137,15 @@ public final class MinegasmClient {
      */
     private List<BridgeEndpoint> buildBridgeEndpoints() {
         List<BridgeEndpoint> endpoints = new ArrayList<>();
+        java.util.Set<String> seenNames = new java.util.HashSet<>();
         for (HapticConfig.Bridge bridge : config.get().bridges()) {
             if (!bridge.enabled()) {
+                continue;
+            }
+            if (!seenNames.add(bridge.name())) {
+                // The name is the runtime identity; a duplicate would orphan a backend that later can't be
+                // addressed to remove or disable it. Keep the first, skip and report the rest (review P1-7).
+                errorHistory.add("[bridge:" + bridge.name() + "] duplicate name, ignored");
                 continue;
             }
             URI uri;

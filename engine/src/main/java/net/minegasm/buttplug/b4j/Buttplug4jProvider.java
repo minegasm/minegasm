@@ -49,6 +49,14 @@ public final class Buttplug4jProvider implements HapticProvider {
         t.setDaemon(true);
         return t;
     });
+    // A stop must never queue behind a blocking connect or scan on the lifecycle executor (review P1-2),
+    // so it runs on its own single thread. An emergency stop then dispatches immediately regardless of
+    // what the lifecycle thread is doing.
+    private final ExecutorService stopExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "minegasm-buttplug4j-stop");
+        t.setDaemon(true);
+        return t;
+    });
 
     private volatile Consumer<ProviderStatus> statusListener = s -> {};
     private volatile Consumer<DeviceRegistrySnapshot> registryListener = s -> {};
@@ -255,7 +263,7 @@ public final class Buttplug4jProvider implements HapticProvider {
             } catch (Exception e) {
                 setError(e.getMessage());
             }
-        }, executor);
+        }, stopExecutor);
     }
 
     @Override
@@ -273,6 +281,7 @@ public final class Buttplug4jProvider implements HapticProvider {
     public void close() {
         disconnect();
         executor.shutdownNow();
+        stopExecutor.shutdownNow();
     }
 
     // --- helpers ---------------------------------------------------------------------------

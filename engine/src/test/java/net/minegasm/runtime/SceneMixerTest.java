@@ -141,6 +141,22 @@ class SceneMixerTest {
     }
 
     @Test
+    void higherPriorityExclusiveDucksALouderExclusive() {
+        SceneMixer mixer = new SceneMixer();
+        SceneStore store = new SceneStore();
+        // Two exclusive layers collide: the quieter one has the higher priority and must win, so a loud
+        // low-priority exclusive can't override a high-priority warning-style duck (review P1-6).
+        store.add(scene("loud", vibeLayer("loud", 0.9f, CouplingMode.EXCLUSIVE, Priorities.MINING_TEXTURE),
+                0, 250 * MS));
+        store.add(scene("warn", vibeLayer("warn", 0.3f, CouplingMode.EXCLUSIVE, Priorities.EXPLOSION),
+                0, 250 * MS));
+        Map<String, EndpointTarget> targets =
+                mixer.render(store.snapshot(), Devices.singleVibrate(), cfg, 20 * MS);
+        EndpointTarget t = targets.values().iterator().next();
+        assertEquals(0.3f, t.level(), 1e-3, "the higher-priority exclusive wins regardless of level");
+    }
+
+    @Test
     void expiredLayerProducesNoTarget() {
         SceneMixer mixer = new SceneMixer();
         SceneStore store = new SceneStore();

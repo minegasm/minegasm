@@ -83,6 +83,18 @@ class HapticRuntimeBridgeTest {
     }
 
     @Test
+    void duplicateEndpointIdsDoNotCreateExtraBackends() {
+        // Two endpoints sharing an id must not add two backends where one becomes an unmapped orphan that
+        // can never be removed or disabled (review P1-7).
+        HapticRuntime rt = new HapticRuntime(provider, clock, () -> RuntimeConfig.defaults(),
+                new PackRegistry(), Arrays.asList(endpoint("dup"), endpoint("dup")));
+
+        var backends = rt.coordinator().backends();
+        assertEquals(2, backends.size(), "buttplug plus exactly one backend for the duplicated id");
+        assertEquals(1, backends.stream().filter(b -> b.id().equals("dup")).count());
+    }
+
+    @Test
     void bridgeAddedWhilePanicLatchedStartsDisabled() {
         // A bridge added or re-pointed while master output is latched off must inherit that latch, or it
         // would forward scenes despite the visible global stop (its default is output-enabled).

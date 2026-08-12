@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The TCP transport against a real loopback server: connect, line-framed send, inbound, and close. */
@@ -106,6 +107,21 @@ class TcpLineBridgeTransportTest {
 
         assertTrue(closed.await(3, TimeUnit.SECONDS), "an unbounded inbound line must fail closed");
         assertFalse(transport.isOpen());
+    }
+
+    @Test
+    void connectAfterCloseNeverOpens() throws Exception {
+        server = new ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"));
+        URI uri = URI.create("tcp://127.0.0.1:" + server.getLocalPort());
+        transport = new TcpLineBridgeTransport();
+        transport.close(); // closed before any connect attempt
+
+        java.util.concurrent.CompletableFuture<Void> f =
+                transport.connect(uri, m -> {}, t -> {}).toCompletableFuture();
+
+        assertThrows(java.util.concurrent.ExecutionException.class, () -> f.get(3, TimeUnit.SECONDS),
+                "a connect that races behind close must not report success");
+        assertFalse(transport.isOpen(), "a transport closed before connect never opens");
     }
 
     @Test

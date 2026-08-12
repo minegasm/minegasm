@@ -189,12 +189,23 @@ public final class SceneMixer {
         return new EndpointTarget(ref, kind, target, null, layer.priority(), exclusive, layer.role());
     }
 
-    /** Resolve two targets on the same endpoint by exclusivity, then level, then priority. */
+    /**
+     * Resolve two targets on the same endpoint. One exclusive vs one not: the exclusive wins unless the
+     * other outranks it. Two exclusive candidates duck by priority first (a quieter high-priority warning
+     * must beat a louder low-priority exclusive), level only breaking a tie. Two non-exclusive: loudest
+     * wins, priority breaks a tie (review P1-6).
+     */
     private static EndpointTarget dominant(EndpointTarget a, EndpointTarget b) {
         if (a.exclusive() != b.exclusive()) {
             EndpointTarget ex = a.exclusive() ? a : b;
             EndpointTarget other = a.exclusive() ? b : a;
             return ex.priority() >= other.priority() ? ex : other;
+        }
+        if (a.exclusive()) {
+            if (a.priority() != b.priority()) {
+                return a.priority() > b.priority() ? a : b;
+            }
+            return a.level() >= b.level() ? a : b;
         }
         if (a.level() != b.level()) {
             return a.level() >= b.level() ? a : b;

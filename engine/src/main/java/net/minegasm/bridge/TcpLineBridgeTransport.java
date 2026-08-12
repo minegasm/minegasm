@@ -53,13 +53,24 @@ public final class TcpLineBridgeTransport implements BridgeTransport {
 
         CompletableFuture<Void> connected = new CompletableFuture<>();
         Thread connectThread = new Thread(() -> {
+            Socket s = new Socket();
+            this.socket = s; // publish before the blocking connect so close() can abort it in flight
             try {
-                Socket s = new Socket();
+                if (closed) {
+                    throw new IOException("closed before connect");
+                }
                 s.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
                 s.setTcpNoDelay(true);
-                this.socket = s;
                 this.out = s.getOutputStream();
-                this.writer = Executors.newSingleThreadExecutor(r -> daemon(r, "minegasm-bridge-writer"));
+                ExecutorService w = Executors.newSingleThreadExecutor(
+                        r -> daemon(r, "minegasm-bridge-writer"));
+                this.writer = w;
+                if (closed) {
+                    // Raced with close() after the socket connected: don't publish a live transport;
+                    // tear the just-built resources down instead of leaking the writer executor.
+                    w.shutdownNow();
+                    throw new IOException("closed during connect");
+                }
                 this.open = true;
                 startReader(s, onMsg);
                 connected.complete(null);

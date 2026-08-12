@@ -92,6 +92,9 @@ public final class HapticRuntime {
         this.worker = new HapticWorker(sceneGovernor, coordinator, clock, config);
         if (bridgeEndpoints != null) {
             for (BridgeEndpoint endpoint : bridgeEndpoints) {
+                if (bridgeBackends.containsKey(endpoint.id())) {
+                    continue; // a duplicate id must not add a second, unmapped backend to the fan-out
+                }
                 BridgeBackend backend = new BridgeBackend(endpoint.transportFactory(), endpoint.uri(),
                         endpoint.id(), clock);
                 backend.setOutputEnabled(worker.isOutputEnabled()); // inherit the latch before it goes live
