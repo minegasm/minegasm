@@ -16,6 +16,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -32,6 +33,7 @@ public final class MinegasmScenePackScreen extends Screen {
 
     private final Screen parent;
     private final MinegasmClient client;
+    private RowScroller scroller;
 
     public MinegasmScenePackScreen(Screen parent, MinegasmClient client) {
         super(Component.translatable("minegasm.packs.title"));
@@ -41,38 +43,105 @@ public final class MinegasmScenePackScreen extends Screen {
 
     @Override
     protected void init() {
-        int width = Math.min(this.width - 16, 300);
-        int x = (this.width - width) / 2;
-        int y = 44;
+        int w = Math.min(this.width - 16, 300);
+        int x = (this.width - w) / 2;
         int h = 20;
         int gap = 24;
 
         String selected = client.config().recipePackName();
 
-        // The two built-ins always appear first, then the loaded file packs in load order.
-        y = addSelector("classic", Component.translatable("minegasm.packs.builtin.classic"),
-                selected, x, y, width, h, gap);
-        y = addSelector("balanced", Component.translatable("minegasm.packs.builtin.balanced"),
-                selected, x, y, width, h, gap);
-
+        // The two built-ins always appear first, then the loaded file packs in load order. The whole list
+        // scrolls, since the number of installed packs is unbounded; Done stays pinned at the bottom.
+        List<String> ids = new ArrayList<>();
+        List<Component> labels = new ArrayList<>();
+        ids.add("classic");
+        labels.add(Component.translatable("minegasm.packs.builtin.classic"));
+        ids.add("balanced");
+        labels.add(Component.translatable("minegasm.packs.builtin.balanced"));
         for (ScenePackInfo pack : client.scenePacks()) {
-            y = addSelector(pack.id(), Component.literal(pack.displayName()),
-                    selected, x, y, width, h, gap);
+            ids.add(pack.id());
+            labels.add(Component.literal(pack.displayName()));
         }
 
-        addRenderableWidget(button(Component.translatable("gui.done"),
-                b -> onClose(), x, this.height - 24, width, h));
+        int doneY = this.height - 24;
+        int viewportTop = 44;
+        int viewportBottom = doneY - 6;
+        int rowCount = ids.size();
+        int visibleRows = Math.max(1, (viewportBottom - viewportTop) / gap);
+        if (scroller == null) {
+            scroller = new RowScroller(visibleRows, rowCount);
+        } else {
+            scroller.resize(visibleRows, rowCount); // resize (not recreate) so a live rebuild keeps position
+        }
+        boolean needsScroll = rowCount > visibleRows;
+        int rowW = needsScroll ? w - 20 : w;
+
+        for (int i = 0; i < rowCount; i++) {
+            if (!scroller.isVisible(i)) {
+                continue;
+            }
+            int ry = viewportTop + (i - scroller.first()) * gap;
+            addSelector(ids.get(i), labels.get(i), selected, x, ry, rowW, h);
+        }
+        if (needsScroll) {
+            int scrollX = x + w - 20;
+            Button up = addRenderableWidget(button(Component.literal("^"), b -> {
+                scroller.up();
+                rebuildWidgets();
+            }, scrollX, viewportTop, 20, h));
+            up.active = scroller.canScrollUp();
+            Button down = addRenderableWidget(button(Component.literal("v"), b -> {
+                scroller.down();
+                rebuildWidgets();
+            }, scrollX, viewportBottom - 20, 20, h));
+            down.active = scroller.canScrollDown();
+        }
+
+        addRenderableWidget(button(Component.translatable("gui.done"), b -> onClose(), x, doneY, w, h));
     }
 
-    private int addSelector(String id, Component label, String selected, int x, int y, int width,
-                            int height, int gap) {
+    private void addSelector(String id, Component label, String selected, int x, int y, int width,
+                             int height) {
         boolean current = id.equals(selected);
         Button b = addRenderableWidget(button(
                 current ? Component.translatable("minegasm.packs.selected", label) : label,
                 click -> select(id), x, y, width, height));
         b.active = !current; // the current pack is shown but not re-selectable
-        return y + gap;
     }
+
+    // Wheel scrolls the pack list, page-at-a-time via the scroller. The 4-arg overload with a horizontal
+    // scrollX component was added in 1.21.1; 1.19.2 and 1.20.1 take a single delta. Mirrors the hub screen.
+    //? if >=1.21.1 {
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scroller != null && scrollY > 0 && scroller.canScrollUp()) {
+            scroller.up();
+            rebuildWidgets();
+            return true;
+        }
+        if (scroller != null && scrollY < 0 && scroller.canScrollDown()) {
+            scroller.down();
+            rebuildWidgets();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+    //?} else {
+    /*@Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (scroller != null && delta > 0 && scroller.canScrollUp()) {
+            scroller.up();
+            rebuildWidgets();
+            return true;
+        }
+        if (scroller != null && delta < 0 && scroller.canScrollDown()) {
+            scroller.down();
+            rebuildWidgets();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+    *///?}
 
     private void select(String packId) {
         HapticConfig cfg = client.config().raw();

@@ -16,11 +16,14 @@ import java.util.List;
 public final class ClassicScenePackScreen extends GuiScreen {
 
     private static final int ID_DONE = 1;
+    private static final int ID_SCROLL_UP = 10;
+    private static final int ID_SCROLL_DOWN = 11;
     private static final int ID_FIRST_PACK = 100;
 
     private final GuiScreen parent;
     private final MinegasmClient client;
     private List<ScenePackList.Entry> entries;
+    private RowScroller scroller;
 
     public ClassicScenePackScreen(GuiScreen parent) {
         this.parent = parent;
@@ -34,25 +37,62 @@ public final class ClassicScenePackScreen extends GuiScreen {
         String selected = ScenePackList.selected(client);
         int w = Math.min(width - 16, 300);
         int x = (width - w) / 2;
-        int y = 44;
         int h = 20;
         int gap = 24;
-        for (int i = 0; i < entries.size(); i++) {
+
+        // The whole pack list scrolls, since the number of installed packs is unbounded; Done stays pinned.
+        int doneY = height - 24;
+        int viewportTop = 44;
+        int viewportBottom = doneY - 6;
+        int rowCount = entries.size();
+        int visibleRows = Math.max(1, (viewportBottom - viewportTop) / gap);
+        if (scroller == null) {
+            scroller = new RowScroller(visibleRows, rowCount);
+        } else {
+            scroller.resize(visibleRows, rowCount);
+        }
+        boolean needsScroll = rowCount > visibleRows;
+        int rowW = needsScroll ? w - 20 : w;
+
+        for (int i = 0; i < rowCount; i++) {
+            if (!scroller.isVisible(i)) {
+                continue;
+            }
+            int ry = viewportTop + (i - scroller.first()) * gap;
             ScenePackList.Entry e = entries.get(i);
             boolean current = e.id.equals(selected);
-            GuiButton b = new GuiButton(ID_FIRST_PACK + i, x, y, w, h,
+            GuiButton b = new GuiButton(ID_FIRST_PACK + i, x, ry, rowW, h,
                     current ? e.label + " (selected)" : e.label);
             b.enabled = !current; // the current pack is shown but not re-selectable
             buttonList.add(b);
-            y += gap;
         }
-        buttonList.add(new GuiButton(ID_DONE, x, height - 24, w, h, "Done"));
+        if (needsScroll) {
+            int scrollX = x + w - 20;
+            GuiButton up = new GuiButton(ID_SCROLL_UP, scrollX, viewportTop, 20, h, "^");
+            up.enabled = scroller.canScrollUp();
+            buttonList.add(up);
+            GuiButton down = new GuiButton(ID_SCROLL_DOWN, scrollX, viewportBottom - 20, 20, h, "v");
+            down.enabled = scroller.canScrollDown();
+            buttonList.add(down);
+        }
+
+        buttonList.add(new GuiButton(ID_DONE, x, doneY, w, h, "Done"));
     }
 
     @Override
     protected void actionPerformed(GuiButton button) throws IOException {
         if (button.id == ID_DONE) {
             mc.displayGuiScreen(parent);
+            return;
+        }
+        if (button.id == ID_SCROLL_UP) {
+            scroller.up();
+            initGui();
+            return;
+        }
+        if (button.id == ID_SCROLL_DOWN) {
+            scroller.down();
+            initGui();
             return;
         }
         int idx = button.id - ID_FIRST_PACK;
