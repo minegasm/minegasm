@@ -2,19 +2,20 @@
 """Reference adapter for the Minegasm local bridge.
 
 The bridge connects out to this process over plain TCP and sends one JSON object per line: an
-`effect` message when a scene fires, and a `stop` message on any stop/panic. This adapter just
-prints them, it is the smallest thing that proves the protocol and a starting point for a real
-adapter (drive a motor, forward to another API, blink an LED).
+`output` message with the whole current level per role, and a `stop` message on any stop/panic. This
+adapter just prints them, it is the smallest thing that proves the protocol and a starting point for
+a real adapter (drive a motor, forward to another API, blink an LED).
 
 No dependencies; standard library only. Run it, then enable the bridge in Minegasm's config
 (transport `tcp`, endpoint `tcp://127.0.0.1:12347`) and start the game.
 
 Message shapes (see docs/bridge/PROTOCOL.md):
-  {"v":1,"type":"effect","sceneId":...,"event":"HURT","priority":100,"ttlMs":300,"layers":[...]}
+  {"v":1,"type":"output","ttlMs":6000,"roles":{"impact":0.8,"reward":0,...}}
   {"v":1,"type":"stop"}
 
-Each effect carries a ttlMs: if you start a continuous output, stop it after ttlMs even if no
-further message arrives, so a dropped connection can never leave something running.
+Each output frame is the full state: set every role to the level given, and treat a role at 0 or a
+missing role as off. The ttlMs is how long to hold the levels without a fresh frame before zeroing,
+so a dropped connection can never leave something running.
 """
 
 import argparse
@@ -47,11 +48,11 @@ class Handler(socketserver.StreamRequestHandler):
             print(f"[bridge] unsupported protocol version {msg.get('v')}, ignoring")
             return
         kind = msg.get("type")
-        if kind == "effect":
-            layers = msg.get("layers", [])
-            peak = max((layer.get("primitive", {}).get("level", 0.0) for layer in layers), default=0.0)
-            print(f"[effect] {msg.get('event')} "
-                  f"peak={peak:.2f} ttl={msg.get('ttlMs')}ms layers={len(layers)}")
+        if kind == "output":
+            roles = msg.get("roles", {})
+            active = {r: v for r, v in roles.items() if v}
+            print(f"[output] ttl={msg.get('ttlMs')}ms "
+                  f"{active if active else 'all off'}")
         elif kind == "stop":
             print("[stop] stop-all")
         else:

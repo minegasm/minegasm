@@ -1,11 +1,11 @@
 # XToys adapter
 
-Forwards Minegasm's local bridge to [XToys](https://xtoys.app). Minegasm sends governed haptic scenes
-to this adapter over TCP; the adapter turns each into a per-role intensity and streams it to XToys over
-the webhook's WebSocket, which the included script (`xtoys-minegasm.json`) matches by action name and uses
-to drive your outputs.
+Forwards Minegasm's local bridge to [XToys](https://xtoys.app). Minegasm sends the current level per role
+to this adapter over TCP; the adapter scales each role to an intensity and streams it to XToys over the
+webhook's WebSocket, which the included script (`xtoys-minegasm.json`) matches by action name and uses to
+drive your outputs.
 
-Each scene layer carries a device-independent role (IMPACT, REWARD, TEXTURE, WARNING, AMBIENT, CONTROL).
+Each role is device-independent (IMPACT, REWARD, TEXTURE, WARNING, AMBIENT, CONTROL).
 The adapter exposes each role as its own XToys output instead of collapsing everything to one level, so
 several actuators can run at once. It makes no device decisions: it sends role and intensity, and you
 route each role to a toy in XToys. XToys' generic output is device-agnostic, so an output can drive a
@@ -51,8 +51,8 @@ You don't have to build the XToys script by hand. `xtoys-minegasm.json` in this 
 3. Open the script's **Webhook** trigger and copy its webhook id.
 
 Each `minegasm-<role>` action reads the `intensity` value (0..100) and sets that role's output, so
-`intensity=0` releases it. The adapter zeros every role on a Minegasm stop/panic and when a scene's TTL
-lapses.
+`intensity=0` releases it. The adapter zeros every role on a Minegasm stop/panic and when an output
+snapshot's TTL lapses without a refresh.
 
 ## Run
 
@@ -81,18 +81,20 @@ e.g. `tcp://127.0.0.1:12347`, and enable it. Start the adapter first, then launc
 
 ## How intensity is derived
 
-Each effect frame is a scene with shaped layers, and every layer has a role. For each role the adapter
-takes the strongest primitive level among that role's layers. A level of 0 sends 0 (off); any nonzero
-level maps into `[min, scale]`, so a faint effect still clears the motor's start threshold instead of
-sending an imperceptible value. (A game hit can arrive as a level near 0.04, which is a `4` without the
-floor.) Roles with no layer in a frame go to 0. Only roles whose level changed produce a message, so a
-frame is usually one or two messages. The raw scene (timing, per-primitive shape) is on the wire if you
-want a richer mapping. See `../PROTOCOL.md`.
+Minegasm sends the whole current level per role as one authoritative snapshot, so the adapter just
+mirrors it: each role's level maps to an intensity and any role at 0 is off. A level of 0 sends 0; any
+nonzero level maps into `[min, scale]`, so a faint effect still clears the motor's start threshold
+instead of sending an imperceptible value. (A game hit can arrive near 0.04, which is a `4` without the
+floor.) Only roles whose scaled value changed produce a message, and a snapshot where every role is
+unchanged sends nothing, so a steady effect streams quietly. When several Minegasm clients are connected,
+each role takes the strongest level across them. See `../PROTOCOL.md`.
 
-Priority and exclusivity are resolved per role before a frame reaches the wire: within a role, a
-higher-priority exclusive effect suppresses lower-priority ones, so a warning wins over ambient on the
-same role. Cross-role behavior does not yet match native Buttplug's per-actuator ducking, where several
-roles sharing one motor duck each other; on the bridge each role is a separate output and they run
+Because every snapshot is the full state, an effect ending or being suppressed retracts as soon as its
+role drops to 0; the adapter never tracks individual scenes or when they end. Priority and exclusivity
+are resolved centrally in Minegasm before the snapshot is sent: within a role, a higher-priority
+exclusive effect suppresses lower-priority ones, so a warning wins over ambient on the same role.
+Cross-role behavior does not yet match native Buttplug's per-actuator ducking, where several roles
+sharing one motor duck each other; on the bridge each role is a separate output and they run
 independently. Full cross-backend parity is a known beta limitation.
 
 ## If the toy barely moves

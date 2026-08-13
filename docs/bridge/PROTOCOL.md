@@ -25,42 +25,40 @@ Connection settings live under `bridge` in the config: `enabled` (off by default
 Every message is a single-line JSON object with a protocol version `v` (currently `1`). An adapter
 should refuse a version it does not recognize rather than guess.
 
-### effect
+### output
 
-Sent when a scene fires. It carries the scene's device-independent content; it deliberately does not
-include Buttplug output kinds or device routing.
+The authoritative current output, one level per role, in `[0, 1]`. Minegasm sends it whenever the
+level changes and re-sends it periodically while output is active; it is device-independent and
+carries no Buttplug output kinds or device routing.
 
 ```json
 {
   "v": 1,
-  "type": "effect",
-  "sceneId": "hurt:HURT",
-  "event": "HURT",
-  "priority": 100,
-  "ttlMs": 300,
-  "continuousKey": "mining",
-  "layers": [
-    {
-      "layerId": "hit",
-      "role": "IMPACT",
-      "coupling": "MAX",
-      "priority": 100,
-      "startOffsetMs": 0,
-      "expiresAfterMs": 300,
-      "primitive": { "type": "impulse", "level": 0.8, "durationMs": 250, "attackMs": 10, "releaseMs": 60 }
-    }
-  ]
+  "type": "output",
+  "ttlMs": 6000,
+  "roles": {
+    "impact": 0.8,
+    "reward": 0,
+    "texture": 0,
+    "warning": 0,
+    "ambient": 0,
+    "control": 0
+  }
 }
 ```
 
-- `event` is the game event kind (`HURT`, `ATTACK`, `MINING_ACTIVE`, `XP_GAIN`, …).
-- `ttlMs` is the scene's remaining lifetime. **Honor it:** if you start a continuous output, stop it
-  after `ttlMs` even if nothing else arrives, so a dropped connection can never leave output running.
-- `continuousKey` is present only for continuous scenes (mining texture, accumulation, stroke). The
-  same key updates the same ongoing effect.
-- `layers[].primitive.type` is one of `impulse`, `texture`, `rumble`, `sweep`, `beat`, `hold`,
-  `oscillation`. The simplest adapter reads each primitive's `level` and pulses; a richer one can use
-  the role, timing, and per-primitive shape fields.
+- **Each frame is the full state.** Set every role to the level given and leave the rest of your
+  outputs alone only if they are not roles. A role that drops to `0`, or that a frame omits, is off:
+  apply it as off. This is what makes a scene ending or being suppressed retract, so you never combine
+  a stream of events or track when one ends. There is nothing to "add" or "remove"; you mirror the
+  latest snapshot.
+- `roles` keys are the six roles Minegasm emits, lowercased: `impact`, `reward`, `texture`, `warning`,
+  `ambient`, `control`. Treat a missing key as `0`.
+- `ttlMs` is how long to hold these levels without a fresh frame before zeroing everything. **Honor
+  it:** the periodic re-send keeps it refreshed, so if it lapses the link is gone and output must
+  stop on its own, without depending on a later stop arriving.
+- Map each role level to your device however you like (scale, floor for a motor's start threshold).
+  Roles let several actuators run at once; route each to whatever output you want in your adapter.
 
 ### stop
 

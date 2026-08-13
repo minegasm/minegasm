@@ -76,20 +76,20 @@ func newTestAdapter(wsURL string) *xtoys {
 		scale:          100,
 		min:            20,
 		last:           map[string]int{},
-		active:         map[string]liveScene{},
+		state:          map[string]clientOutput{},
 		listeners:      map[net.Conn]bool{},
 		reconnectEvery: 15 * time.Millisecond,
 		dialThrottle:   15 * time.Millisecond,
 	}
 }
 
-func effectFrame(sceneID, role string, level float64, ttlMs int) map[string]json.RawMessage {
+// outputFrame builds an authoritative per-role output frame: the whole current state, roles the mod omits
+// are implicitly zero.
+func outputFrame(levels map[string]float64, ttlMs int) map[string]json.RawMessage {
 	raw, _ := json.Marshal(map[string]interface{}{
-		"sceneId": sceneID,
-		"ttlMs":   ttlMs,
-		"layers": []map[string]interface{}{
-			{"role": role, "primitive": map[string]interface{}{"level": level}},
-		},
+		"type":  "output",
+		"ttlMs": ttlMs,
+		"roles": levels,
 	})
 	var frame map[string]json.RawMessage
 	json.Unmarshal(raw, &frame)
@@ -124,10 +124,10 @@ func TestReconnectResendsCurrentState(t *testing.T) {
 	defer srv.Close()
 
 	x := newTestAdapter(wsURLOf(srv))
-	x.connect()
+	x.tryDialAndResync()
 	go x.reconnectLoop()
 
-	x.applyEffect("t|", effectFrame("d:hit", "impact", 0.8, 5000))
+	x.applyOutput("c1", outputFrame(map[string]float64{"impact": 0.8}, 5000))
 	waitFor(t, "the impact reaches XToys", func() bool {
 		v, ok := f.latest("minegasm-impact")
 		return ok && v > 0
@@ -141,16 +141,39 @@ func TestReconnectResendsCurrentState(t *testing.T) {
 	})
 }
 
+func TestVanishedRoleRetractsAtTheAdapter(t *testing.T) {
+	f := &fakeXToys{}
+	srv := httptest.NewServer(http.HandlerFunc(f.handler))
+	defer srv.Close()
+
+	x := newTestAdapter(wsURLOf(srv))
+	x.tryDialAndResync()
+
+	x.applyOutput("c1", outputFrame(map[string]float64{"impact": 0.8}, 5000))
+	waitFor(t, "the impact reaches XToys", func() bool {
+		v, ok := f.latest("minegasm-impact")
+		return ok && v > 0
+	})
+
+	// The mod's next authoritative snapshot drops impact to zero (the effect ended). The adapter must
+	// zero the role, not keep the last non-zero level, since every frame is the full state (P1-3).
+	x.applyOutput("c1", outputFrame(map[string]float64{"impact": 0}, 5000))
+	waitFor(t, "the role retracts to zero", func() bool {
+		v, ok := f.latest("minegasm-impact")
+		return ok && v == 0
+	})
+}
+
 func TestOwedZeroIsDeliveredAfterReconnect(t *testing.T) {
 	f := &fakeXToys{}
 	srv := httptest.NewServer(http.HandlerFunc(f.handler))
 	defer srv.Close()
 
 	x := newTestAdapter(wsURLOf(srv))
-	x.connect()
+	x.tryDialAndResync()
 	go x.reconnectLoop()
 
-	x.applyEffect("t|", effectFrame("d:hit", "impact", 0.8, 5000))
+	x.applyOutput("c1", outputFrame(map[string]float64{"impact": 0.8}, 5000))
 	waitFor(t, "the impact reaches XToys", func() bool {
 		v, ok := f.latest("minegasm-impact")
 		return ok && v > 0
@@ -167,16 +190,16 @@ func TestOwedZeroIsDeliveredAfterReconnect(t *testing.T) {
 	})
 }
 
-func TestPerRoleTakesStrongestLevel(t *testing.T) {
+func TestPerRoleCombinesAcrossClients(t *testing.T) {
 	f := &fakeXToys{}
 	srv := httptest.NewServer(http.HandlerFunc(f.handler))
 	defer srv.Close()
 	x := newTestAdapter(wsURLOf(srv))
-	x.connect()
+	x.tryDialAndResync()
 
-	// Two live scenes on the same role combine to the stronger level, not overwrite each other.
-	x.applyEffect("t|", effectFrame("d:a", "texture", 0.3, 5000))
-	x.applyEffect("t|", effectFrame("c:mining", "texture", 0.6, 5000))
+	// Two clients driving the same role combine to the stronger level, not overwrite each other.
+	x.applyOutput("c1", outputFrame(map[string]float64{"texture": 0.3}, 5000))
+	x.applyOutput("c2", outputFrame(map[string]float64{"texture": 0.6}, 5000))
 	waitFor(t, "the stronger texture level wins", func() bool {
 		v, ok := f.latest("minegasm-texture")
 		// 0.6 scaled into [20,100] is 68; the weaker 0.3 would be 44.
