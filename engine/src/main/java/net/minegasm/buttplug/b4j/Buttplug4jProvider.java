@@ -5,6 +5,7 @@ import net.minegasm.buttplug.DeviceRegistry;
 import net.minegasm.buttplug.HapticProvider;
 import net.minegasm.buttplug.OutputCommand;
 import net.minegasm.buttplug.ProviderStatus;
+import net.minegasm.buttplug.StopCompensation;
 import net.minegasm.buttplug.StopSelection;
 import net.minegasm.device.DeviceRegistrySnapshot;
 import net.minegasm.device.HapticDevice;
@@ -235,12 +236,15 @@ public final class Buttplug4jProvider implements HapticProvider {
         final long epoch = sendEpoch.get();
         // Run the blocking library call off the worker thread so a hung device write can never wedge the
         // driver cycle (review P1-1). If a stop-all bumped the epoch after this was queued, drop it so no
-        // write reaches a device after the stop meant to silence it.
+        // write reaches a device after the stop. If a stop lands during the write, compensate with another
+        // stop so a device is never left non-zero (review follow-up P1-2).
         try {
             sendExecutor.execute(() -> {
-                if (epoch == sendEpoch.get()) {
-                    dispatch(command);
+                if (epoch != sendEpoch.get()) {
+                    return; // superseded before the write started
                 }
+                StopCompensation.writeThenMaybeStop(epoch, sendEpoch::get,
+                        () -> dispatch(command), () -> stop(StopSelection.all()));
             });
         } catch (RuntimeException rejected) {
             // executor shutting down during close: nothing to send
