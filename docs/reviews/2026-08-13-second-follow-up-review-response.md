@@ -92,9 +92,20 @@ a regression test unless noted.
   cross-backend conformance test is a unit test and is included: it feeds one governed set to both the bridge
   forwarder and the Buttplug mixer and asserts a suppressed layer reaches neither.)
 
-## Phase 2 reminder (region gets teeth)
+## Phase 2 (region gets teeth) — built
 
-Phase 1 resolves competition per role with the body region defaulting to whole-body. Phase 2 makes the
-region real: a region field on device config, region-aware matching in the mixer so competition is scoped
-to overlapping regions rather than the whole role, and the device-config UI to set it. That needs a
-hardware feel pass, so it is deliberately after the current safety-correctness work.
+Body region is now the second axis of the destination, built and tested without hardware. A `BodyRegion`
+type carries an `overlaps` relation (routing and competition scope) and a `contains` relation (the
+governor's coarse suppression). A layer carries its target region and a device its worn region (per
+device). The governor suppresses a lower-priority same-role layer only when an exclusive wholly contains
+its region, and the renderer routes an effect to a device only when their regions overlap, so a
+region-scoped exclusive owns its region's devices while a whole-body effect keeps playing elsewhere. The
+bridge is region-blind (an adapter has no device model), so region-scoped exclusivity is a renderer-path
+refinement, not a bridge property. Everything defaults to whole-body, so untouched setups are unchanged.
+
+The Device Editor has a region selector on every loader, with "Not set" kept distinct from an explicit
+whole-body choice (both resolve to whole-body). Scene packs can author a layer region. The gate test
+proves two same-role effects in non-overlapping regions neither suppress each other nor cross-route.
+
+What is left is not architecture: choosing which built-in events deserve a specific region (an authoring
+call, best made against real toys), and the hardware feel pass to validate the taxonomy and placement.
