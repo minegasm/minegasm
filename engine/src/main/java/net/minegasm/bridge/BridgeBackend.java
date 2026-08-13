@@ -200,12 +200,15 @@ public final class BridgeBackend implements HapticBackend {
 
     @Override
     public void test(HapticScene scene, long nowNs) {
-        // Send one effect frame straight to this bridge's adapter. It carries a TTL, so the adapter holds
-        // it for the scene's lifetime and releases it; the change-driven forward path stays quiet meanwhile,
-        // so nothing overwrites it. Isolated to this bridge: no other backend sees it.
+        // Render one scene to the same authoritative per-role snapshot the steady path uses and send it with
+        // the scene's remaining lifetime as its TTL, so the adapter holds it that long and then zeroes. The
+        // steady forward path stays silent while idle (an all-off snapshot sends nothing), so it does not
+        // overwrite the test. Isolated to this bridge: no other backend sees it.
         BridgeTransport current = transport;
         if (outputEnabled && current != null && current.isOpen()) {
-            outbound.offer(codec.encodeEffect(scene, nowNs));
+            long ttlMs = Math.max(0L, (scene.expiresAtNs() - nowNs) / 1_000_000L);
+            outbound.offer(codec.encodeOutput(
+                    BridgeRoleForwarder.rolesOf(java.util.Collections.singletonList(scene)), ttlMs));
         }
     }
 

@@ -33,7 +33,8 @@ public final class BridgeRoleForwarder {
     private static final long REARM_INTERVAL_NS = 2_000_000_000L;
 
     private final Predicate<EnumMap<HapticRole, Float>> sink;
-    private EnumMap<HapticRole, Float> lastSent; // null until the first snapshot is delivered
+    // Starts from a known all-off baseline, so a steady idle (every role at zero) sends nothing.
+    private EnumMap<HapticRole, Float> lastSent = zeros();
     private long rearmAtNs;
 
     public BridgeRoleForwarder(Predicate<EnumMap<HapticRole, Float>> sink) {
@@ -41,15 +42,17 @@ public final class BridgeRoleForwarder {
     }
 
     /**
-     * Compute the authoritative per-role levels and send the snapshot if it changed, if none has been sent
-     * yet, or if the steady snapshot is due for a re-send (which refreshes the adapter's TTL so a long
-     * steady effect never lapses at the adapter). Recorded only on an accepted send, so a snapshot dropped
-     * while the link is down is retried next cycle.
+     * Compute the authoritative per-role levels and send the snapshot when it changed from what the adapter
+     * last held, or to re-send a still-active steady snapshot (which refreshes the adapter's TTL so a long
+     * steady effect never lapses). An all-off idle sends nothing, and a zeroed state is not heartbeated, so
+     * a quiet game produces no traffic while a real change, including an effect ending, always reaches the
+     * adapter. Recorded only on an accepted send, so a snapshot dropped while the link is down is retried.
      */
     public void forward(List<HapticScene> governed, long nowNs) {
-        EnumMap<HapticRole, Float> resolved = resolve(governed);
-        boolean due = lastSent == null || changed(resolved, lastSent) || nowNs >= rearmAtNs;
-        if (due && sink.test(new EnumMap<>(resolved))) {
+        EnumMap<HapticRole, Float> resolved = rolesOf(governed);
+        boolean changed = changed(resolved, lastSent);
+        boolean heartbeat = !changed && !isAllZero(lastSent) && nowNs >= rearmAtNs;
+        if ((changed || heartbeat) && sink.test(new EnumMap<>(resolved))) {
             lastSent = resolved;
             rearmAtNs = nowNs + REARM_INTERVAL_NS;
         }
@@ -57,16 +60,13 @@ public final class BridgeRoleForwarder {
 
     /** Forget the last snapshot so the next one is sent afresh (stop, or a fresh connection). */
     public void reset() {
-        lastSent = null;
+        lastSent = zeros();
         rearmAtNs = 0L;
     }
 
     /** The authoritative level per role: the peak level among that role's surviving governed layers. */
-    private static EnumMap<HapticRole, Float> resolve(List<HapticScene> governed) {
-        EnumMap<HapticRole, Float> out = new EnumMap<>(HapticRole.class);
-        for (HapticRole role : HapticRole.values()) {
-            out.put(role, 0f);
-        }
+    public static EnumMap<HapticRole, Float> rolesOf(List<HapticScene> governed) {
+        EnumMap<HapticRole, Float> out = zeros();
         for (HapticScene scene : governed) {
             for (HapticLayer layer : scene.layers()) {
                 float level = layer.primitive().level();
@@ -76,6 +76,23 @@ public final class BridgeRoleForwarder {
             }
         }
         return out;
+    }
+
+    private static EnumMap<HapticRole, Float> zeros() {
+        EnumMap<HapticRole, Float> out = new EnumMap<>(HapticRole.class);
+        for (HapticRole role : HapticRole.values()) {
+            out.put(role, 0f);
+        }
+        return out;
+    }
+
+    private static boolean isAllZero(EnumMap<HapticRole, Float> levels) {
+        for (float v : levels.values()) {
+            if (v > 0f) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean changed(EnumMap<HapticRole, Float> a, EnumMap<HapticRole, Float> b) {
