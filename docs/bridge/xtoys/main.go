@@ -8,8 +8,9 @@
 // A scene layer carries a device-independent role (IMPACT, REWARD, TEXTURE, WARNING, AMBIENT, CONTROL).
 // The adapter exposes each role as its own XToys output rather than collapsing everything to one level,
 // so several actuators can run at once. It makes no device decisions: it sends role -> intensity and you
-// route each role to a toy in XToys. XToys' generic output is device-agnostic, so an output drives
-// whatever you connect (vibrator, stroker, e-stim, rotator), not vibration alone.
+// route each role to a toy in XToys. XToys' generic output is device-agnostic, so an output can drive a
+// vibrator, stroker, or rotator. Do not route it to an e-stim device: this adapter sends a plain scene
+// intensity with none of the safeguards a shock output needs (see the README and ADR-016).
 //
 // Transport is XToys' webhook WebSocket: one long-lived connection to
 //
@@ -28,6 +29,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"math"
 	"net"
@@ -37,6 +39,14 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+// maxActiveScenes bounds the live-scene map across all Minegasm clients, so a local process (or a remote
+// peer if the operator binds beyond loopback) cannot grow memory with unique long-lived scene ids. Scenes
+// have a TTL and self-prune; this is the hard ceiling if they arrive faster than they expire.
+const maxActiveScenes = 1024
+
+// maxListeners bounds the number of Minegasm connections we track for downstream status.
+const maxListeners = 16
 
 // roles is the fixed set of layer roles Minegasm emits (net.minegasm.core.HapticRole), lowercased to
 // use as XToys action names. The shipped script has a matching Webhook trigger and output per entry.
@@ -62,15 +72,18 @@ func main() {
 	}
 
 	x := &xtoys{
-		wsURL:     strings.TrimRight(*endpoint, "/") + "/" + *webhook,
-		scale:     *scale,
-		min:       *min,
-		verbose:   *verbose,
-		last:      map[string]int{},
-		active:    map[string]liveScene{},
-		listeners: map[net.Conn]bool{},
+		wsURL:          strings.TrimRight(*endpoint, "/") + "/" + *webhook,
+		scale:          *scale,
+		min:            *min,
+		verbose:        *verbose,
+		last:           map[string]int{},
+		active:         map[string]liveScene{},
+		listeners:      map[net.Conn]bool{},
+		reconnectEvery: time.Second,
+		dialThrottle:   3 * time.Second,
 	}
-	x.connect() // best-effort; send() redials if this fails or the socket later drops
+	x.connect()          // best-effort initial dial
+	go x.reconnectLoop() // keeps the link alive and resynchronizes after a drop
 
 	ln, err := net.Listen("tcp", *listen)
 	if err != nil {
@@ -92,12 +105,13 @@ func main() {
 // tracks scenes separately and holds each for its own ttlMs; a dropped connection self-clears on close.
 func handle(conn net.Conn, x *xtoys) {
 	peer := conn.RemoteAddr()
+	client := x.nextClientID() // namespaces this connection's scenes
 	log.Printf("[bridge] connected: %s", peer)
 	x.addListener(conn) // greet with a hello carrying the current XToys link state
 	defer func() {
 		log.Printf("[bridge] disconnected: %s", peer)
 		x.removeListener(conn)
-		x.stopAll()
+		x.stopClient(client) // release only this client's scenes, not another client's
 		conn.Close()
 	}()
 
@@ -116,9 +130,9 @@ func handle(conn net.Conn, x *xtoys) {
 		json.Unmarshal(frame["type"], &typ)
 		switch typ {
 		case "effect":
-			x.applyEffect(frame)
+			x.applyEffect(client, frame)
 		case "stop":
-			x.stopAll()
+			x.stopClient(client)
 		}
 	}
 }
@@ -231,13 +245,64 @@ type xtoys struct {
 	min     int
 	verbose bool
 
-	mu        sync.Mutex
-	conn      *websocket.Conn
-	last      map[string]int
-	nextDial  time.Time // throttle: don't hammer a down server on every frame
-	active    map[string]liveScene
-	timer     *time.Timer
-	listeners map[net.Conn]bool // Minegasm connections to notify of downstream (XToys) state
+	mu          sync.Mutex
+	conn        *websocket.Conn
+	last        map[string]int // intensity XToys is believed to hold per role; -1 means unknown
+	pendingZero bool           // a non-zero role could not be zeroed while offline; owe XToys a zero
+	nextDial    time.Time      // throttle: don't hammer a down server on every reconnect attempt
+	active      map[string]liveScene
+	timer       *time.Timer
+	listeners   map[net.Conn]bool // Minegasm connections to notify of downstream (XToys) state
+
+	reconnectEvery time.Duration // how often the reconnect loop retries (configurable for tests)
+	dialThrottle   time.Duration // minimum gap between failed dials
+	clientSeq      int64         // hands each Minegasm connection a distinct id to namespace its scenes
+}
+
+// nextClientID returns a fresh per-connection id so one client's scenes never collide with another's.
+func (x *xtoys) nextClientID() string {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	x.clientSeq++
+	return fmt.Sprintf("c%d|", x.clientSeq)
+}
+
+// reconnectLoop keeps the downstream link alive independently of output changes. While the socket is down
+// and there is either active output or an owed zero, it redials; on success it resends the full current
+// state so a steady scene, a role that changed while offline, and a zero owed from an expiry or panic all
+// reach XToys after a drop (review follow-up P1-5).
+func (x *xtoys) reconnectLoop() {
+	for range time.Tick(x.reconnectEvery) {
+		x.mu.Lock()
+		if x.conn == nil && (len(x.active) > 0 || x.pendingZero) {
+			if x.dial() {
+				x.resyncAll()
+			}
+		}
+		x.mu.Unlock()
+	}
+}
+
+// resyncAll forces a full resend of every role's current level (zeroes included) after a reconnect, so
+// XToys is put into a known state rather than left with whatever it had before the drop. Caller holds mu.
+func (x *xtoys) resyncAll() {
+	for _, role := range roles {
+		x.last[role] = -1 // unknown, so recompute sends every role
+	}
+	x.pendingZero = false
+	x.recompute()
+}
+
+// onDisconnected records that the socket dropped: what XToys now holds is unknown, and if any role was
+// non-zero we owe it a zero we could not deliver. Caller holds mu.
+func (x *xtoys) onDisconnected() {
+	for _, role := range roles {
+		if x.last[role] > 0 {
+			x.pendingZero = true
+		}
+		x.last[role] = -1
+	}
+	x.notifyDownstream()
 }
 
 // downstreamWord is what the mod is told about the onward XToys link. Caller holds x.mu.
@@ -258,12 +323,18 @@ func writeControl(conn net.Conn, typ, downstream string) {
 }
 
 // addListener registers a Minegasm connection and greets it with the current downstream state. Caller
-// does not hold x.mu.
+// does not hold x.mu. The greeting write happens outside the lock so a slow mod socket can't stall the
+// XToys path.
 func (x *xtoys) addListener(conn net.Conn) {
 	x.mu.Lock()
-	defer x.mu.Unlock()
+	if len(x.listeners) >= maxListeners {
+		x.mu.Unlock()
+		return // too many connections tracked; ignore this one for status (it still drives output)
+	}
 	x.listeners[conn] = true
-	writeControl(conn, "hello", x.downstreamWord())
+	word := x.downstreamWord()
+	x.mu.Unlock()
+	writeControl(conn, "hello", word)
 }
 
 func (x *xtoys) removeListener(conn net.Conn) {
@@ -272,12 +343,20 @@ func (x *xtoys) removeListener(conn net.Conn) {
 	delete(x.listeners, conn)
 }
 
-// notifyDownstream pushes a status line to every connected mod on an XToys connect/drop. Caller holds x.mu.
+// notifyDownstream pushes a status line to every connected mod on an XToys connect/drop. Caller holds
+// x.mu; the writes are done on a separate goroutine so a listener that blocks for up to the write deadline
+// never holds the XToys mutex.
 func (x *xtoys) notifyDownstream() {
 	word := x.downstreamWord()
+	conns := make([]net.Conn, 0, len(x.listeners))
 	for conn := range x.listeners {
-		writeControl(conn, "status", word)
+		conns = append(conns, conn)
 	}
+	go func() {
+		for _, conn := range conns {
+			writeControl(conn, "status", word)
+		}
+	}()
 }
 
 // scaleLevel maps a role level in [0,1] to an XToys intensity. Zero stays zero (off); any nonzero level
@@ -290,9 +369,11 @@ func (x *xtoys) scaleLevel(v float64) int {
 	return x.min + int(math.Round(v*float64(x.scale-x.min)))
 }
 
-// applyEffect records one scene frame and recomputes output. A frame with ttlMs<=0 drops the scene.
-func (x *xtoys) applyEffect(frame map[string]json.RawMessage) {
-	key := sceneKey(frame)
+// applyEffect records one scene frame from a given client and recomputes output. A frame with ttlMs<=0
+// drops the scene. The scene is namespaced by client so two clients with the same built-in scene keys do
+// not overwrite each other, and the live-scene map is bounded so it cannot grow without limit.
+func (x *xtoys) applyEffect(client string, frame map[string]json.RawMessage) {
+	key := client + sceneKey(frame)
 	levels := perRole(frame["layers"])
 	var ttlMs int64
 	json.Unmarshal(frame["ttlMs"], &ttlMs)
@@ -301,13 +382,26 @@ func (x *xtoys) applyEffect(frame map[string]json.RawMessage) {
 	defer x.mu.Unlock()
 	if ttlMs <= 0 {
 		delete(x.active, key)
-	} else {
+	} else if _, exists := x.active[key]; exists || len(x.active) < maxActiveScenes {
 		x.active[key] = liveScene{levels: levels, expiry: time.Now().Add(time.Duration(ttlMs) * time.Millisecond)}
+	} // else: at the ceiling and this is a new scene, so drop it rather than grow memory
+	x.recompute()
+}
+
+// stopClient drops only the given client's live scenes and recomputes, so one client disconnecting or
+// panicking never clears another still-connected client's output.
+func (x *xtoys) stopClient(client string) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	for key := range x.active {
+		if strings.HasPrefix(key, client) {
+			delete(x.active, key)
+		}
 	}
 	x.recompute()
 }
 
-// stopAll drops every live scene and releases all output.
+// stopAll drops every live scene and releases all output (used by resync bookkeeping and tests).
 func (x *xtoys) stopAll() {
 	x.mu.Lock()
 	defer x.mu.Unlock()
@@ -366,8 +460,8 @@ func (x *xtoys) send(role string, level int) {
 	if level < 0 {
 		level = 0
 	}
-	if x.conn == nil && !x.dial() {
-		return // still down; drop this update, retry on a later frame
+	if x.conn == nil {
+		return // offline: the reconnect loop dials and resends the full state, so don't dial per frame
 	}
 	payload, _ := json.Marshal(message{Action: "minegasm-" + role, Intensity: level})
 	if x.verbose {
@@ -378,7 +472,7 @@ func (x *xtoys) send(role string, level int) {
 		log.Printf("[xtoys] send failed: %v", err)
 		x.conn.Close()
 		x.conn = nil
-		x.notifyDownstream() // the onward link just dropped
+		x.onDisconnected() // the onward link dropped: state is unknown and a zero may now be owed
 		return
 	}
 	x.last[role] = level
@@ -404,7 +498,7 @@ func (x *xtoys) dial() bool {
 	dialer := websocket.Dialer{HandshakeTimeout: 5 * time.Second}
 	conn, _, err := dialer.Dial(x.wsURL, nil)
 	if err != nil {
-		x.nextDial = time.Now().Add(3 * time.Second)
+		x.nextDial = time.Now().Add(x.dialThrottle)
 		log.Printf("[xtoys] connect failed: %v", err)
 		return false
 	}
@@ -423,7 +517,7 @@ func (x *xtoys) readLoop(conn *websocket.Conn) {
 			x.mu.Lock()
 			if x.conn == conn {
 				x.conn = nil
-				x.notifyDownstream() // the onward link just dropped
+				x.onDisconnected() // state is unknown and a zero may now be owed
 			}
 			x.mu.Unlock()
 			conn.Close()

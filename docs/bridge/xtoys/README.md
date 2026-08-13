@@ -11,13 +11,13 @@ several actuators can run at once. It makes no device decisions: it sends role a
 route each role to a toy in XToys. XToys' generic output is device-agnostic, so an output can drive a
 vibrator, stroker, or rotator.
 
-> **E-stim is not a supported target yet.** Because XToys outputs are generic, you *can* wire a role to an
-> e-stim device, but the adapter only sends a plain 0..100 intensity. None of the safeguards a shock output
-> needs are in place here: no separate arming step, no independent hard limits in the device's own units,
-> no ramp or inter-pulse spacing, no whole-body budget (see `../../adr/ADR-016-electrostim-opt-in-modality.md`
-> and `../../SAFETY.md`). E-stim is planned, but until that opt-in modality lands, routing an ordinary game
-> scene to a shock output is unsupported and at your own risk. Do not do it on a device where an unexpected
-> level could hurt.
+> **Do not route this adapter to an e-stim device.** XToys outputs are generic, so nothing physically
+> stops you wiring a role to e-stim, but this adapter sends a plain 0..100 scene intensity with none of the
+> safeguards a shock output needs: no separate arming step, no independent hard limits in the device's own
+> units, no ramp or inter-pulse spacing, no whole-body budget (see
+> `../../adr/ADR-016-electrostim-opt-in-modality.md` and `../../SAFETY.md`). E-stim is planned as its own
+> reviewed, opt-in modality with those controls; until it lands, do not use this generic route for a shock
+> device. An ordinary game event could deliver an unexpected level.
 
 It builds to a single self-contained binary (one small pure-Go dependency, no runtime to install).
 Because Minegasm supports several bridges at once, XToys can run alongside Buttplug and other bridge
