@@ -27,12 +27,16 @@ public final class DeviceSetting implements ConfigValue {
     private final double minLevel;
     private final double maxLevel;
     private final Map<String, FeatureSetting> features;
+    // Null means the user has not assigned a region yet, which is distinct from an explicit whole-body
+    // choice: both resolve to whole-body (so nothing is muted), but the UI shows "not set" for null so a
+    // user can tell an untouched device from one they deliberately marked whole-body. Never coerced here,
+    // or the distinction would be lost on the round-trip through config.
     private final BodyRegion bodyRegion;
 
-    /** Convenience for a whole-body device (the default), so existing call sites need not name a region. */
+    /** Convenience for a device with no region assigned yet (resolves to whole-body). */
     public DeviceSetting(boolean enabled, double minLevel, double maxLevel,
                          Map<String, FeatureSetting> features) {
-        this(enabled, minLevel, maxLevel, features, BodyRegion.WHOLE_BODY);
+        this(enabled, minLevel, maxLevel, features, null);
     }
 
     public DeviceSetting(boolean enabled, double minLevel, double maxLevel,
@@ -43,7 +47,7 @@ public final class DeviceSetting implements ConfigValue {
         this.features = features == null
                 ? Collections.emptyMap()
                 : Collections.unmodifiableMap(new LinkedHashMap<>(features));
-        this.bodyRegion = bodyRegion == null ? BodyRegion.WHOLE_BODY : bodyRegion;
+        this.bodyRegion = bodyRegion; // null kept as "not set"; bodyRegion() resolves it to whole-body
     }
 
     private static double clamp01(double v) {
@@ -66,9 +70,21 @@ public final class DeviceSetting implements ConfigValue {
         return features;
     }
 
-    /** The body region this device is worn on; {@link BodyRegion#WHOLE_BODY} unless the user sets it. */
+    /**
+     * The body region this device is worn on, resolved for routing: {@link BodyRegion#WHOLE_BODY} when the
+     * user has not assigned one, so an unassigned device reaches every effect rather than going silent.
+     */
     public BodyRegion bodyRegion() {
-        return bodyRegion;
+        return bodyRegion == null ? BodyRegion.WHOLE_BODY : bodyRegion;
+    }
+
+    /**
+     * Whether the user has explicitly assigned a region. False for an untouched device, which the editor
+     * shows as "not set" even though it resolves to whole-body. Distinguishes an unset device from one a
+     * user deliberately marked whole-body.
+     */
+    public boolean regionAssigned() {
+        return bodyRegion != null;
     }
 
     public static DeviceSetting defaultOn() {

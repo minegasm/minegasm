@@ -1,5 +1,6 @@
 package net.minegasm.config;
 
+import net.minegasm.core.BodyRegion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -7,6 +8,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +52,29 @@ class ConfigStoreTest {
         assertEquals(80, result.config().global().unsafeTestMaxPercent());
         assertEquals(30_000, result.config().global().unsafeTestMaxDurationMs());
         assertEquals(toSave, result.config());
+    }
+
+    @Test
+    void deviceRegionAssignmentRoundTripsAndUnsetStaysUnset(@TempDir Path dir) {
+        ConfigStore store = new ConfigStore(dir.resolve("config.json"));
+        HapticConfig cfg = HapticConfig.defaults();
+        Map<String, DeviceSetting> devices = new HashMap<>();
+        devices.put("assigned",
+                new DeviceSetting(true, 0.22, 1.0, Map.of(), BodyRegion.GENITAL));
+        devices.put("unset", new DeviceSetting(true, 0.22, 1.0, Map.of())); // never assigned a region
+        HapticConfig toSave = new HapticConfig(1, cfg.profile(), cfg.global(), cfg.buttplug(),
+                cfg.events(), cfg.outputPolicy(), devices, cfg.positionCalibrations(),
+                cfg.accumulation(), cfg.customIntensity(), cfg.bridges());
+        store.save(toSave);
+
+        HapticConfig loaded = store.load().config();
+        DeviceSetting assigned = loaded.devices().get("assigned");
+        DeviceSetting unset = loaded.devices().get("unset");
+        assertTrue(assigned.regionAssigned(), "an explicit region survives the round-trip");
+        assertEquals(BodyRegion.GENITAL, assigned.bodyRegion());
+        assertFalse(unset.regionAssigned(),
+                "an unset region round-trips as still-unset, not silently promoted to whole-body");
+        assertEquals(BodyRegion.WHOLE_BODY, unset.bodyRegion(), "but it still resolves to whole-body");
     }
 
     @Test
