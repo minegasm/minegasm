@@ -33,11 +33,16 @@ public final class Watchdog {
             return false; // worker not yet running
         }
         long now = clock.nanoTime();
-        if (now - last > thresholdNs && now - lastFiredNs > thresholdNs) {
-            lastFiredNs = now;
-            worker.emergencyStop(StopReason.WATCHDOG);
-            return true;
+        if (now - last > thresholdNs) {
+            if (now - lastFiredNs > thresholdNs) {
+                lastFiredNs = now;
+                worker.emergencyStop(StopReason.WATCHDOG);
+                return true;
+            }
+            return false;
         }
+        // Healthy again: if a watchdog stop is latched, let it recover now that cycles are flowing.
+        worker.recoverFromWatchdogStop();
         return false;
     }
 }

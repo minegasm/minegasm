@@ -38,6 +38,7 @@ public final class HapticWorker {
     private final AtomicLong lastHealthyCycleNs = new AtomicLong();
     private volatile StopReason lastStopReason;
     private volatile boolean outputEnabled = true; // master panic latch, mirrored to every backend
+    private volatile OutputState outputState = OutputState.RUNNING; // why output is off, for UI + recovery
     private boolean paused;
     private long pausedAtNs;
     private ScheduledExecutorService executor;
@@ -132,7 +133,41 @@ public final class HapticWorker {
      */
     public void emergencyStop(StopReason reason) {
         this.lastStopReason = reason;
+        this.outputState = OutputState.WATCHDOG_STOPPED;
+        // Latch output off so no new scene flows until recovery, and stop the hardware out of band. The
+        // latch fan-out is thread-safe now that backends defer their forwarder resets to the worker thread,
+        // so this stays off the cycle monitor.
+        setOutputEnabled(false);
         backends.emergencyStop(reason);
+    }
+
+    /**
+     * Called by the watchdog on a healthy tick: if a watchdog stop is latched and the worker is cycling
+     * normally again, restore output. Synchronized, but only reached when the worker is not stalled, so it
+     * does not block. A user panic (USER_STOPPED) is left latched; only the watchdog's own stop recovers.
+     */
+    public synchronized void recoverFromWatchdogStop() {
+        if (outputState == OutputState.WATCHDOG_STOPPED) {
+            scenes.reset(); // drop stale held scenes before output resumes
+            outputState = OutputState.RUNNING;
+            setOutputEnabled(true);
+        }
+    }
+
+    /** Latch output off for a user panic, with the reason recorded so the UI can show why. */
+    public void enterUserStop() {
+        this.outputState = OutputState.USER_STOPPED;
+        setOutputEnabled(false);
+    }
+
+    /** Clear a user panic and resume output. */
+    public void clearUserStop() {
+        this.outputState = OutputState.RUNNING;
+        setOutputEnabled(true);
+    }
+
+    public OutputState outputState() {
+        return outputState;
     }
 
     /** Freeze the governed scenes and stop hardware for a possible resume. */

@@ -56,6 +56,13 @@ public final class BridgeBackend implements HapticBackend {
     // Set when a fresh link comes up; the next worker cycle resets the forwarder so an in-flight
     // continuous effect resynchronizes to the new adapter now instead of waiting for its re-arm.
     private volatile boolean resyncOnNextCycle;
+    // Bumped by any stop (panic, disable, removal) from any thread. A cycle captures it before forwarding
+    // and submit() refuses to enqueue if it changed mid-cycle, so a stop can't be overtaken by an effect
+    // the worker was already forwarding (review P1-3). The forwarder itself is only ever reset on the
+    // worker thread (via resyncOnNextCycle), never cross-thread, so its maps are not raced.
+    private final java.util.concurrent.atomic.AtomicLong stopGeneration =
+            new java.util.concurrent.atomic.AtomicLong();
+    private long cycleGeneration; // worker-thread only: the generation captured for the current cycle
     private ScheduledExecutorService reconnect;
 
     public BridgeBackend(Supplier<BridgeTransport> transportFactory, URI endpoint, Clock clock) {
@@ -149,23 +156,28 @@ public final class BridgeBackend implements HapticBackend {
     @Override
     public void onGovernedScenes(List<HapticScene> governed, long nowNs) {
         // Change-driven: this backend's forwarder decides what actually goes on the wire (steady effects
-        // sent once, TTL re-armed). It self-gates via submit() below when panicked or disconnected.
+        // sent once, TTL re-armed). It self-gates via submit() below when panicked or disconnected. All
+        // forwarder state lives on this thread: reset it here (never cross-thread) when a link came up or a
+        // stop asked for a resync, and capture the stop generation so a stop mid-cycle drops the rest.
         if (resyncOnNextCycle) {
             resyncOnNextCycle = false;
-            forwarder.reset(); // a link just came up: forget prior state so live effects re-send now
+            forwarder.reset();
         }
+        cycleGeneration = stopGeneration.get();
         forwarder.forward(governed, nowNs);
     }
 
     /**
      * The forwarder's sink: encode one governed scene as an effect frame if the adapter can receive it.
      * Returns whether the frame was accepted, so the forwarder records it as sent only when it actually
-     * went out and retries a drop on the next cycle rather than treating it as delivered.
+     * went out and retries a drop on the next cycle rather than treating it as delivered. Drops if a stop
+     * bumped the generation after this cycle began, so an effect never lands behind a stop.
      */
     private boolean submit(HapticScene scene) {
         BridgeTransport current = transport;
-        if (!outputEnabled || current == null || !current.isOpen()) {
-            return false; // panic-latched or no adapter connected: drop, retried when the link returns
+        if (!outputEnabled || current == null || !current.isOpen()
+                || cycleGeneration != stopGeneration.get()) {
+            return false; // panic-latched, disconnected, or a stop raced this cycle: drop and retry later
         }
         outbound.offer(codec.encodeEffect(scene, clock.nanoTime()));
         lastHealthyCycleNs = clock.nanoTime();
@@ -185,21 +197,22 @@ public final class BridgeBackend implements HapticBackend {
 
     @Override
     public void stop(StopReason reason) {
-        // Forget forwarding state first so the stop frame is never suppressed and the next real scene is
-        // sent afresh. Then send stop-all even while output is disabled: clearAndOffer drops every queued
-        // effect so none can be delivered after the stop; a single already-in-flight effect completes
-        // first. Every effect also carries a TTL, so a dropped connection self-clears regardless.
-        forwarder.reset();
+        // Bump the stop generation first so any cycle already forwarding drops the rest of its scenes and
+        // cannot enqueue an effect behind this stop. Then clearAndOffer the stop, dropping every queued
+        // effect. The forwarder is reset on the next cycle (worker thread), not here, so its maps are never
+        // touched cross-thread. Every effect also carries a TTL, so a dropped connection self-clears.
+        stopGeneration.incrementAndGet();
+        resyncOnNextCycle = true;
         outbound.clearAndOffer(codec.encodeStop());
     }
 
     @Override
     public void emergencyStop(StopReason reason) {
-        // Out-of-band (watchdog) path: only thread-safe actions, no forwarder reset, since a cycle may be
-        // forwarding on the driver thread. clearAndOffer goes through the synchronized queue and replaces
-        // any queued effect with a stop, telling the adapter to zero now. Deliberately does not latch
-        // outputEnabled: the watchdog stop is transient and recovers on its own once the worker resumes
-        // (a real panic latches through setOutputEnabled instead).
+        // Out-of-band (watchdog) path: only thread-safe actions. Same generation bump so a concurrent cycle
+        // can't append an effect behind the stop, and clearAndOffer through the synchronized queue tells the
+        // adapter to zero now. The forwarder reset is deferred to the worker thread via resyncOnNextCycle.
+        stopGeneration.incrementAndGet();
+        resyncOnNextCycle = true;
         outbound.clearAndOffer(codec.encodeStop());
     }
 

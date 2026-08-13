@@ -56,13 +56,13 @@ public final class LifecycleController {
 
     /** Panic action: the highest-priority stop, always honoured (brief §12.1). */
     public void panic() {
-        driver.setOutputEnabled(false);
+        driver.enterUserStop(); // records USER_STOPPED and latches output off
         driver.stopAll(StopReason.PANIC);
     }
 
     /** Re-enable output after a panic once the user explicitly resumes. */
     public void clearPanic() {
-        driver.setOutputEnabled(true);
+        driver.clearUserStop();
     }
 
     public void onTransportError() {

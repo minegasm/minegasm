@@ -147,11 +147,16 @@ public final class HapticRuntime {
             }
             return;
         }
-        lifecycle.onResume();
-        gameActive = true;
-        // The client tick is an observer independent of the worker thread: if the worker has
-        // stalled, fail toward stopped output before feeding it more scenes (brief §12.4).
+        // The client tick is an observer independent of the worker thread: if the worker has stalled,
+        // fail toward stopped output first (brief §12.4). This must run before any call that takes the
+        // worker monitor, or a backend hung inside a synchronized cycle would block the tick here and the
+        // watchdog would never be reached. onResume takes the monitor (resumeAll), so it comes after, and
+        // only on the actual paused-to-active transition rather than every tick.
         watchdog.check();
+        if (!gameActive) {
+            lifecycle.onResume();
+        }
+        gameActive = true;
 
         List<RawGameEvent> discrete = tickBuffer.drain();
         StateTransitions transitions = tracker.update(snapshot);
