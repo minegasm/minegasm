@@ -73,6 +73,16 @@ class ScenePackCodecTest {
     }
 
     @Test
+    void anUnknownBodyRegionIsRejected() {
+        // A typo'd region must fail closed like every other enum field: silently defaulting to whole-body
+        // would route the effect everywhere, the mis-routing the fail-closed codec exists to prevent.
+        String json = codec.toJson(allPrimitivesPack())
+                .replaceFirst("\"role\": \"IMPACT\"", "\"role\": \"IMPACT\", \"region\": \"LEFT_PINKY\"");
+        PackFormatException ex = assertThrows(PackFormatException.class, () -> codec.fromJson(json));
+        assertTrue(ex.getMessage().contains("LEFT_PINKY"), "the error names the unknown region");
+    }
+
+    @Test
     void tooManyTriggersIsRejected() {
         // Structural cardinality is bounded even when each entry is tiny, so a pack can't exhaust memory
         // with a huge array (review P2-5).
