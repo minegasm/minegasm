@@ -1,3 +1,11 @@
+<!--
+SPDX-AI-Disclosure: ai-generated
+SPDX-AI-Model: claude-opus-4-8
+SPDX-AI-Provider: Anthropic
+SPDX-AI-Scope: Written by Claude Opus 4.8 while implementing the fixes for the 2026-08-12 comprehensive code review under human direction. Records what was fixed, mitigated, or left as a residual, with the reasoning for each.
+SPDX-AI-Date: 2026-08-12
+-->
+
 # Review response
 
 Date: 2026-08-12
@@ -56,7 +64,9 @@ than fully built out.
   backend hung inside a cycle. It does not latch master output off, since a stall is usually transient and
   the old watchdog auto-recovered; a real panic still latches. Second, the buttplug4j provider now runs its
   blocking device writes off the worker thread on a bounded queue, so the concrete inline call that could
-  wedge a cycle no longer does, with a send epoch guaranteeing no write reaches a device after a stop-all.
+  wedge a cycle no longer does. A send epoch drops writes still queued when a stop-all lands, but a write
+  already inside a blocking library call can still finish after the stop; ordering that fully needs an
+  injectable timing seam and is not verified.
   With that in place, no backend runs blocking I/O inline on the worker cycle any more: the native
   provider's send is an async WebSocket write, the bridge's is a bounded non-blocking queue, and mixing and
   scheduling are pure CPU. The review's "full per-backend actor" rearchitecture is therefore not needed for
@@ -84,7 +94,9 @@ than fully built out.
   adapter connected, ready, or adapter up but downstream offline) in the hub rows and /mg status. The
   XToys adapter reports it; an adapter that stays silent works exactly as before.
 - **Stopped-output banner.** Every hub screen shows a red OUTPUT STOPPED banner while output is latched
-  off by panic or the watchdog, on modern and every classic loader.
+  off, on modern and every classic loader. Output is now tracked as an explicit state (running, user
+  stopped, watchdog stopped), the watchdog latches and auto-recovers, and the banner keys on the latch, so
+  it reflects a watchdog stop as well as a user panic.
 
 ## Mitigated / needs sign-off
 
