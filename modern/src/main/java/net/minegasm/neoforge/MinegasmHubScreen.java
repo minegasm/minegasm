@@ -238,6 +238,11 @@ public final class MinegasmHubScreen extends Screen {
     }
     *///?}
 
+    /** Whether output is latched off by panic/watchdog, so the banner warns it is stopped. */
+    private boolean outputStopped() {
+        return !client.runtime().worker().isOutputEnabled();
+    }
+
     private void openButtplug() {
         setScreen(new MinegasmConfigScreen(this, client));
     }
@@ -286,6 +291,10 @@ public final class MinegasmHubScreen extends Screen {
         graphics.centeredText(this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
         graphics.centeredText(this.font, Component.translatable("minegasm.hub.subtitle"),
                 this.width / 2, 31, 0xFFA0A0A0);
+        if (outputStopped()) {
+            graphics.centeredText(this.font, Component.translatable("minegasm.hub.stopped"),
+                    this.width / 2, 66, 0xFFFF5555);
+        }
         graphics.centeredText(this.font, Component.translatable("minegasm.hub.integrations"),
                 this.width / 2, 78, 0xFFFFFFFF);
     }
@@ -299,6 +308,10 @@ public final class MinegasmHubScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
         graphics.drawCenteredString(this.font, Component.translatable("minegasm.hub.subtitle"),
                 this.width / 2, 31, 0xFFA0A0A0);
+        if (outputStopped()) {
+            graphics.drawCenteredString(this.font, Component.translatable("minegasm.hub.stopped"),
+                    this.width / 2, 66, 0xFFFF5555);
+        }
         graphics.drawCenteredString(this.font, Component.translatable("minegasm.hub.integrations"),
                 this.width / 2, 78, 0xFFFFFFFF);
     }
@@ -310,6 +323,10 @@ public final class MinegasmHubScreen extends Screen {
         GuiComponent.drawCenteredString(poseStack, this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
         GuiComponent.drawCenteredString(poseStack, this.font,
                 Component.translatable("minegasm.hub.subtitle"), this.width / 2, 31, 0xFFA0A0A0);
+        if (outputStopped()) {
+            GuiComponent.drawCenteredString(poseStack, this.font,
+                    Component.translatable("minegasm.hub.stopped"), this.width / 2, 66, 0xFFFF5555);
+        }
         GuiComponent.drawCenteredString(poseStack, this.font,
                 Component.translatable("minegasm.hub.integrations"), this.width / 2, 78, 0xFFFFFFFF);
     }

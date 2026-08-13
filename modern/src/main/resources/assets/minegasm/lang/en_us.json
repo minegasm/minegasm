@@ -1,6 +1,7 @@
 {
   "minegasm.title": "Minegasm",
   "minegasm.hub.subtitle": "Integrations, output, and settings",
+  "minegasm.hub.stopped": "OUTPUT STOPPED",
   "minegasm.hub.integrations": "Integrations",
   "minegasm.hub.buttplug": "Buttplug: %s, %s devices",
   "minegasm.hub.bridge": "Bridge %s: %s",

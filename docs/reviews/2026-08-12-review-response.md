@@ -57,9 +57,12 @@ than fully built out.
   the old watchdog auto-recovered; a real panic still latches. Second, the buttplug4j provider now runs its
   blocking device writes off the worker thread on a bounded queue, so the concrete inline call that could
   wedge a cycle no longer does, with a send epoch guaranteeing no write reaches a device after a stop-all.
-  The full rearchitecture into a per-backend actor for every backend is not done; the buttplug4j change is
-  compile-verified (that provider has no injectable seam for a unit test), so it wants an in-game smoke
-  test.
+  With that in place, no backend runs blocking I/O inline on the worker cycle any more: the native
+  provider's send is an async WebSocket write, the bridge's is a bounded non-blocking queue, and mixing and
+  scheduling are pure CPU. The review's "full per-backend actor" rearchitecture is therefore not needed for
+  safety and is not done, since it would rework the tested stop-under-one-monitor contract for no remaining
+  wedge. The buttplug4j change is compile-verified (that provider has no injectable seam for a unit test),
+  so it wants an in-game smoke test.
 - **P1-6 central governance.** Two parts done: two exclusive layers colliding on one endpoint now duck by
   priority first, so a quieter high-priority effect wins over a louder low-priority one; and an active,
   connected bridge now counts toward fatigue, so a bridge-only session fatigues instead of never doing so.
@@ -67,28 +70,41 @@ than fully built out.
   is not done: it needs a logical-destination model that does not exist yet, and centralizing ducking means
   removing it from the Buttplug mixer to avoid double-ducking, which can't be validated by feel without
   hardware. That central rewrite is the residual.
-- **P1-7 bridge identity.** The safety core plus inline rejection: a duplicate name can no longer create a
-  hidden, unremovable backend (runtime construction skips a duplicate id and the client drops and reports a
-  duplicate name), and the editors now refuse to save a name already used by another bridge on modern and
-  every classic loader. The remaining split into an immutable internal id plus an editable display name,
-  so a rename keeps the same connection instead of reconnecting, is the residual: it is a wide change to
-  config serialization and every bridge screen plus a schema migration, for a rename-blip nicety now that
-  duplicates are rejected at the source.
+- **P1-7 bridge identity.** Fully addressed. A duplicate name can no longer create a hidden, unremovable
+  backend (runtime construction skips a duplicate id and the client drops and reports one), the editors
+  refuse a name already used by another bridge, and each bridge now has an immutable id separate from the
+  display name. The runtime keys backends on the id, so a rename keeps the connection; the id is generated
+  once and persisted (no schema bump, still beta), and the UI keeps passing the display name while the
+  client resolves it to the id.
 
-## Mitigated
+## Fixed (connection-chain and UX)
+
+- **Connection-chain states.** The bridge protocol gained optional, versioned adapter-to-mod messages
+  (hello, status) carrying a downstream state, so Minegasm shows the whole chain it can see (waiting,
+  adapter connected, ready, or adapter up but downstream offline) in the hub rows and /mg status. The
+  XToys adapter reports it; an adapter that stays silent works exactly as before.
+- **Stopped-output banner.** Every hub screen shows a red OUTPUT STOPPED banner while output is latched
+  off by panic or the watchdog, on modern and every classic loader.
+
+## Mitigated / needs sign-off
 
 - **P0-1 e-stim via XToys.** The adapter docs no longer present a raw-scalar e-stim output as supported;
   they spell out that it stays unsupported and at the user's own risk until the opt-in safety modality
-  (ADR-016) lands. The pathway is left in place because e-stim is planned. The binding controls
-  (distinct capability, separate caps, timed arming, hard native limits, finite pulses, cooldown, body
-  budget, physical confirmation, threat model) are not built.
+  (ADR-016) lands. The pathway is left in place because e-stim is planned. The engine models no e-stim
+  modality at all, so the current state is fail-closed by absence: there is no armed shock path an ordinary
+  scene could reach. The binding controls ADR-016 requires (distinct capability, separate caps, timed
+  arming, hard native limits, finite pulses, cooldown, body budget, physical confirmation, threat model)
+  are deliberately not built here: that is a safety-critical system that cannot be hardware-validated in
+  this pass and needs the project's own threat model and review, so it is surfaced for an explicit,
+  informed go-ahead rather than shipped unvalidated.
 
-## Deferred
+## Residual
 
-- The remaining UX recommendations (persistent stopped-state banner, structured test results, unified
-  editing semantics, presenter extraction) are bounded UX work not yet done beyond the status, identity,
-  and scrolling fixes above.
-- Full connection-chain states in the UI (Minegasm to adapter to downstream device) need a bridge protocol
-  extension: hello/version, capability declaration, downstream-ready/armed, acknowledgements. That changes
-  a shipped wire format (PROTOCOL.md, the Go adapter, and the mod), so it is left for an explicit protocol
-  revision rather than changed silently.
+- **P1-6 central ducking.** The contained bug (exclusive-vs-exclusive priority) and bridge fatigue are
+  done. Moving all priority and ducking resolution into one backend-neutral stage keyed on logical
+  destinations is the residual: it needs a logical body-region/destination model that does not exist yet,
+  and centralizing ducking means removing it from the Buttplug mixer (whose per-endpoint behavior is
+  tested), which cannot be validated by feel without hardware.
+- **Structured test results and presenter extraction.** Returning a structured test result (accepted and
+  skipped targets, acknowledgements) touches every test caller across the screens; presenter extraction is
+  architecture hygiene rather than a review fix. Both are lower-value UX and are not done.
