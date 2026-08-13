@@ -48,6 +48,15 @@ const maxActiveScenes = 1024
 // maxListeners bounds the number of Minegasm connections we track for downstream status.
 const maxListeners = 16
 
+// Hard bounds so a local process, or a remote peer if the operator binds beyond loopback, can't exhaust
+// memory (review follow-up P2-1).
+const (
+	maxClients         = 4      // concurrent Minegasm connections accepted; more are refused
+	maxScenesPerClient = 256    // live scenes one client may hold
+	maxKeyLen          = 128    // longest scene id / continuous key kept
+	maxTTLms           = 60_000 // ttl ceiling per scene
+)
+
 // roles is the fixed set of layer roles Minegasm emits (net.minegasm.core.HapticRole), lowercased to
 // use as XToys action names. The shipped script has a matching Webhook trigger and output per entry.
 var roles = []string{"impact", "reward", "texture", "warning", "ambient", "control"}
@@ -105,6 +114,12 @@ func main() {
 // tracks scenes separately and holds each for its own ttlMs; a dropped connection self-clears on close.
 func handle(conn net.Conn, x *xtoys) {
 	peer := conn.RemoteAddr()
+	if !x.tryAddClient() {
+		log.Printf("[bridge] refused %s: too many clients", peer)
+		conn.Close()
+		return
+	}
+	defer x.removeClient()
 	client := x.nextClientID() // namespaces this connection's scenes
 	log.Printf("[bridge] connected: %s", peer)
 	x.addListener(conn) // greet with a hello carrying the current XToys link state
@@ -257,6 +272,26 @@ type xtoys struct {
 	reconnectEvery time.Duration // how often the reconnect loop retries (configurable for tests)
 	dialThrottle   time.Duration // minimum gap between failed dials
 	clientSeq      int64         // hands each Minegasm connection a distinct id to namespace its scenes
+	clients        int           // count of connected Minegasm clients, for the accept limit
+}
+
+// tryAddClient admits a Minegasm connection if under the limit. Returns false if it should be refused.
+func (x *xtoys) tryAddClient() bool {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	if x.clients >= maxClients {
+		return false
+	}
+	x.clients++
+	return true
+}
+
+func (x *xtoys) removeClient() {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	if x.clients > 0 {
+		x.clients--
+	}
 }
 
 // nextClientID returns a fresh per-connection id so one client's scenes never collide with another's.
@@ -274,7 +309,9 @@ func (x *xtoys) nextClientID() string {
 func (x *xtoys) reconnectLoop() {
 	for range time.Tick(x.reconnectEvery) {
 		x.mu.Lock()
-		if x.conn == nil && (len(x.active) > 0 || x.pendingZero) {
+		// Keep the link supervised whenever a Minegasm client is connected, so the chain shows ready
+		// before any effect, not only while output is active or a zero is owed (review follow-up P2-1).
+		if x.conn == nil && (x.clients > 0 || len(x.active) > 0 || x.pendingZero) {
 			if x.dial() {
 				x.resyncAll()
 			}
@@ -374,18 +411,38 @@ func (x *xtoys) scaleLevel(v float64) int {
 // not overwrite each other, and the live-scene map is bounded so it cannot grow without limit.
 func (x *xtoys) applyEffect(client string, frame map[string]json.RawMessage) {
 	key := client + sceneKey(frame)
+	if len(key) > maxKeyLen {
+		key = key[:maxKeyLen] // bound the retained key length
+	}
 	levels := perRole(frame["layers"])
 	var ttlMs int64
 	json.Unmarshal(frame["ttlMs"], &ttlMs)
+	if ttlMs > maxTTLms {
+		ttlMs = maxTTLms // ttl ceiling
+	}
 
 	x.mu.Lock()
 	defer x.mu.Unlock()
+	_, exists := x.active[key]
 	if ttlMs <= 0 {
 		delete(x.active, key)
-	} else if _, exists := x.active[key]; exists || len(x.active) < maxActiveScenes {
+	} else if exists {
 		x.active[key] = liveScene{levels: levels, expiry: time.Now().Add(time.Duration(ttlMs) * time.Millisecond)}
-	} // else: at the ceiling and this is a new scene, so drop it rather than grow memory
+	} else if len(x.active) < maxActiveScenes && x.clientScenes(client) < maxScenesPerClient {
+		x.active[key] = liveScene{levels: levels, expiry: time.Now().Add(time.Duration(ttlMs) * time.Millisecond)}
+	} // else: at a ceiling and this is a new scene, so drop it rather than grow memory
 	x.recompute()
+}
+
+// clientScenes counts one client's live scenes, for the per-client quota. Caller holds mu.
+func (x *xtoys) clientScenes(client string) int {
+	n := 0
+	for key := range x.active {
+		if strings.HasPrefix(key, client) {
+			n++
+		}
+	}
+	return n
 }
 
 // stopClient drops only the given client's live scenes and recomputes, so one client disconnecting or
