@@ -1,5 +1,6 @@
 package net.minegasm.runtime;
 
+import net.minegasm.core.CouplingMode;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticScene;
@@ -127,7 +128,49 @@ public final class SceneGovernor {
                 fatigue.record(e.getKey(), e.getValue(), dt);
             }
         }
-        return governed;
+        return resolveExclusivity(governed);
+    }
+
+    /**
+     * Resolve priority and exclusivity once, centrally, so every backend consumes one already-resolved set
+     * (second follow-up review P1-3). Within a role, the highest-priority EXCLUSIVE layer suppresses every
+     * strictly lower-priority layer of that role; a scene left with no layers drops out. Doing this here,
+     * rather than separately in each backend, is what keeps the bridge and the Buttplug mixer from
+     * resolving the same governed set differently and driving hardware inconsistently.
+     *
+     * <p>Role is the device-neutral granularity the governor owns. Cross-role collisions on one physical
+     * feature stay the Buttplug mixer's job, since only it has a device model; the per-role bridge has no
+     * such collision. Logical body regions join the key in a later phase (device-config work), so for now
+     * an exclusive layer owns its whole role rather than a region of it.
+     */
+    private static List<HapticScene> resolveExclusivity(List<HapticScene> governed) {
+        EnumMap<HapticRole, Integer> exclusiveFloor = new EnumMap<>(HapticRole.class);
+        for (HapticScene scene : governed) {
+            for (HapticLayer layer : scene.layers()) {
+                if (layer.coupling() == CouplingMode.EXCLUSIVE) {
+                    exclusiveFloor.merge(layer.role(), layer.priority(), Math::max);
+                }
+            }
+        }
+        if (exclusiveFloor.isEmpty()) {
+            return governed;
+        }
+        List<HapticScene> out = new ArrayList<>(governed.size());
+        for (HapticScene scene : governed) {
+            List<HapticLayer> kept = new ArrayList<>(scene.layers().size());
+            for (HapticLayer layer : scene.layers()) {
+                Integer floor = exclusiveFloor.get(layer.role());
+                if (floor == null || layer.priority() >= floor) {
+                    kept.add(layer);
+                }
+            }
+            if (kept.size() == scene.layers().size()) {
+                out.add(scene);
+            } else if (!kept.isEmpty()) {
+                out.add(scene.withLayers(kept));
+            } // else: every layer suppressed, so the scene contributes nothing and is dropped
+        }
+        return out;
     }
 
     /** Drop every held scene, keeping fatigue history. Used by the scenes-only test paths. */

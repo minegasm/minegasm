@@ -172,4 +172,44 @@ class SceneGovernorTest {
         assertEquals(1.0f, governFor20s(gov, "tex", true, false), 1e-6,
                 "with output suppressed nothing is accounted, so nothing is attenuated");
     }
+
+    // --- Central exclusivity resolution (P1-3): resolved once, so every backend sees the same set. ---
+
+    /** A continuous scene carrying one layer with an explicit role, coupling, and priority. */
+    private static HapticScene layerScene(String key, HapticRole role, CouplingMode coupling,
+                                          int priority, float level) {
+        HapticLayer layer = new HapticLayer("l", role, new HapticPrimitive.Hold(level, 600_000, 0, 0),
+                HapticRoute.buzzAll(), coupling, priority, 0, Long.MAX_VALUE / 4, key);
+        return new HapticScene(key, GameEventKind.AMBIENT, priority, Collections.singletonList(layer),
+                0, Long.MAX_VALUE / 4, key);
+    }
+
+    private static boolean hasScene(List<HapticScene> governed, String key) {
+        return governed.stream().anyMatch(s -> s.sceneId().equals(key));
+    }
+
+    @Test
+    void higherPriorityExclusiveSuppressesLowerSameRole() {
+        SceneGovernor gov = new SceneGovernor();
+        gov.submit(layerScene("loud", HapticRole.AMBIENT, CouplingMode.EXCLUSIVE, 100, 0.9f), 0);
+        gov.submit(layerScene("quiet", HapticRole.AMBIENT, CouplingMode.MAX, 10, 0.5f), 0);
+
+        List<HapticScene> governed = gov.govern(SECOND, false, false);
+
+        assertTrue(hasScene(governed, "loud"), "the exclusive layer survives");
+        assertFalse(hasScene(governed, "quiet"),
+                "a strictly lower-priority same-role layer is dropped centrally, for every backend");
+    }
+
+    @Test
+    void exclusivityDoesNotCrossRoles() {
+        SceneGovernor gov = new SceneGovernor();
+        gov.submit(layerScene("warn", HapticRole.WARNING, CouplingMode.EXCLUSIVE, 100, 0.9f), 0);
+        gov.submit(layerScene("amb", HapticRole.AMBIENT, CouplingMode.MAX, 10, 0.5f), 0);
+
+        List<HapticScene> governed = gov.govern(SECOND, false, false);
+
+        assertTrue(hasScene(governed, "warn"));
+        assertTrue(hasScene(governed, "amb"), "a different role is untouched by another role's exclusive");
+    }
 }

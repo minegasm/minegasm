@@ -34,11 +34,26 @@ class BridgeBackendTest {
     private final BridgeBackend backend = new BridgeBackend(() -> transport, ENDPOINT, clock);
 
     @Test
-    void submitSendsAnEffectWhenOpenAndEnabled() {
+    void submitSendsAnAuthoritativeOutputSnapshotWhenOpenAndEnabled() {
         backend.start();
         backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
         assertEquals(1, transport.sent.size());
-        assertEquals("effect", type(transport.sent.get(0)));
+        JsonObject frame = JsonParser.parseString(transport.sent.get(0)).getAsJsonObject();
+        assertEquals("output", frame.get("type").getAsString());
+        assertEquals(0.8f, frame.getAsJsonObject("roles").get("impact").getAsFloat(), 1e-6f,
+                "the impact role carries the layer's peak level");
+    }
+
+    @Test
+    void aVanishedSceneRetractsByDroppingItsRoleToZero() {
+        backend.start();
+        backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
+        assertEquals(0.8f, roles(transport.sent.get(0)).get("impact").getAsFloat(), 1e-6f);
+        // The scene ends: the next governed set is empty, so the authoritative snapshot drops impact to 0
+        // rather than leaving the adapter holding the last effect (second follow-up review P1-3).
+        backend.onGovernedScenes(java.util.Collections.emptyList(), clock.nanoTime());
+        assertEquals(2, transport.sent.size(), "an emptied set still sends: the retraction snapshot");
+        assertEquals(0f, roles(transport.sent.get(1)).get("impact").getAsFloat(), 1e-6f);
     }
 
     @Test
@@ -48,13 +63,13 @@ class BridgeBackendTest {
     }
 
     @Test
-    void disablingOutputStopsThenDropsEffects() {
+    void disablingOutputStopsThenDropsOutput() {
         backend.start();
         backend.setOutputEnabled(false);
         assertEquals(1, transport.sent.size(), "disabling output sends a stop so the adapter zeros now");
         assertEquals("stop", type(transport.sent.get(0)));
         backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
-        assertEquals(1, transport.sent.size(), "a disabled backend must not emit effects");
+        assertEquals(1, transport.sent.size(), "a disabled backend must not emit output");
     }
 
     @Test
@@ -108,6 +123,10 @@ class BridgeBackendTest {
     private static String type(String frame) {
         JsonObject o = JsonParser.parseString(frame).getAsJsonObject();
         return o.get("type").getAsString();
+    }
+
+    private static JsonObject roles(String frame) {
+        return JsonParser.parseString(frame).getAsJsonObject().getAsJsonObject("roles");
     }
 
     private static HapticScene scene() {

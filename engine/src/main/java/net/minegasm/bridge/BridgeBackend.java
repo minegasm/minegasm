@@ -1,12 +1,14 @@
 package net.minegasm.bridge;
 
 import net.minegasm.backend.HapticBackend;
+import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticScene;
-import net.minegasm.runtime.GovernedSceneForwarder;
+import net.minegasm.runtime.BridgeRoleForwarder;
 import net.minegasm.runtime.StopReason;
 import net.minegasm.time.Clock;
 
 import java.net.URI;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -19,15 +21,16 @@ import java.util.function.Supplier;
  * for integrations that do not justify code in the mod (XToys, DIY hardware, eventually OpenShock). The
  * socket lives behind {@link BridgeTransport} in the loader layer; this class is Java 8 and library-free.
  *
- * <p><b>Governed input.</b> The bridge now consumes the central governed set (ADR-018): scenes arrive
- * already coalesced and fatigue-attenuated from {@link net.minegasm.runtime.SceneGovernor} via
- * {@link net.minegasm.runtime.GovernedSceneForwarder}, which forwards a scene only when its content
- * changes or its TTL needs refreshing, so a steady continuous effect is sent once rather than every tick.
- * Scene-level {@code SafetyCaps} still apply per backend at render for Buttplug; the aggregate body
- * budget (Phase 6) will attenuate the governed scene centrally before it reaches here, the prerequisite
- * before any electrostim adapter rides this bridge (ADR-016). Outbound frames go through a bounded,
- * one-in-flight {@link OutboundQueue} that drops oldest when full, so a burst cannot grow memory and a
- * stop cannot be overtaken; every frame also carries a TTL so a dropped connection self-clears.
+ * <p><b>Governed input.</b> The bridge consumes the central governed set (ADR-018): scenes arrive already
+ * coalesced, fatigue-attenuated, and exclusivity-resolved from {@link net.minegasm.runtime.SceneGovernor}.
+ * {@link net.minegasm.runtime.BridgeRoleForwarder} renders that set to one authoritative level per role
+ * and sends the whole snapshot only when it changes (or to refresh the TTL), so a steady effect is sent
+ * once rather than every tick and, because each frame is the full state, a scene ending or being
+ * suppressed retracts at the adapter as its role's level drops. The aggregate body budget (Phase 6) will
+ * attenuate the governed scene centrally before it reaches here, the prerequisite before any electrostim
+ * adapter rides this bridge (ADR-016). Outbound frames go through a bounded, one-in-flight
+ * {@link OutboundQueue} that drops oldest when full, so a burst cannot grow memory and a stop cannot be
+ * overtaken; every frame also carries a TTL so a dropped connection self-clears.
  */
 public final class BridgeBackend implements HapticBackend {
 
@@ -37,10 +40,17 @@ public final class BridgeBackend implements HapticBackend {
     /** How often the supervisor retries a dead connection, so the adapter can start or restart anytime. */
     private static final long RECONNECT_INTERVAL_MS = 2_000;
 
+    /**
+     * How long an adapter holds an output snapshot without a fresh one before zeroing. Longer than the
+     * forwarder's re-send interval, so ordinary jitter never expires a steady effect, but a genuinely
+     * dropped or half-open link self-clears within a few seconds.
+     */
+    private static final long OUTPUT_TTL_MS = 6_000;
+
     private final Supplier<BridgeTransport> transportFactory;
     private final BridgeCodec codec = new BridgeCodec();
     private final OutboundQueue outbound;
-    private final GovernedSceneForwarder forwarder;
+    private final BridgeRoleForwarder forwarder;
     private final URI endpoint;
     private final String id;
     private final Clock clock;
@@ -76,7 +86,7 @@ public final class BridgeBackend implements HapticBackend {
         this.id = id == null || id.trim().isEmpty() ? "bridge" : id;
         this.clock = clock;
         this.outbound = new OutboundQueue(QUEUE_CAPACITY, this::sendFrame);
-        this.forwarder = new GovernedSceneForwarder(this::submit);
+        this.forwarder = new BridgeRoleForwarder(this::submit);
     }
 
     @Override
@@ -171,18 +181,19 @@ public final class BridgeBackend implements HapticBackend {
     }
 
     /**
-     * The forwarder's sink: encode one governed scene as an effect frame if the adapter can receive it.
-     * Returns whether the frame was accepted, so the forwarder records it as sent only when it actually
-     * went out and retries a drop on the next cycle rather than treating it as delivered. Drops if a stop
-     * bumped the generation after this cycle began, so an effect never lands behind a stop.
+     * The forwarder's sink: encode the authoritative per-role snapshot as an {@code output} frame if the
+     * adapter can receive it. Returns whether the frame was accepted, so the forwarder records it as sent
+     * only when it actually went out and retries a drop on the next cycle rather than treating it as
+     * delivered. Drops if a stop bumped the generation after this cycle began, so an output never lands
+     * behind a stop.
      */
-    private boolean submit(HapticScene scene) {
+    private boolean submit(EnumMap<HapticRole, Float> levels) {
         BridgeTransport current = transport;
         if (!outputEnabled || current == null || !current.isOpen()
                 || cycleGeneration != stopGeneration.get()) {
             return false; // panic-latched, disconnected, or a stop raced this cycle: drop and retry later
         }
-        outbound.offer(codec.encodeEffect(scene, clock.nanoTime()));
+        outbound.offer(codec.encodeOutput(levels, OUTPUT_TTL_MS));
         lastHealthyCycleNs = clock.nanoTime();
         return true;
     }

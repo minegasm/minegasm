@@ -109,11 +109,11 @@ class HapticRuntimeBridgeTest {
         HapticBackend bridge = bridgeBackend(rt, "late");
         bridge.start(); // connect the adapter link so a drop here can only be the latch, not the socket
         bridge.onGovernedScenes(Collections.singletonList(scene("a", clock.nanoTime())), clock.nanoTime());
-        assertFalse(transport.effects() > 0, "a bridge added while latched off must not forward scenes");
+        assertFalse(transport.outputs() > 0, "a bridge added while latched off must not forward output");
 
         rt.worker().clearUserStop(); // panic cleared / resumed
         bridge.onGovernedScenes(Collections.singletonList(scene("b", clock.nanoTime())), clock.nanoTime());
-        assertTrue(transport.effects() > 0, "once output resumes the bridge forwards normally");
+        assertTrue(transport.outputs() > 0, "once output resumes the bridge forwards normally");
 
         rt.shutdown(); // stop the bridge's reconnect supervisor
     }
@@ -133,15 +133,15 @@ class HapticRuntimeBridgeTest {
                 now, now + 300L * 1_000_000L, null);
     }
 
-    /** An open transport that counts the effect frames it is asked to send. */
+    /** An open transport that counts the output frames it is asked to send. */
     private static final class RecordingTransport implements BridgeTransport {
         private final List<String> sent = new ArrayList<>();
         private boolean open;
 
-        int effects() {
+        int outputs() {
             int n = 0;
             for (String f : sent) {
-                if (f.contains("\"type\":\"effect\"")) {
+                if (f.contains("\"type\":\"output\"")) {
                     n++;
                 }
             }
