@@ -182,7 +182,8 @@ public final class ClassicHubScreen extends GuiScreen {
 
     private int safetyCode() {
         return (client.runtime().worker().isUserStopped() ? 1 : 0)
-                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0);
+                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0)
+                | (client.buttplugFaulted() ? 4 : 0);
     }
 
     /** A bit per configured bridge that is connected to its adapter, so the rows refresh as links come up. */
@@ -219,6 +220,9 @@ public final class ClassicHubScreen extends GuiScreen {
     }
 
     private String buttplugLabel() {
+        if (client.buttplugFaulted()) {
+            return "Buttplug: FAULT (quarantined)";
+        }
         int devices = client.provider().devices().all().size();
         return "Buttplug: " + client.status().state().name().toLowerCase(Locale.ROOT)
                 + ", " + devices + " devices";

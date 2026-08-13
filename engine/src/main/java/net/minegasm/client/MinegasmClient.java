@@ -375,7 +375,6 @@ public final class MinegasmClient {
      */
     public CompletionStage<ProviderStatus> connect() {
         desiredConnected = true; // a connection is now wanted, so a later drop should reconnect
-        runtime.clearQuarantine("buttplug"); // a fresh connect attempt lifts a prior render-fault quarantine
         RuntimeConfig cfg = config.get();
         URI uri;
         try {
@@ -387,7 +386,12 @@ public final class MinegasmClient {
             return failed(new IllegalStateException(
                     "refusing non-loopback server " + safeHost(uri) + " (enable 'allow remote server')"));
         }
-        CompletionStage<ProviderStatus> stage = provider.connect(uri);
+        // Only a successful connection lifts a render-fault quarantine, so a failed or refused attempt
+        // never counts as recovery (review follow-up P2-2).
+        CompletionStage<ProviderStatus> stage = provider.connect(uri).thenApply(s -> {
+            runtime.clearQuarantine("buttplug");
+            return s;
+        });
         if (cfg.autoScan()) {
             stage = stage.thenCompose(s -> provider.startScanning().thenApply(v -> provider.status()));
         }

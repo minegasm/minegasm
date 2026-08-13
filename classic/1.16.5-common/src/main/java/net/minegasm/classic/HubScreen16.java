@@ -173,6 +173,9 @@ public final class HubScreen16 extends Screen {
     }
 
     private String buttplugLabel() {
+        if (client.buttplugFaulted()) {
+            return "Buttplug: FAULT (quarantined)";
+        }
         int devices = client.provider().devices().all().size();
         return "Buttplug: " + client.status().state().name().toLowerCase(Locale.ROOT)
                 + ", " + devices + " devices";
@@ -209,7 +212,8 @@ public final class HubScreen16 extends Screen {
 
     private int safetyCode() {
         return (client.runtime().worker().isUserStopped() ? 1 : 0)
-                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0);
+                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0)
+                | (client.buttplugFaulted() ? 4 : 0);
     }
 
     private void openButtplug() {

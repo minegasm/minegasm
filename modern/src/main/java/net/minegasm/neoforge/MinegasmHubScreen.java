@@ -167,6 +167,9 @@ public final class MinegasmHubScreen extends Screen {
     }
 
     private Component buttplugLabel() {
+        if (client.buttplugFaulted()) {
+            return Component.translatable("minegasm.hub.buttplug_fault");
+        }
         int devices = client.provider().devices().all().size();
         return Component.translatable("minegasm.hub.buttplug",
                 Component.translatable("minegasm.connection.state."
@@ -223,7 +226,8 @@ public final class MinegasmHubScreen extends Screen {
     /** A code for the safety state so the tick can rebuild the button when it changes. */
     private int safetyCode() {
         return (client.runtime().worker().isUserStopped() ? 1 : 0)
-                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0);
+                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0)
+                | (client.buttplugFaulted() ? 4 : 0);
     }
 
     // Wheel scrolls the integration list, page-at-a-time via the scroller. The 4-arg overload with a
