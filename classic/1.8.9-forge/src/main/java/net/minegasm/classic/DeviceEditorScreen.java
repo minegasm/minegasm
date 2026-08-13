@@ -157,6 +157,18 @@ public final class DeviceEditorScreen extends GuiScreen {
                         device.deviceTouched = true;
                     })));
 
+            // Body region: cycles Not set -> each region -> back. Not set resolves to whole body.
+            list.add(new Row("Body region", (x, y, w, h) -> {
+                CallbackButton[] holder = new CallbackButton[1];
+                holder[0] = new CallbackButton(x, y, w, h,
+                        DeviceEditorModel.regionLabel(device.region), () -> {
+                            device.region = DeviceEditorModel.nextRegion(device.region);
+                            device.deviceTouched = true;
+                            holder[0].displayString = DeviceEditorModel.regionLabel(device.region);
+                        });
+                buttonList.add(holder[0]);
+            }));
+
             for (DeviceEditorModel.FeatureRow feature : device.features) {
                 String featureLabel = feature.description + " (" + feature.kind.wireName() + ")";
                 list.add(new Row(featureLabel, (x, y, w, h) -> {

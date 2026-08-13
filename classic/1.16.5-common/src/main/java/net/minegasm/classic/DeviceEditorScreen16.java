@@ -132,6 +132,16 @@ public final class DeviceEditorScreen16 extends Screen {
                                 device.deviceTouched = true;
                             }))));
 
+            // Body region: cycles Not set -> each region -> back. Not set resolves to whole body.
+            list.add(new Row("Body region", (x, y, w, h) ->
+                    addButton(new Button(x, y, w, h,
+                            new TextComponent(DeviceEditorModel.regionLabel(device.region)), b -> {
+                                device.region = DeviceEditorModel.nextRegion(device.region);
+                                device.deviceTouched = true;
+                                b.setMessage(new TextComponent(
+                                        DeviceEditorModel.regionLabel(device.region)));
+                            }))));
+
             for (DeviceEditorModel.FeatureRow feature : device.features) {
                 String featureLabel = feature.description + " (" + feature.kind.wireName() + ")";
                 list.add(new Row(featureLabel, (x, y, w, h) -> {

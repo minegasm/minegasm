@@ -4,6 +4,7 @@ import net.minegasm.config.DeviceSetting;
 import net.minegasm.config.FeatureSetting;
 import net.minegasm.config.HapticConfig;
 import net.minegasm.config.PositionCalibration;
+import net.minegasm.core.BodyRegion;
 import net.minegasm.core.OutputKind;
 import net.minegasm.device.HapticDevice;
 import net.minegasm.device.HapticFeature;
@@ -18,6 +19,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DeviceEditorModelTest {
@@ -80,6 +82,30 @@ class DeviceEditorModelTest {
         // Both stroker output kinds get their own entry, keyed exactly like SceneMixer.featureKey.
         assertTrue(saved.features().containsKey("Position|1|Stroker"));
         assertTrue(saved.features().containsKey("HwPositionWithDuration|1|Stroker"));
+    }
+
+    @Test
+    void editingRegionWritesItAndSeedsAsNotSet() {
+        HapticDevice device = strokerDevice();
+        DeviceEditorModel model = new DeviceEditorModel(HapticConfig.defaults(), List.of(device));
+
+        DeviceEditorModel.DeviceRow row = model.rows().get(0);
+        assertNull(row.region, "a fresh device seeds as not set, distinct from an explicit whole body");
+
+        row.deviceTouched = true;
+        row.region = BodyRegion.NIPPLE;
+        DeviceSetting saved = model.toConfig().devices().get(device.identityKey());
+        assertTrue(saved.regionAssigned());
+        assertEquals(BodyRegion.NIPPLE, saved.bodyRegion());
+    }
+
+    @Test
+    void regionControlCyclesThroughNotSetAndLabelsIt() {
+        assertEquals("Not set", DeviceEditorModel.regionLabel(null));
+        assertEquals(BodyRegion.WHOLE_BODY, DeviceEditorModel.nextRegion(null), "not set steps to the first region");
+        assertEquals("Whole body", DeviceEditorModel.regionLabel(BodyRegion.WHOLE_BODY));
+        BodyRegion last = BodyRegion.values()[BodyRegion.values().length - 1];
+        assertNull(DeviceEditorModel.nextRegion(last), "cycling off the last region returns to not set");
     }
 
     @Test

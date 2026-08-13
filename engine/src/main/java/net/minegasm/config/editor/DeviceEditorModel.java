@@ -5,13 +5,16 @@ import net.minegasm.config.DeviceSetting;
 import net.minegasm.config.FeatureSetting;
 import net.minegasm.config.HapticConfig;
 import net.minegasm.config.PositionCalibration;
+import net.minegasm.core.BodyRegion;
 import net.minegasm.core.OutputKind;
 import net.minegasm.device.HapticDevice;
 import net.minegasm.device.HapticFeature;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -54,8 +57,11 @@ public final class DeviceEditorModel {
             PositionCalibrationRow calibration = new PositionCalibrationRow(
                     existingCalibration != null ? existingCalibration : PositionCalibration.safeDefault());
 
+            // Null region seeds "not set" so the row shows it distinctly from an explicit whole-body choice.
+            BodyRegion seededRegion = setting.regionAssigned() ? setting.bodyRegion() : null;
             DeviceRow row = new DeviceRow(identityKey, device.label(), setting.enabled(),
-                    setting.minLevel(), setting.maxLevel(), features, calibrationApplies, calibration);
+                    setting.minLevel(), setting.maxLevel(), seededRegion, features, calibrationApplies,
+                    calibration);
             rows.put(identityKey, row);
         }
     }
@@ -68,6 +74,37 @@ public final class DeviceEditorModel {
      * per-feature setting silently never takes effect. */
     private static String featureKey(OutputKind kind, HapticFeature feature) {
         return kind.wireName() + "|" + feature.featureIndex() + "|" + feature.description();
+    }
+
+    // The region choices a screen cycles through, in order, with "not set" (null) first. Shared here so
+    // every loader offers the same list and wording rather than each maintaining its own.
+    private static final BodyRegion[] REGION_ORDER = BodyRegion.values();
+
+    /** The label for a region control, with null shown as "Not set" (distinct from an explicit whole body). */
+    public static String regionLabel(BodyRegion region) {
+        if (region == null) {
+            return "Not set";
+        }
+        switch (region) {
+            case WHOLE_BODY:
+                return "Whole body";
+            case GENERIC_A:
+                return "Custom A";
+            case GENERIC_B:
+                return "Custom B";
+            default:
+                String name = region.name().toLowerCase(Locale.ROOT);
+                return Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        }
+    }
+
+    /** The next region when the user clicks the control: null (not set), then each region, then back. */
+    public static BodyRegion nextRegion(BodyRegion current) {
+        if (current == null) {
+            return REGION_ORDER[0];
+        }
+        int idx = Arrays.asList(REGION_ORDER).indexOf(current);
+        return idx + 1 >= REGION_ORDER.length ? null : REGION_ORDER[idx + 1];
     }
 
     /** Rebuild the persisted config: the original with only touched device/calibration entries replaced. */
@@ -84,7 +121,8 @@ public final class DeviceEditorModel {
                             new FeatureSetting(feature.enabled, feature.multiplier));
                 }
                 newDevices.put(row.identityKey,
-                        new DeviceSetting(row.enabled, row.minLevel, row.maxLevel, featureSettings));
+                        new DeviceSetting(row.enabled, row.minLevel, row.maxLevel, featureSettings,
+                                row.region));
             }
             if (row.calibrationApplies && row.calibrationTouched) {
                 PositionCalibrationRow c = row.calibration;
@@ -115,6 +153,9 @@ public final class DeviceEditorModel {
         public boolean enabled;
         public double minLevel;
         public double maxLevel;
+        // The body region this device is worn on; null means not set (resolves to whole-body). Edited via
+        // DeviceEditorModel.nextRegion / regionLabel so every loader cycles the same choices.
+        public BodyRegion region;
         public final List<FeatureRow> features;
         public final boolean calibrationApplies;
         public final PositionCalibrationRow calibration;
@@ -122,13 +163,14 @@ public final class DeviceEditorModel {
         public boolean calibrationTouched;
 
         DeviceRow(String identityKey, String label, boolean enabled, double minLevel, double maxLevel,
-                  List<FeatureRow> features, boolean calibrationApplies,
+                  BodyRegion region, List<FeatureRow> features, boolean calibrationApplies,
                   PositionCalibrationRow calibration) {
             this.identityKey = identityKey;
             this.label = label;
             this.enabled = enabled;
             this.minLevel = minLevel;
             this.maxLevel = maxLevel;
+            this.region = region;
             this.features = features;
             this.calibrationApplies = calibrationApplies;
             this.calibration = calibration;

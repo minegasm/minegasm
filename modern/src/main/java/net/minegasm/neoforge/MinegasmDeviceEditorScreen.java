@@ -131,6 +131,16 @@ public final class MinegasmDeviceEditorScreen extends Screen {
                                 device.deviceTouched = true;
                             }))));
 
+            // Body region: cycles Not set -> each region -> back. Not set resolves to whole body but is
+            // shown distinctly, so an untouched device reads as unset rather than a chosen whole body.
+            list.add(new Row(Component.translatable("minegasm.devices.editor.region"), (x, y, w, h) ->
+                    addRenderableWidget(button(
+                            Component.literal(DeviceEditorModel.regionLabel(device.region)), b -> {
+                                device.region = DeviceEditorModel.nextRegion(device.region);
+                                device.deviceTouched = true;
+                                b.setMessage(Component.literal(DeviceEditorModel.regionLabel(device.region)));
+                            }, x, y, w, h))));
+
             for (DeviceEditorModel.FeatureRow feature : device.features) {
                 Component featureLabel = Component.literal(
                         feature.description + " (" + feature.kind.wireName() + ")");
