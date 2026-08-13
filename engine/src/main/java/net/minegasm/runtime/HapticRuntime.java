@@ -25,6 +25,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -38,6 +41,9 @@ public final class HapticRuntime {
     /** A worker silent for longer than this is considered stalled and gets a safety stop. */
     private static final long WATCHDOG_STALL_MS = 2_000;
 
+    /** How often the independent watchdog thread checks the heartbeat, well under the stall threshold. */
+    private static final long WATCHDOG_POLL_MS = 500;
+
     private final TickEventBuffer tickBuffer = new TickEventBuffer();
     private final StateTracker tracker = new StateTracker();
     private final HapticAggregator aggregator = new HapticAggregator();
@@ -49,6 +55,7 @@ public final class HapticRuntime {
     private final BackendCoordinator coordinator;
     private final LifecycleController lifecycle;
     private final Watchdog watchdog;
+    private ScheduledExecutorService watchdogExec; // independent watchdog thread, started in start()
     private final Clock clock;
     private final Supplier<RuntimeConfig> config;
 
@@ -184,9 +191,30 @@ public final class HapticRuntime {
         started = true;
         coordinator.start();
         worker.start();
+        // An independent watchdog thread, not the client tick: the client tick still checks the watchdog
+        // for a fast path, but a hung backend can make a pause or world-unload block the client thread on
+        // the cycle monitor before it reaches the check. This timer observes the heartbeat regardless and
+        // issues only the out-of-band emergency stop, which never takes that monitor (review follow-up
+        // P1-1).
+        watchdogExec = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "minegasm-watchdog");
+            t.setDaemon(true);
+            return t;
+        });
+        watchdogExec.scheduleAtFixedRate(() -> {
+            try {
+                watchdog.check();
+            } catch (RuntimeException ignored) {
+                // Never let a watchdog check exception stop the timer; the next tick retries.
+            }
+        }, WATCHDOG_POLL_MS, WATCHDOG_POLL_MS, TimeUnit.MILLISECONDS);
     }
 
     public void shutdown() {
+        if (watchdogExec != null) {
+            watchdogExec.shutdownNow();
+            watchdogExec = null;
+        }
         worker.shutdown();
         coordinator.close();
     }
