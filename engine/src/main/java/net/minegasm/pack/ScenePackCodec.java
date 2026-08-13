@@ -310,7 +310,11 @@ public final class ScenePackCodec {
         return intAt(o, field, dflt);
     }
 
-    /** Read an int, requiring an actual JSON number (a quoted number is rejected, not coerced) (P2-5). */
+    /**
+     * Read an int, requiring an actual JSON number that is a whole value in the int range. Rejects a
+     * quoted number, a fractional value (no truncation), and anything outside {@code int} before
+     * conversion (P2-5, follow-up P2-3).
+     */
     private static int intAt(JsonObject o, String field, int dflt) {
         if (!has(o, field)) {
             return dflt;
@@ -319,7 +323,15 @@ public final class ScenePackCodec {
         if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) {
             throw new PackFormatException("'" + field + "' must be a number");
         }
-        return e.getAsInt();
+        java.math.BigDecimal bd = e.getAsBigDecimal();
+        if (bd.stripTrailingZeros().scale() > 0) {
+            throw new PackFormatException("'" + field + "' must be a whole number, not " + bd);
+        }
+        if (bd.compareTo(java.math.BigDecimal.valueOf(Integer.MAX_VALUE)) > 0
+                || bd.compareTo(java.math.BigDecimal.valueOf(Integer.MIN_VALUE)) < 0) {
+            throw new PackFormatException("'" + field + "' is out of the integer range: " + bd);
+        }
+        return bd.intValue();
     }
 
     /** Read a float, requiring a finite JSON number: rejects a quoted value, NaN, and infinities (P2-5). */
