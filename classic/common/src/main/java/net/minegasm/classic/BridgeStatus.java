@@ -19,6 +19,9 @@ final class BridgeStatus {
         if (!bridge.enabled()) {
             return "off";
         }
+        if (client.bridgeFaulted(bridge.name())) {
+            return "FAULT";
+        }
         if (!client.bridgeConnected(bridge.name())) {
             return "waiting for adapter";
         }
@@ -38,8 +41,9 @@ final class BridgeStatus {
         int h = 1;
         for (HapticConfig.Bridge b : client.config().raw().bridges()) {
             int state = !b.enabled() ? 0
-                    : !client.bridgeConnected(b.name()) ? 1
-                    : 2 + downstreamOrdinal(client, b);
+                    : client.bridgeFaulted(b.name()) ? 1
+                    : !client.bridgeConnected(b.name()) ? 2
+                    : 3 + downstreamOrdinal(client, b);
             h = h * 31 + state;
         }
         return h;

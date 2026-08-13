@@ -146,8 +146,9 @@ public final class MinegasmHubScreen extends Screen {
         int hash = 1;
         for (HapticConfig.Bridge b : client.config().raw().bridges()) {
             int state = !b.enabled() ? 0
-                    : !client.bridgeConnected(b.name()) ? 1
-                    : 2 + client.bridgeDownstream(b.name()).ordinal();
+                    : client.bridgeFaulted(b.name()) ? 1
+                    : !client.bridgeConnected(b.name()) ? 2
+                    : 3 + client.bridgeDownstream(b.name()).ordinal();
             hash = hash * 31 + state;
         }
         return hash;
@@ -165,6 +166,8 @@ public final class MinegasmHubScreen extends Screen {
         String stateKey;
         if (!b.enabled()) {
             stateKey = "minegasm.hub.bridge_off";
+        } else if (client.bridgeFaulted(b.name())) {
+            stateKey = "minegasm.hub.bridge_fault";
         } else if (!client.bridgeConnected(b.name())) {
             stateKey = "minegasm.hub.bridge_waiting";
         } else {

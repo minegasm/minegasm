@@ -79,6 +79,20 @@ class BackendCoordinatorTest {
         assertTrue(ok.governedCalls > 0, "the healthy backend still received the fan-out");
         assertEquals(1, coordinator.faultCount(), "the fault is recorded, not silently swallowed");
         assertFalse(coordinator.recentFaults().isEmpty(), "the fault is visible for health reporting");
+        assertTrue(coordinator.quarantined().contains("boom"), "the faulted backend is quarantined");
+
+        // A quarantined backend is skipped on the next cycle, so it can't re-enter and re-fault.
+        int boomCalls = boom.governedCalls;
+        int okCalls = ok.governedCalls;
+        coordinator.onGovernedScenes(Collections.emptyList(), 2_000L);
+        assertEquals(boomCalls, boom.governedCalls, "the quarantined backend is not called again");
+        assertTrue(ok.governedCalls > okCalls, "the healthy backend keeps running");
+        assertEquals(1, coordinator.faultCount(), "no new fault while quarantined");
+
+        coordinator.clearQuarantine("boom");
+        boom.throwOnGoverned = false;
+        coordinator.onGovernedScenes(Collections.emptyList(), 3_000L);
+        assertTrue(boom.governedCalls > boomCalls, "clearing the quarantine lets it rejoin the fan-out");
         coordinator.close();
     }
 

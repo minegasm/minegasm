@@ -269,6 +269,16 @@ public final class HapticRuntime {
         return coordinator.faultCount();
     }
 
+    /** Ids of backends quarantined after a render fault ({@code "buttplug"} or a bridge id). */
+    public java.util.Set<String> quarantinedBackends() {
+        return coordinator.quarantined();
+    }
+
+    /** Lift a backend's quarantine so it can rejoin the fan-out (e.g. on an explicit reconnect). */
+    public void clearQuarantine(String backendId) {
+        coordinator.clearQuarantine(backendId);
+    }
+
     /** A bounded snapshot of the most recent backend render faults, oldest first. */
     public List<String> backendFaults() {
         return coordinator.recentFaults();

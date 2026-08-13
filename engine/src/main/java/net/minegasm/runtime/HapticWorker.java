@@ -104,8 +104,14 @@ public final class HapticWorker {
         // accounts fatigue, and bakes the attenuation into the primitives it hands back.
         boolean accountLoad = cfg.enabled() && backends.anyBodyDriving();
         List<HapticScene> held = scenes.govern(nowNs, cfg.fatigueProtection(), accountLoad);
-        backends.onGovernedScenes(held, nowNs);
-        lastHealthyCycleNs.set(nowNs);
+        int faulted = backends.onGovernedScenes(held, nowNs);
+        // Don't claim a healthy heartbeat for a cycle where a backend faulted (it is now quarantined and
+        // stopped). Subsequent cycles skip the quarantined backend, so the heartbeat resumes at once and a
+        // one-off fault won't trip the watchdog, but a cycle that failed to fully drive output is not
+        // reported as healthy.
+        if (faulted == 0) {
+            lastHealthyCycleNs.set(nowNs);
+        }
     }
 
     /**

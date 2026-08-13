@@ -375,6 +375,7 @@ public final class MinegasmClient {
      */
     public CompletionStage<ProviderStatus> connect() {
         desiredConnected = true; // a connection is now wanted, so a later drop should reconnect
+        runtime.clearQuarantine("buttplug"); // a fresh connect attempt lifts a prior render-fault quarantine
         RuntimeConfig cfg = config.get();
         URI uri;
         try {
@@ -648,6 +649,16 @@ public final class MinegasmClient {
         return runtime.bridgeDownstream(bridgeIdForName(name));
     }
 
+    /** Whether the Buttplug backend is quarantined after a render fault (its output is held off). */
+    public boolean buttplugFaulted() {
+        return runtime.quarantinedBackends().contains("buttplug");
+    }
+
+    /** Whether the named bridge is quarantined after a render fault. */
+    public boolean bridgeFaulted(String name) {
+        return runtime.quarantinedBackends().contains(bridgeIdForName(name));
+    }
+
     /**
      * Integration status lines for {@code /mg status}, alongside the Buttplug status the command already
      * prints: one line per configured bridge, then a health line if any backend has faulted during output.
@@ -676,6 +687,9 @@ public final class MinegasmClient {
     private String bridgeStateLabel(HapticConfig.Bridge bridge) {
         if (!bridge.enabled()) {
             return "disabled";
+        }
+        if (bridgeFaulted(bridge.name())) {
+            return "faulted (quarantined)";
         }
         if (!bridgeConnected(bridge.name())) {
             return "waiting for adapter";
