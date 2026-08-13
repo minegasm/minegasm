@@ -42,6 +42,15 @@ class GovernedSceneForwarderTest {
                 createdNs, createdNs + 500 * MS, key);
     }
 
+    /** A continuous oscillation scene, to exercise the non-level shape fields in the signature. */
+    private static HapticScene oscillation(String key, float level, int periodMs, long createdNs) {
+        HapticPrimitive.Oscillation osc = new HapticPrimitive.Oscillation(level, periodMs, 600_000);
+        HapticLayer layer = new HapticLayer("l", HapticRole.TEXTURE, osc, HapticRoute.buzzAll(),
+                CouplingMode.MAX, 0, 0, Long.MAX_VALUE / 4, key);
+        return new HapticScene(key, GameEventKind.AMBIENT, 0, Collections.singletonList(layer),
+                createdNs, createdNs + 500 * MS, key);
+    }
+
     private static HapticScene discrete(String id, long createdNs) {
         HapticLayer layer = new HapticLayer("l", HapticRole.IMPACT,
                 new HapticPrimitive.Impulse(0.8f, 250, 8, 40), HapticRoute.buzzAll(),
@@ -125,6 +134,17 @@ class GovernedSceneForwarderTest {
         fwd.forward(Collections.singletonList(
                 continuousRole("acc", 0.5f, 15 * MS, HapticRole.WARNING)), 15 * MS);
         assertEquals(2, sent.size(), "a role change at the same peak is forwarded, not suppressed");
+    }
+
+    @Test
+    void aShapeChangeAtTheSamePeakForwards() {
+        List<HapticScene> sent = new ArrayList<>();
+        GovernedSceneForwarder fwd = new GovernedSceneForwarder(sent::add);
+        fwd.forward(Collections.singletonList(oscillation("m", 0.5f, 200, 0)), 0);
+        // Same key and same peak level, but a different oscillation period: the wire content changed, so
+        // the adapter must be told rather than left playing the old shape (review follow-up P2-1).
+        fwd.forward(Collections.singletonList(oscillation("m", 0.5f, 400, 15 * MS)), 15 * MS);
+        assertEquals(2, sent.size(), "an oscillation period change at the same peak is forwarded");
     }
 
     @Test

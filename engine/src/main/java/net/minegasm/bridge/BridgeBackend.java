@@ -125,6 +125,9 @@ public final class BridgeBackend implements HapticBackend {
             return;
         }
         connecting = true;
+        if (current != null) {
+            current.close(); // close the dead transport before replacing it, so it can't leak its writer
+        }
         BridgeTransport fresh = transportFactory.get();
         transport = fresh;
         fresh.connect(endpoint, this::onMessage, this::onClose).whenComplete((v, error) -> {

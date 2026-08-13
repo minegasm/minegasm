@@ -303,11 +303,39 @@ public final class ScenePackCodec {
         if (!has(o, field)) {
             throw new PackFormatException("missing required '" + field + "'");
         }
-        return o.get(field).getAsInt();
+        return intAt(o, field, 0);
     }
 
     private static int optInt(JsonObject o, String field, int dflt) {
-        return has(o, field) ? o.get(field).getAsInt() : dflt;
+        return intAt(o, field, dflt);
+    }
+
+    /** Read an int, requiring an actual JSON number (a quoted number is rejected, not coerced) (P2-5). */
+    private static int intAt(JsonObject o, String field, int dflt) {
+        if (!has(o, field)) {
+            return dflt;
+        }
+        JsonElement e = o.get(field);
+        if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) {
+            throw new PackFormatException("'" + field + "' must be a number");
+        }
+        return e.getAsInt();
+    }
+
+    /** Read a float, requiring a finite JSON number: rejects a quoted value, NaN, and infinities (P2-5). */
+    private static float floatAt(JsonObject o, String field, float dflt) {
+        if (!has(o, field)) {
+            return dflt;
+        }
+        JsonElement e = o.get(field);
+        if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) {
+            throw new PackFormatException("'" + field + "' must be a number");
+        }
+        float v = e.getAsFloat();
+        if (Float.isNaN(v) || Float.isInfinite(v)) {
+            throw new PackFormatException("'" + field + "' must be finite, not " + v);
+        }
+        return v;
     }
 
     private static JsonObject reqObject(JsonObject o, String field) {
@@ -328,12 +356,12 @@ public final class ScenePackCodec {
 
     /** A unit value in {@code [0, 1]}, clamped; absent reads as 0. */
     private static float unit(JsonObject o, String field) {
-        return HapticMath.clamp01(has(o, field) ? o.get(field).getAsFloat() : 0f);
+        return HapticMath.clamp01(floatAt(o, field, 0f));
     }
 
     /** A millisecond value bounded to {@code [0, MAX_DURATION_MS]}; absent reads as 0. */
     private static int dur(JsonObject o, String field) {
-        return boundMs(has(o, field) ? o.get(field).getAsInt() : 0);
+        return boundMs(intAt(o, field, 0));
     }
 
     private static int boundMs(int ms) {
@@ -355,16 +383,16 @@ public final class ScenePackCodec {
     }
 
     /**
-     * Reject the delivery modes the mixer does not actually honor (review P2-1). Only ALL_COMPATIBLE and
-     * SUPPLEMENTAL are wired end to end; the destination-selection modes have no effect, so accepting one
-     * would silently render to every compatible feature instead of the single destination the author
-     * asked for. Fail closed rather than pretend a smaller-than-advertised routing works.
+     * Reject every delivery mode the mixer does not actually honor (review P2-1, P2-2). Only
+     * ALL_COMPATIBLE has a runtime effect; the destination-selection modes and SUPPLEMENTAL are no-ops
+     * that behave like ALL_COMPATIBLE, so accepting one would silently render to every compatible feature
+     * instead of the routing the author asked for. Fail closed rather than pretend it works. The default
+     * (absent) is fine.
      */
     private static void requireImplementedDelivery(DeliveryMode delivery) {
-        if (delivery == DeliveryMode.BEST_PER_DEVICE || delivery == DeliveryMode.BEST_GLOBAL
-                || delivery == DeliveryMode.EXCLUSIVE) {
+        if (delivery != null && delivery != DeliveryMode.ALL_COMPATIBLE) {
             throw new PackFormatException("delivery '" + delivery.name()
-                    + "' is not supported yet; use ALL_COMPATIBLE or SUPPLEMENTAL");
+                    + "' is not implemented; only ALL_COMPATIBLE is honored");
         }
     }
 }

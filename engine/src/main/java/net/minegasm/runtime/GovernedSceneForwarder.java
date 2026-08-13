@@ -1,6 +1,7 @@
 package net.minegasm.runtime;
 
 import net.minegasm.core.HapticLayer;
+import net.minegasm.core.HapticPrimitive;
 import net.minegasm.core.HapticScene;
 
 import java.util.HashMap;
@@ -96,11 +97,11 @@ public final class GovernedSceneForwarder {
     }
 
     /**
-     * A cheap fingerprint of everything wire-relevant except the fatigue-attenuated amplitude: layer
-     * membership, role, coupling, priority, primitive kind, and nominal duration. Amplitude is compared
-     * separately with an epsilon so per-cycle fatigue drift does not force a re-send, but a real change of
-     * shape or routing at the same peak does. (Non-level shape params like beat timing are not decomposed
-     * here; the primitive kind and duration catch the common cases.)
+     * A fingerprint of everything wire-relevant except the fatigue-attenuated amplitude: layer membership,
+     * role, coupling, priority, and every non-level shape parameter of the primitive (beat timing,
+     * oscillation period, sweep easing, texture grain, and so on). Amplitude is compared separately with an
+     * epsilon so per-cycle fatigue drift does not force a re-send, but a change of shape or routing at the
+     * same peak does (review follow-up P2-1). The attenuated level fields are the only ones excluded.
      */
     private static String signature(HapticScene scene) {
         StringBuilder sb = new StringBuilder();
@@ -109,11 +110,40 @@ public final class GovernedSceneForwarder {
             sb.append(layer.layerId()).append(':')
                     .append(layer.role()).append(':')
                     .append(layer.coupling()).append(':')
-                    .append(layer.priority()).append(':')
-                    .append(layer.primitive().getClass().getSimpleName()).append(':')
-                    .append(layer.primitive().durationMs()).append(';');
+                    .append(layer.priority()).append(':');
+            appendPrimitiveShape(sb, layer.primitive());
+            sb.append(';');
         }
         return sb.toString();
+    }
+
+    /** Append a primitive's kind and its non-level shape parameters (the level is excluded on purpose). */
+    private static void appendPrimitiveShape(StringBuilder sb, HapticPrimitive p) {
+        sb.append(p.getClass().getSimpleName()).append('(').append(p.durationMs());
+        if (p instanceof HapticPrimitive.Impulse) {
+            HapticPrimitive.Impulse i = (HapticPrimitive.Impulse) p;
+            sb.append(',').append(i.attackMs()).append(',').append(i.releaseMs());
+        } else if (p instanceof HapticPrimitive.Texture) {
+            HapticPrimitive.Texture t = (HapticPrimitive.Texture) p;
+            sb.append(',').append(t.grain()).append(',').append(t.density())
+                    .append(',').append(t.irregularity());
+        } else if (p instanceof HapticPrimitive.Rumble) {
+            HapticPrimitive.Rumble r = (HapticPrimitive.Rumble) p;
+            sb.append(',').append(r.roughness()).append(',').append(r.decay());
+        } else if (p instanceof HapticPrimitive.Sweep) {
+            // from/to are amplitudes (attenuated), so only the shape (duration + easing) is fingerprinted.
+            sb.append(',').append(((HapticPrimitive.Sweep) p).easing());
+        } else if (p instanceof HapticPrimitive.Hold) {
+            HapticPrimitive.Hold h = (HapticPrimitive.Hold) p;
+            sb.append(',').append(h.fadeInMs()).append(',').append(h.fadeOutMs());
+        } else if (p instanceof HapticPrimitive.Oscillation) {
+            sb.append(',').append(((HapticPrimitive.Oscillation) p).periodMs());
+        } else if (p instanceof HapticPrimitive.BeatPattern) {
+            for (HapticPrimitive.Beat beat : ((HapticPrimitive.BeatPattern) p).beats()) {
+                sb.append(",@").append(beat.atMs()).append('/').append(beat.durationMs());
+            }
+        }
+        sb.append(')');
     }
 
     private static final class Forwarded {

@@ -162,10 +162,18 @@ public final class TcpLineBridgeTransport implements BridgeTransport {
         reader.start();
     }
 
-    /** Mark the transport closed once and notify, whether the peer hung up or a write/read failed. */
+    /**
+     * Mark the transport closed once and notify, whether the peer hung up or a write/read failed. Shuts
+     * down the writer executor too, so a dropped connection never leaves its daemon writer thread behind
+     * (review follow-up P2-3). Idempotent: {@code shutdownNow} on an already-stopped executor is a no-op.
+     */
     private void fail(Throwable cause) {
         boolean wasOpen = open;
         open = false;
+        ExecutorService w = writer;
+        if (w != null) {
+            w.shutdownNow();
+        }
         closeQuietly();
         if (wasOpen && !closed) {
             onClose.accept(cause);

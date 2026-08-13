@@ -66,6 +66,24 @@ class ScenePackCodecTest {
         assertTrue(ex.getMessage().contains("triggers"), "the over-limit array is named");
     }
 
+    @Test
+    void supplementalDeliveryModeIsRejected() {
+        // SUPPLEMENTAL is a no-op like the destination-selection modes, so it fails closed too (P2-2).
+        String json = codec.toJson(allPrimitivesPack()).replaceFirst("ALL_COMPATIBLE", "SUPPLEMENTAL");
+        PackFormatException ex = assertThrows(PackFormatException.class, () -> codec.fromJson(json));
+        assertTrue(ex.getMessage().contains("SUPPLEMENTAL"));
+    }
+
+    @Test
+    void aQuotedNumberIsRejectedNotCoerced() {
+        // A quoted numeric (including "NaN") must be rejected up front rather than coerced (P2-5).
+        String json = "{\"schemaVersion\":" + ScenePack.SCHEMA_VERSION + ",\"packId\":\"x\",\"triggers\":["
+                + "{\"event\":\"HURT\",\"scene\":{\"layers\":[{\"layerId\":\"l\",\"role\":\"IMPACT\","
+                + "\"primitive\":{\"type\":\"impulse\",\"level\":\"0.5\",\"durationMs\":200}}]}}]}";
+        PackFormatException ex = assertThrows(PackFormatException.class, () -> codec.fromJson(json));
+        assertTrue(ex.getMessage().contains("must be a number"), "the offending field is named");
+    }
+
     private static ScenePack allPrimitivesPack() {
         List<LayerTemplate> layers = new ArrayList<>();
         // A non-zero strengthWeight so the Tier 2 field is exercised by the round trip.
