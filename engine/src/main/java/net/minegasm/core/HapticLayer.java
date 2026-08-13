@@ -18,7 +18,9 @@ public final class HapticLayer {
     private final long startOffsetNs;
     private final long expiresAfterNs;
     private final String coalesceKey;
+    private final BodyRegion bodyRegion;
 
+    /** Convenience for the common case: a whole-body layer that competes across the whole role. */
     public HapticLayer(
             String layerId,
             HapticRole role,
@@ -29,6 +31,21 @@ public final class HapticLayer {
             long startOffsetNs,
             long expiresAfterNs,
             String coalesceKey) {
+        this(layerId, role, primitive, route, coupling, priority, startOffsetNs, expiresAfterNs,
+                coalesceKey, BodyRegion.WHOLE_BODY);
+    }
+
+    public HapticLayer(
+            String layerId,
+            HapticRole role,
+            HapticPrimitive primitive,
+            HapticRoute route,
+            CouplingMode coupling,
+            int priority,
+            long startOffsetNs,
+            long expiresAfterNs,
+            String coalesceKey,
+            BodyRegion bodyRegion) {
         if (layerId == null || layerId.trim().isEmpty()) {
             throw new IllegalArgumentException("layerId required");
         }
@@ -47,6 +64,7 @@ public final class HapticLayer {
         this.startOffsetNs = startOffsetNs;
         this.expiresAfterNs = expiresAfterNs;
         this.coalesceKey = coalesceKey;
+        this.bodyRegion = bodyRegion == null ? BodyRegion.WHOLE_BODY : bodyRegion;
     }
 
     public String layerId() {
@@ -85,10 +103,15 @@ public final class HapticLayer {
         return coalesceKey;
     }
 
+    /** Where this layer is delivered on the body; {@link BodyRegion#WHOLE_BODY} unless authored otherwise. */
+    public BodyRegion bodyRegion() {
+        return bodyRegion;
+    }
+
     /** A copy of this layer with its primitive replaced (everything else unchanged). */
     public HapticLayer withPrimitive(HapticPrimitive replacement) {
         return new HapticLayer(layerId, role, replacement, route, coupling, priority, startOffsetNs,
-                expiresAfterNs, coalesceKey);
+                expiresAfterNs, coalesceKey, bodyRegion);
     }
 
     public boolean isContinuous() {
@@ -112,13 +135,14 @@ public final class HapticLayer {
                 && Objects.equals(primitive, other.primitive)
                 && Objects.equals(route, other.route)
                 && coupling == other.coupling
-                && Objects.equals(coalesceKey, other.coalesceKey);
+                && Objects.equals(coalesceKey, other.coalesceKey)
+                && bodyRegion == other.bodyRegion;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(layerId, role, primitive, route, coupling, priority, startOffsetNs,
-                expiresAfterNs, coalesceKey);
+                expiresAfterNs, coalesceKey, bodyRegion);
     }
 
     @Override
@@ -126,6 +150,6 @@ public final class HapticLayer {
         return "HapticLayer[layerId=" + layerId + ", role=" + role + ", primitive=" + primitive
                 + ", route=" + route + ", coupling=" + coupling + ", priority=" + priority
                 + ", startOffsetNs=" + startOffsetNs + ", expiresAfterNs=" + expiresAfterNs
-                + ", coalesceKey=" + coalesceKey + "]";
+                + ", coalesceKey=" + coalesceKey + ", bodyRegion=" + bodyRegion + "]";
     }
 }

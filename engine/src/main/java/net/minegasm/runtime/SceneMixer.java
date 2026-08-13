@@ -79,6 +79,14 @@ public final class SceneMixer {
             if (!deviceSetting.enabled()) {
                 continue;
             }
+            // Region gate: a device worn on one part of the body only receives effects whose region reaches
+            // it. Both default to whole-body, which overlaps everything, so this is a no-op until the user
+            // tags a device and an effect carries a specific region. This is where a region-scoped exclusive
+            // gets its per-device effect: it reaches the device it overlaps, and a whole-body effect ducked
+            // there by the mixer keeps playing on devices in other regions.
+            if (!deviceSetting.bodyRegion().overlaps(layer.bodyRegion())) {
+                continue;
+            }
             for (HapticFeature feature : device.features().values()) {
                 FeatureRef ref = new FeatureRef(device.deviceIndex(), feature.featureIndex(),
                         snapshot.generation());

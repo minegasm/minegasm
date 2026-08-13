@@ -41,6 +41,18 @@ public final class Configs {
         return build(mode, pack, true, 1.0, Map.of(wireName, net.minegasm.config.OutputPolicy.off()));
     }
 
+    /** Enabled config with explicit per-device settings, for device-region and per-device routing tests. */
+    public static RuntimeConfig withDeviceSettings(MinegasmMode mode, RecipePackId pack,
+            Map<String, net.minegasm.config.DeviceSetting> devices) {
+        HapticConfig d = HapticConfig.defaults();
+        var id = new HapticConfig.Profile(pack.name().toLowerCase(java.util.Locale.ROOT), mode.name());
+        var g = new HapticConfig.Global(true, 1.0, 0.0, false, "STOP", true, "",
+                50, 2_000, 100, 10_000);
+        HapticConfig cfg = new HapticConfig(1, id, g, d.buttplug(), d.events(), d.outputPolicy(),
+                devices, d.positionCalibrations(), d.accumulation(), d.customIntensity(), d.bridges());
+        return RuntimeConfig.of(cfg);
+    }
+
     private static RuntimeConfig build(MinegasmMode mode, RecipePackId pack, boolean enabled,
                                        double intensity,
                                        Map<String, net.minegasm.config.OutputPolicy> extraPolicy) {

@@ -133,34 +133,36 @@ public final class SceneGovernor {
 
     /**
      * Resolve priority and exclusivity once, centrally, so every backend consumes one already-resolved set
-     * (second follow-up review P1-3). Within a role, the highest-priority EXCLUSIVE layer suppresses every
-     * strictly lower-priority layer of that role; a scene left with no layers drops out. Doing this here,
-     * rather than separately in each backend, is what keeps the bridge and the Buttplug mixer from
-     * resolving the same governed set differently and driving hardware inconsistently.
+     * (second follow-up review P1-3). Within a role, an EXCLUSIVE layer suppresses a strictly lower-priority
+     * layer of that role, but only when it wholly contains that layer's body region: a whole-body exclusive
+     * owns the whole role, while a region-scoped exclusive owns only same-region (and whole-body-contained)
+     * lower layers and leaves other regions alone. A scene left with no layers drops out. Doing this here,
+     * rather than separately in each backend, keeps the bridge and the device renderer from resolving the
+     * same governed set differently.
      *
-     * <p>Role is the device-neutral granularity the governor owns. Cross-role collisions on one physical
-     * feature stay the Buttplug mixer's job, since only it has a device model; the per-role bridge has no
-     * such collision. Logical body regions join the key in a later phase (device-config work), so for now
-     * an exclusive layer owns its whole role rather than a region of it.
+     * <p>This is the coarse, device-neutral pass: it only drops a layer an exclusive wholly contains, never
+     * one it merely partially overlaps. A region-scoped exclusive facing a whole-body lower layer keeps both
+     * here; the renderer, which has a device model, then ducks the whole-body layer on the exclusive's
+     * region features while it keeps playing elsewhere. The bridge is region-blind (an adapter has no device
+     * model), so region-scoped exclusivity is a renderer-path refinement, not something the bridge enforces.
      */
     private static List<HapticScene> resolveExclusivity(List<HapticScene> governed) {
-        EnumMap<HapticRole, Integer> exclusiveFloor = new EnumMap<>(HapticRole.class);
+        List<HapticLayer> exclusives = new ArrayList<>();
         for (HapticScene scene : governed) {
             for (HapticLayer layer : scene.layers()) {
                 if (layer.coupling() == CouplingMode.EXCLUSIVE) {
-                    exclusiveFloor.merge(layer.role(), layer.priority(), Math::max);
+                    exclusives.add(layer);
                 }
             }
         }
-        if (exclusiveFloor.isEmpty()) {
+        if (exclusives.isEmpty()) {
             return governed;
         }
         List<HapticScene> out = new ArrayList<>(governed.size());
         for (HapticScene scene : governed) {
             List<HapticLayer> kept = new ArrayList<>(scene.layers().size());
             for (HapticLayer layer : scene.layers()) {
-                Integer floor = exclusiveFloor.get(layer.role());
-                if (floor == null || layer.priority() >= floor) {
+                if (!suppressed(layer, exclusives)) {
                     kept.add(layer);
                 }
             }
@@ -171,6 +173,18 @@ public final class SceneGovernor {
             } // else: every layer suppressed, so the scene contributes nothing and is dropped
         }
         return out;
+    }
+
+    /** A layer is suppressed by any higher-priority same-role exclusive that wholly contains its region. */
+    private static boolean suppressed(HapticLayer layer, List<HapticLayer> exclusives) {
+        for (HapticLayer e : exclusives) {
+            if (e.role() == layer.role()
+                    && e.priority() > layer.priority()
+                    && e.bodyRegion().contains(layer.bodyRegion())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Drop every held scene, keeping fatigue history. Used by the scenes-only test paths. */
