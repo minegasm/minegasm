@@ -1,9 +1,13 @@
 package net.minegasm.runtime;
 
+import net.minegasm.core.CouplingMode;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticPrimitive;
+import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticScene;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -51,6 +55,7 @@ public final class GovernedSceneForwarder {
 
     /** Forward any scene whose content changed or whose TTL needs refreshing; suppress steady re-sends. */
     public void forward(List<HapticScene> governed, long nowNs) {
+        governed = resolveExclusivity(governed);
         Set<String> seenContinuous = new HashSet<>();
         Set<String> seenDiscrete = new HashSet<>();
         for (HapticScene scene : governed) {
@@ -80,6 +85,44 @@ public final class GovernedSceneForwarder {
         // Forget scenes no longer present so a later re-appearance forwards afresh and state stays bounded.
         continuous.keySet().retainAll(seenContinuous);
         discreteSent.retainAll(seenDiscrete);
+    }
+
+    /**
+     * Make the bridge honor priority and exclusivity per role, which the raw per-role-maximum path
+     * ignores (review follow-up P1-6). A bridge output is per role, so the resolution is per role: within
+     * a role, a higher-priority exclusive layer suppresses every strictly lower-priority layer. Cross-role
+     * and per-physical-feature resolution stays device-specific in the Buttplug mixer, so this does not
+     * change the hardware-validated native path. (Full backend-neutral resolution keyed on a logical body
+     * region is a larger model, still to come.)
+     */
+    private static List<HapticScene> resolveExclusivity(List<HapticScene> governed) {
+        EnumMap<HapticRole, Integer> exclusiveFloor = new EnumMap<>(HapticRole.class);
+        for (HapticScene scene : governed) {
+            for (HapticLayer layer : scene.layers()) {
+                if (layer.coupling() == CouplingMode.EXCLUSIVE) {
+                    exclusiveFloor.merge(layer.role(), layer.priority(), Math::max);
+                }
+            }
+        }
+        if (exclusiveFloor.isEmpty()) {
+            return governed;
+        }
+        List<HapticScene> out = new ArrayList<>(governed.size());
+        for (HapticScene scene : governed) {
+            List<HapticLayer> kept = new ArrayList<>(scene.layers().size());
+            for (HapticLayer layer : scene.layers()) {
+                Integer floor = exclusiveFloor.get(layer.role());
+                if (floor == null || layer.priority() >= floor) {
+                    kept.add(layer);
+                }
+            }
+            if (kept.size() == scene.layers().size()) {
+                out.add(scene);
+            } else if (!kept.isEmpty()) {
+                out.add(scene.withLayers(kept));
+            } // else: every layer suppressed, so the scene contributes nothing and is dropped
+        }
+        return out;
     }
 
     /** Forget all forwarding state (called on stop and on a fresh connection, under the worker monitor). */

@@ -147,6 +147,27 @@ class GovernedSceneForwarderTest {
         assertEquals(2, sent.size(), "an oscillation period change at the same peak is forwarded");
     }
 
+    private static HapticScene impactScene(String id, float level, CouplingMode coupling, int priority) {
+        HapticLayer layer = new HapticLayer("l", HapticRole.IMPACT,
+                new HapticPrimitive.Impulse(level, 250, 8, 40), HapticRoute.buzzAll(),
+                coupling, priority, 0, 300 * MS, null);
+        return new HapticScene(id, GameEventKind.HURT, priority, Collections.singletonList(layer),
+                0, 300 * MS, null);
+    }
+
+    @Test
+    void aHigherPriorityExclusiveSuppressesLowerPriorityOnTheSameRole() {
+        List<HapticScene> sent = new ArrayList<>();
+        GovernedSceneForwarder fwd = new GovernedSceneForwarder(sent::add);
+        HapticScene warn = impactScene("warn", 0.3f, CouplingMode.EXCLUSIVE, 100);
+        HapticScene ambient = impactScene("ambient", 0.9f, CouplingMode.MAX, 10);
+
+        fwd.forward(java.util.Arrays.asList(warn, ambient), 0);
+
+        assertEquals(1, sent.size(), "the lower-priority same-role scene is suppressed on the bridge");
+        assertEquals("warn", sent.get(0).sceneId(), "the exclusive higher-priority scene survives");
+    }
+
     @Test
     void resetForgetsTrackingSoTheNextSceneForwardsAgain() {
         List<HapticScene> sent = new ArrayList<>();

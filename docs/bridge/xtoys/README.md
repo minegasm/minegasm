@@ -89,6 +89,12 @@ floor.) Roles with no layer in a frame go to 0. Only roles whose level changed p
 frame is usually one or two messages. The raw scene (timing, per-primitive shape) is on the wire if you
 want a richer mapping. See `../PROTOCOL.md`.
 
+Priority and exclusivity are resolved per role before a frame reaches the wire: within a role, a
+higher-priority exclusive effect suppresses lower-priority ones, so a warning wins over ambient on the
+same role. Cross-role behavior does not yet match native Buttplug's per-actuator ducking, where several
+roles sharing one motor duck each other; on the bridge each role is a separate output and they run
+independently. Full cross-backend parity is a known beta limitation.
+
 ## If the toy barely moves
 
 Run with `-verbose` and read the `intensity=` values. A steady effect like `minegasm-texture` should sit
