@@ -27,6 +27,7 @@ public final class HubScreen16 extends Screen {
     private long observedGeneration = -1;
     private boolean observedEnabled;
     private int observedBridgeConn;
+    private int observedSafety = -1;
     private RowScroller scroller;
 
     public HubScreen16(Screen parent) {
@@ -44,12 +45,22 @@ public final class HubScreen16 extends Screen {
         int half = (w - 4) / 2;
 
         boolean enabled = client.config().enabled();
-        boolean panic = !client.runtime().worker().isOutputEnabled();
 
         addButton(new Button(x, 44, half, h, new TextComponent("Haptics: " + onOff(enabled)),
                 b -> toggleEnabled()));
-        addButton(new Button(x + half + 4, 44, half, h,
-                new TextComponent(panic ? "Resume" : "Stop"), b -> togglePanic()));
+        // Stop only when running; Resume only for a user panic; a watchdog stop is shown but not resumable
+        // by this button, so a resume can never clear a live watchdog stall (review P1-2).
+        if (client.runtime().worker().isUserStopped()) {
+            addButton(new Button(x + half + 4, 44, half, h, new TextComponent("Resume"),
+                    b -> resumeOutput()));
+        } else if (client.runtime().worker().isWatchdogStopped()) {
+            Button wd = addButton(new Button(x + half + 4, 44, half, h,
+                    new TextComponent("Watchdog stopped"), b -> { }));
+            wd.active = false;
+        } else {
+            addButton(new Button(x + half + 4, 44, half, h, new TextComponent("Stop"),
+                    b -> stopOutput()));
+        }
 
         // Fixed bottom block, anchored to the screen bottom so it never scrolls away.
         int doneY = height - 24;
@@ -121,6 +132,7 @@ public final class HubScreen16 extends Screen {
         observedGeneration = client.provider().devices().generation();
         observedEnabled = enabled;
         observedBridgeConn = bridgeConnMask();
+        observedSafety = safetyCode();
     }
 
     @Override
@@ -128,7 +140,8 @@ public final class HubScreen16 extends Screen {
         if (client.status().state() != observedState
                 || client.provider().devices().generation() != observedGeneration
                 || client.config().enabled() != observedEnabled
-                || bridgeConnMask() != observedBridgeConn) {
+                || bridgeConnMask() != observedBridgeConn
+                || safetyCode() != observedSafety) {
             rebuild();
         }
     }
@@ -184,15 +197,19 @@ public final class HubScreen16 extends Screen {
         init();
     }
 
-    private void togglePanic() {
-        if (client.runtime().worker().isOutputEnabled()) {
-            client.panic();
-        } else {
-            client.clearPanic();
-        }
-        buttons.clear();
-        children.clear();
-        init();
+    private void stopOutput() {
+        client.panic();
+        rebuild();
+    }
+
+    private void resumeOutput() {
+        client.clearPanic(); // clears only the user-stop cause
+        rebuild();
+    }
+
+    private int safetyCode() {
+        return (client.runtime().worker().isUserStopped() ? 1 : 0)
+                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0);
     }
 
     private void openButtplug() {

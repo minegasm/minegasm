@@ -62,7 +62,7 @@ class HapticRuntimeWatchdogTest {
         // The tick must return promptly and the watchdog must have latched output off.
         assertTimeoutPreemptively(Duration.ofSeconds(2), () -> rt.onClientTickEnd(active(2)));
         assertFalse(rt.worker().isOutputEnabled(), "the watchdog fired despite the held monitor");
-        assertTrue(rt.worker().outputState() == OutputState.WATCHDOG_STOPPED);
+        assertTrue(rt.worker().isWatchdogStopped());
 
         release.countDown();
         holder.join(2000);

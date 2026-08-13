@@ -37,8 +37,12 @@ public final class HapticWorker {
 
     private final AtomicLong lastHealthyCycleNs = new AtomicLong();
     private volatile StopReason lastStopReason;
-    private volatile boolean outputEnabled = true; // master panic latch, mirrored to every backend
-    private volatile OutputState outputState = OutputState.RUNNING; // why output is off, for UI + recovery
+    private volatile boolean outputEnabled = true; // master latch mirror, recomputed from the causes below
+    // The runtime causes holding output off, tracked independently so a watchdog stop and a user panic can
+    // coexist and clearing one never clears the other (second follow-up review P1-2). Guarded by causeLock,
+    // a dedicated lock that is never the cycle monitor, so the watchdog's out-of-band stop stays off it.
+    private final Object causeLock = new Object();
+    private final java.util.EnumSet<StopCause> stopCauses = java.util.EnumSet.noneOf(StopCause.class);
     private boolean paused;
     private long pausedAtNs;
     private ScheduledExecutorService executor;
@@ -139,41 +143,77 @@ public final class HapticWorker {
      */
     public void emergencyStop(StopReason reason) {
         this.lastStopReason = reason;
-        this.outputState = OutputState.WATCHDOG_STOPPED;
-        // Latch output off so no new scene flows until recovery, and stop the hardware out of band. The
-        // latch fan-out is thread-safe now that backends defer their forwarder resets to the worker thread,
-        // so this stays off the cycle monitor.
-        setOutputEnabled(false);
-        backends.emergencyStop(reason);
+        addCause(StopCause.WATCHDOG);   // latch output off, independent of any user panic already active
+        backends.emergencyStop(reason); // stop the hardware out of band (no cycle monitor)
     }
 
     /**
-     * Called by the watchdog on a healthy tick: if a watchdog stop is latched and the worker is cycling
-     * normally again, restore output. Synchronized, but only reached when the worker is not stalled, so it
-     * does not block. A user panic (USER_STOPPED) is left latched; only the watchdog's own stop recovers.
+     * Watchdog recovery on a healthy tick: clears <em>only</em> the watchdog cause, and only if a watchdog
+     * stop is actually latched, so it can never resume output while a user panic is still active. Uses
+     * causeLock, not the cycle monitor, so it never blocks; the governor's own lock serializes the reset.
      */
-    public synchronized void recoverFromWatchdogStop() {
-        if (outputState == OutputState.WATCHDOG_STOPPED) {
-            scenes.reset(); // drop stale held scenes before output resumes
-            outputState = OutputState.RUNNING;
-            setOutputEnabled(true);
+    public void recoverFromWatchdogStop() {
+        synchronized (causeLock) {
+            if (stopCauses.remove(StopCause.WATCHDOG)) {
+                scenes.reset(); // drop stale held scenes before output resumes
+                applyLatch();
+            }
         }
     }
 
-    /** Latch output off for a user panic, with the reason recorded so the UI can show why. */
+    /** Latch output off for a user panic. Independent of the watchdog cause. */
     public void enterUserStop() {
-        this.outputState = OutputState.USER_STOPPED;
-        setOutputEnabled(false);
+        addCause(StopCause.USER_STOP);
     }
 
-    /** Clear a user panic and resume output. */
+    /**
+     * Clear a user panic. Clears <em>only</em> the user-stop cause: if the watchdog also has output
+     * latched off, output stays off, so a resume can never override a live watchdog stall.
+     */
     public void clearUserStop() {
-        this.outputState = OutputState.RUNNING;
-        setOutputEnabled(true);
+        removeCause(StopCause.USER_STOP);
     }
 
-    public OutputState outputState() {
-        return outputState;
+    private void addCause(StopCause cause) {
+        synchronized (causeLock) {
+            if (stopCauses.add(cause)) {
+                applyLatch();
+            }
+        }
+    }
+
+    private void removeCause(StopCause cause) {
+        synchronized (causeLock) {
+            if (stopCauses.remove(cause)) {
+                applyLatch();
+            }
+        }
+    }
+
+    /** Recompute the fanned master latch from the current causes. Caller holds causeLock. */
+    private void applyLatch() {
+        boolean enabled = stopCauses.isEmpty();
+        this.outputEnabled = enabled;
+        backends.setOutputEnabled(enabled);
+    }
+
+    /** A snapshot of the runtime causes holding output off; the client folds in config and quarantine. */
+    public OutputStatus outputStatus() {
+        synchronized (causeLock) {
+            return OutputStatus.of(stopCauses);
+        }
+    }
+
+    public boolean isUserStopped() {
+        synchronized (causeLock) {
+            return stopCauses.contains(StopCause.USER_STOP);
+        }
+    }
+
+    public boolean isWatchdogStopped() {
+        synchronized (causeLock) {
+            return stopCauses.contains(StopCause.WATCHDOG);
+        }
     }
 
     /** Freeze the governed scenes and stop hardware for a possible resume. */
@@ -216,12 +256,7 @@ public final class HapticWorker {
         return paused;
     }
 
-    /** Master enable/disable across every backend (panic latch and config). */
-    public void setOutputEnabled(boolean enabled) {
-        this.outputEnabled = enabled;
-        backends.setOutputEnabled(enabled);
-    }
-
+    /** Whether output is currently permitted (no runtime cause holds it off); the fanned latch mirror. */
     public boolean isOutputEnabled() {
         return outputEnabled;
     }

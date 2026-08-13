@@ -33,6 +33,7 @@ public final class MinegasmHubScreen extends Screen {
     private long observedGeneration = -1;
     private boolean observedEnabled;
     private int observedBridgeConn;
+    private int observedSafety = -1;
     private RowScroller scroller;
 
     public MinegasmHubScreen(Screen parent, MinegasmClient client) {
@@ -50,14 +51,23 @@ public final class MinegasmHubScreen extends Screen {
         int half = (w - 4) / 2;
 
         boolean enabled = client.config().enabled();
-        boolean panic = !client.runtime().worker().isOutputEnabled();
 
         addRenderableWidget(button(
                 Component.translatable(enabled ? "minegasm.output.on" : "minegasm.output.off"),
                 b -> toggleEnabled(), x, 44, half, h));
-        addRenderableWidget(button(
-                Component.translatable(panic ? "minegasm.safety.resume" : "minegasm.safety.stop"),
-                b -> togglePanic(), x + half + 4, 44, half, h));
+        // Stop only when running; Resume only for a user panic. A watchdog stop shows its own state and is
+        // not resumable by this button, so a resume can never clear a live watchdog stall (review P1-2).
+        if (client.runtime().worker().isUserStopped()) {
+            addRenderableWidget(button(Component.translatable("minegasm.safety.resume"),
+                    b -> resumeOutput(), x + half + 4, 44, half, h));
+        } else if (client.runtime().worker().isWatchdogStopped()) {
+            Button wd = addRenderableWidget(button(Component.translatable("minegasm.safety.watchdog"),
+                    b -> {}, x + half + 4, 44, half, h));
+            wd.active = false;
+        } else {
+            addRenderableWidget(button(Component.translatable("minegasm.safety.stop"),
+                    b -> stopOutput(), x + half + 4, 44, half, h));
+        }
 
         // Fixed bottom block (add-bridge, utilities, done), anchored to the screen bottom so it never
         // scrolls away no matter how many bridges are configured.
@@ -128,6 +138,7 @@ public final class MinegasmHubScreen extends Screen {
         observedGeneration = client.provider().devices().generation();
         observedEnabled = enabled;
         observedBridgeConn = bridgeConnMask();
+        observedSafety = safetyCode();
     }
 
     @Override
@@ -136,7 +147,8 @@ public final class MinegasmHubScreen extends Screen {
         if (client.status().state() != observedState
                 || client.provider().devices().generation() != observedGeneration
                 || client.config().enabled() != observedEnabled
-                || bridgeConnMask() != observedBridgeConn) {
+                || bridgeConnMask() != observedBridgeConn
+                || safetyCode() != observedSafety) {
             rebuildWidgets();
         }
     }
@@ -198,13 +210,20 @@ public final class MinegasmHubScreen extends Screen {
         rebuildWidgets();
     }
 
-    private void togglePanic() {
-        if (client.runtime().worker().isOutputEnabled()) {
-            client.panic();
-        } else {
-            client.clearPanic();
-        }
+    private void stopOutput() {
+        client.panic();
         rebuildWidgets();
+    }
+
+    private void resumeOutput() {
+        client.clearPanic(); // clears only the user-stop cause
+        rebuildWidgets();
+    }
+
+    /** A code for the safety state so the tick can rebuild the button when it changes. */
+    private int safetyCode() {
+        return (client.runtime().worker().isUserStopped() ? 1 : 0)
+                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0);
     }
 
     // Wheel scrolls the integration list, page-at-a-time via the scroller. The 4-arg overload with a

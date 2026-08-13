@@ -33,6 +33,7 @@ public final class ClassicHubScreen extends GuiScreen {
     private final GuiScreen parent;
     private final MinegasmClient client;
     private int observedBridgeConn;
+    private int observedSafety = -1;
     private RowScroller scroller;
 
     public ClassicHubScreen(GuiScreen parent) {
@@ -50,7 +51,8 @@ public final class ClassicHubScreen extends GuiScreen {
         int half = (w - 4) / 2;
 
         addButton(new GuiButton(ID_ENABLED, x, 44, half, h, enabledLabel()));
-        addButton(new GuiButton(ID_PANIC, x + half + 4, 44, half, h, panicLabel()));
+        GuiButton safety = addButton(new GuiButton(ID_PANIC, x + half + 4, 44, half, h, panicLabel()));
+        safety.enabled = !client.runtime().worker().isWatchdogStopped(); // a watchdog stop isn't resumable here
 
         // Fixed bottom block, anchored to the screen bottom so it never scrolls away.
         int doneY = height - 24;
@@ -103,6 +105,7 @@ public final class ClassicHubScreen extends GuiScreen {
         }
         addButton(new GuiButton(ID_DONE, x, doneY, w, h, "Done"));
         observedBridgeConn = bridgeConnMask();
+        observedSafety = safetyCode();
     }
 
     @Override
@@ -168,10 +171,15 @@ public final class ClassicHubScreen extends GuiScreen {
 
     @Override
     public void updateScreen() {
-        // Rebuild when a bridge's adapter link comes up or drops, so the connection labels stay live.
-        if (bridgeConnMask() != observedBridgeConn) {
+        // Rebuild when a bridge link changes or the safety state changes, so the labels never go stale.
+        if (bridgeConnMask() != observedBridgeConn || safetyCode() != observedSafety) {
             initGui();
         }
+    }
+
+    private int safetyCode() {
+        return (client.runtime().worker().isUserStopped() ? 1 : 0)
+                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0);
     }
 
     /** A bit per configured bridge that is connected to its adapter, so the rows refresh as links come up. */
@@ -186,10 +194,10 @@ public final class ClassicHubScreen extends GuiScreen {
     }
 
     private void togglePanic() {
-        if (client.runtime().worker().isOutputEnabled()) {
+        if (client.runtime().worker().isUserStopped()) {
+            client.clearPanic(); // clears only the user-stop cause
+        } else if (!client.runtime().worker().isWatchdogStopped()) {
             client.panic();
-        } else {
-            client.clearPanic();
         }
     }
 
@@ -198,7 +206,13 @@ public final class ClassicHubScreen extends GuiScreen {
     }
 
     private String panicLabel() {
-        return client.runtime().worker().isOutputEnabled() ? "Stop" : "Resume";
+        if (client.runtime().worker().isUserStopped()) {
+            return "Resume";
+        }
+        if (client.runtime().worker().isWatchdogStopped()) {
+            return "Watchdog stopped";
+        }
+        return "Stop";
     }
 
     private String buttplugLabel() {

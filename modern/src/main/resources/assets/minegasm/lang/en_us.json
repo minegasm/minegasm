@@ -156,6 +156,7 @@
   "minegasm.output.off": "Feedback: disabled",
   "minegasm.safety.stop": "Emergency stop",
   "minegasm.safety.resume": "Resume after emergency stop",
+  "minegasm.safety.watchdog": "Watchdog stopped",
   "minegasm.adapter.current": "Connection adapter: %s",
   "minegasm.adapter.next_restart": "Next restart: %s adapter",
   "minegasm.adapter.buttplug4j": "buttplug4j",

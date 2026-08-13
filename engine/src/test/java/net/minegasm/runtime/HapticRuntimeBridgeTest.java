@@ -102,7 +102,7 @@ class HapticRuntimeBridgeTest {
         HapticRuntime rt = new HapticRuntime(provider, clock, () -> RuntimeConfig.defaults(),
                 new PackRegistry(), null);
 
-        rt.worker().setOutputEnabled(false); // panic / master off
+        rt.worker().enterUserStop(); // panic / master off
         rt.reconcileBridges(Collections.singletonList(
                 new BridgeEndpoint("late", URI.create("tcp://127.0.0.1:12347"), () -> transport)));
 
@@ -111,7 +111,7 @@ class HapticRuntimeBridgeTest {
         bridge.onGovernedScenes(Collections.singletonList(scene("a", clock.nanoTime())), clock.nanoTime());
         assertFalse(transport.effects() > 0, "a bridge added while latched off must not forward scenes");
 
-        rt.worker().setOutputEnabled(true); // panic cleared / resumed
+        rt.worker().clearUserStop(); // panic cleared / resumed
         bridge.onGovernedScenes(Collections.singletonList(scene("b", clock.nanoTime())), clock.nanoTime());
         assertTrue(transport.effects() > 0, "once output resumes the bridge forwards normally");
 

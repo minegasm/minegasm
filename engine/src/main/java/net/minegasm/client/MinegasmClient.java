@@ -660,6 +660,24 @@ public final class MinegasmClient {
     }
 
     /**
+     * One immutable snapshot of why output is or isn't flowing, for every screen and command to read (so a
+     * button label can't disagree with the live state). Folds the runtime causes the worker owns (user
+     * stop, watchdog) together with the config disable toggle and any quarantined backend.
+     */
+    public net.minegasm.runtime.OutputStatus outputStatus() {
+        java.util.EnumSet<net.minegasm.runtime.StopCause> causes =
+                java.util.EnumSet.noneOf(net.minegasm.runtime.StopCause.class);
+        causes.addAll(runtime.worker().outputStatus().causes());
+        if (!config.get().enabled()) {
+            causes.add(net.minegasm.runtime.StopCause.DISABLED);
+        }
+        if (!runtime.quarantinedBackends().isEmpty()) {
+            causes.add(net.minegasm.runtime.StopCause.BACKEND_FAULT);
+        }
+        return net.minegasm.runtime.OutputStatus.of(causes);
+    }
+
+    /**
      * Integration status lines for {@code /mg status}, alongside the Buttplug status the command already
      * prints: one line per configured bridge, then a health line if any backend has faulted during output.
      * The bridge line shows the whole chain it can see: the mod-to-adapter link, and, when the adapter
