@@ -1,5 +1,6 @@
 package net.minegasm.pack;
 
+import net.minegasm.core.BodyRegion;
 import net.minegasm.core.CouplingMode;
 import net.minegasm.core.DeliveryMode;
 import net.minegasm.core.HapticLayer;
@@ -39,6 +40,7 @@ public final class LayerTemplate {
     private final int expiresAfterMs;
     private final String coalesceKey;
     private final float strengthWeight;
+    private final BodyRegion bodyRegion;
 
     public LayerTemplate(String layerId, HapticRole role, HapticPrimitive primitive,
                          Set<OutputKind> allowedOutputs, DeliveryMode delivery, CouplingMode coupling,
@@ -51,6 +53,14 @@ public final class LayerTemplate {
                          Set<OutputKind> allowedOutputs, DeliveryMode delivery, CouplingMode coupling,
                          int priority, int startOffsetMs, int expiresAfterMs, String coalesceKey,
                          float strengthWeight) {
+        this(layerId, role, primitive, allowedOutputs, delivery, coupling, priority, startOffsetMs,
+                expiresAfterMs, coalesceKey, strengthWeight, BodyRegion.WHOLE_BODY);
+    }
+
+    public LayerTemplate(String layerId, HapticRole role, HapticPrimitive primitive,
+                         Set<OutputKind> allowedOutputs, DeliveryMode delivery, CouplingMode coupling,
+                         int priority, int startOffsetMs, int expiresAfterMs, String coalesceKey,
+                         float strengthWeight, BodyRegion bodyRegion) {
         if (layerId == null || layerId.trim().isEmpty()) {
             throw new IllegalArgumentException("layerId required");
         }
@@ -73,6 +83,7 @@ public final class LayerTemplate {
         this.expiresAfterMs = expiresAfterMs;
         this.coalesceKey = coalesceKey;
         this.strengthWeight = HapticMath.clamp01(strengthWeight);
+        this.bodyRegion = bodyRegion == null ? BodyRegion.WHOLE_BODY : bodyRegion;
     }
 
     public String layerId() {
@@ -119,6 +130,11 @@ public final class LayerTemplate {
         return strengthWeight;
     }
 
+    /** Where this layer is delivered on the body; {@link BodyRegion#WHOLE_BODY} unless authored otherwise. */
+    public BodyRegion bodyRegion() {
+        return bodyRegion;
+    }
+
     /** Build the runtime layer at full volume and full strength (the authored reference). */
     public HapticLayer materialize() {
         return materialize(1f, 1f);
@@ -136,7 +152,7 @@ public final class LayerTemplate {
         HapticRoute route = new HapticRoute(allowedOutputs, Collections.<Integer>emptySet(),
                 Collections.emptySet(), Collections.emptySet(), delivery);
         return new HapticLayer(layerId, role, scale(primitive, factor), route, coupling, priority,
-                startOffsetMs * 1_000_000L, expiresAfterMs * 1_000_000L, coalesceKey);
+                startOffsetMs * 1_000_000L, expiresAfterMs * 1_000_000L, coalesceKey, bodyRegion);
     }
 
     /**
@@ -202,13 +218,14 @@ public final class LayerTemplate {
                 && Objects.equals(allowedOutputs, other.allowedOutputs)
                 && delivery == other.delivery
                 && coupling == other.coupling
-                && Objects.equals(coalesceKey, other.coalesceKey);
+                && Objects.equals(coalesceKey, other.coalesceKey)
+                && bodyRegion == other.bodyRegion;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(layerId, role, primitive, allowedOutputs, delivery, coupling, priority,
-                startOffsetMs, expiresAfterMs, coalesceKey, strengthWeight);
+                startOffsetMs, expiresAfterMs, coalesceKey, strengthWeight, bodyRegion);
     }
 
     @Override
@@ -217,6 +234,6 @@ public final class LayerTemplate {
                 + ", allowedOutputs=" + allowedOutputs + ", delivery=" + delivery + ", coupling="
                 + coupling + ", priority=" + priority + ", startOffsetMs=" + startOffsetMs
                 + ", expiresAfterMs=" + expiresAfterMs + ", coalesceKey=" + coalesceKey
-                + ", strengthWeight=" + strengthWeight + "]";
+                + ", strengthWeight=" + strengthWeight + ", bodyRegion=" + bodyRegion + "]";
     }
 }

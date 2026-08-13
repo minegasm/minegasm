@@ -6,6 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import net.minegasm.core.BodyRegion;
 import net.minegasm.core.CouplingMode;
 import net.minegasm.core.DeliveryMode;
 import net.minegasm.core.GameEventKind;
@@ -132,8 +133,9 @@ public final class ScenePackCodec {
         int expiresAfterMs = boundMs(optInt(o, "expiresAfterMs", 0));
         String coalesceKey = optNullableString(o, "coalesceKey");
         float strengthWeight = unit(o, "strengthWeight");
+        BodyRegion bodyRegion = optEnum(BodyRegion.class, o, "region", BodyRegion.WHOLE_BODY);
         return new LayerTemplate(layerId, role, primitive, allowed, delivery, coupling, priority,
-                startOffsetMs, expiresAfterMs, coalesceKey, strengthWeight);
+                startOffsetMs, expiresAfterMs, coalesceKey, strengthWeight, bodyRegion);
     }
 
     private static HapticPrimitive readPrimitive(JsonObject o) {
@@ -255,6 +257,9 @@ public final class ScenePackCodec {
         }
         if (l.strengthWeight() > 0f) {
             o.addProperty("strengthWeight", l.strengthWeight());
+        }
+        if (l.bodyRegion() != BodyRegion.WHOLE_BODY) {
+            o.addProperty("region", l.bodyRegion().name());
         }
         return o;
     }

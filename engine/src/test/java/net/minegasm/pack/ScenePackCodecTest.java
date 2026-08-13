@@ -1,5 +1,6 @@
 package net.minegasm.pack;
 
+import net.minegasm.core.BodyRegion;
 import net.minegasm.core.CouplingMode;
 import net.minegasm.core.DeliveryMode;
 import net.minegasm.core.GameEventKind;
@@ -15,6 +16,7 @@ import java.util.EnumSet;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,6 +30,28 @@ class ScenePackCodecTest {
         ScenePack pack = allPrimitivesPack();
         ScenePack parsed = codec.fromJson(codec.toJson(pack));
         assertEquals(pack, parsed);
+    }
+
+    @Test
+    void roundTripPreservesBodyRegionAndOmitsWholeBody() {
+        LayerTemplate scoped = new LayerTemplate("g", HapticRole.IMPACT,
+                new HapticPrimitive.Hold(0.5f, 200, 0, 0), Collections.<OutputKind>emptySet(),
+                DeliveryMode.ALL_COMPATIBLE, CouplingMode.MAX, 100, 0, 200, null, 0f, BodyRegion.GENITAL);
+        LayerTemplate wholeBody = layer("wb", new HapticPrimitive.Hold(0.5f, 200, 0, 0),
+                Collections.<OutputKind>emptySet());
+        SceneTemplate scene = new SceneTemplate(100, 200, "cont", Arrays.asList(scoped, wholeBody));
+        ScenePack pack = new ScenePack(ScenePack.SCHEMA_VERSION, "region.pack", "Region", "author",
+                "a pack with a region-scoped layer",
+                Collections.singletonList(new PackTrigger(GameEventKind.HURT, scene)));
+
+        String json = codec.toJson(pack);
+        ScenePack parsed = codec.fromJson(json);
+
+        assertEquals(pack, parsed, "an authored region survives the round trip");
+        assertEquals(BodyRegion.GENITAL, parsed.triggers().get(0).scene().layers().get(0).bodyRegion());
+        assertEquals(BodyRegion.WHOLE_BODY, parsed.triggers().get(0).scene().layers().get(1).bodyRegion());
+        assertTrue(json.contains("GENITAL"), "the explicit region is written");
+        assertFalse(json.contains("WHOLE_BODY"), "the whole-body default is omitted, not written out");
     }
 
     @Test
