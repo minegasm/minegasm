@@ -55,11 +55,17 @@ a regression test unless noted.
   advance on connect, disconnect, and stop, so a backlog built before a drop is invalidated rather than run
   against the new device list. The dependency-free compensation helper has unit tests. A provider-level test
   against an injectable buttplug4j client seam is still the gap noted below.
-- **P1-6 safety lifecycle failures are still silently discarded.** Open. Render faults quarantine correctly,
-  but lifecycle calls (stop, emergency stop, pause, resume, start, close, latch fan-out) still discard their
-  result, so a failed stop is not distinguished from a delivered one in the global status. This is the next
-  item: typed lifecycle outcomes feeding a shared backend-health snapshot that the hub, status command, and
-  logs all read, with asynchronous provider stops tracked to completion.
+- **P1-6 safety lifecycle failures are still silently discarded.** Addressed for the safety-critical case.
+  A `stop` or `emergencyStop` that throws is no longer discarded: the backend is recorded as faulted and
+  quarantined, and both calls return the count of backends whose stop was not confirmed. Because the
+  quarantine already folds into `OutputStatus` (a `BACKEND_FAULT` cause) and into `buttplugFaulted` /
+  `bridgeFaulted`, a failed stop surfaces on the hub and in `/mg status` as a fault rather than a clean
+  stopped state, through the fault surface that already existed, without new per-loader logic. Test: a
+  throwing stop and a throwing emergency stop are each recorded and quarantined while the other backends
+  still stop. Still open: an asynchronous provider stop that fails only after its completion stage settles
+  is not caught synchronously here; a provider health callback into the same fault surface is the remaining
+  part, along with the shared view-state/action-result layer the review recommends for the UI (a P2/UX pass,
+  not the safety core).
 
 ## P2 findings
 
@@ -76,7 +82,10 @@ a regression test unless noted.
 
 ## Still open
 
-- **P1-6 lifecycle-failure outcomes and shared integration health** (next).
+- **Asynchronous provider stop completion** (P1-6 residual): a provider health callback so a stop that
+  fails only after its async completion stage settles surfaces the same way a synchronous one now does.
+- **Shared view-state and action-result UI layer** across both loader families (the review's UX pass), so
+  every screen reads one status model instead of repeating boolean logic.
 - **Provider-level buttplug4j integration test** behind an injectable client seam (P1-5 residual).
 - **Write-off-mutex writer with generation tokens** in the XToys adapter (P1-4 hardening).
 - **Hardware feel pass**, which needs Intiface, a toy, and XToys on a real machine. Not runnable here. (The

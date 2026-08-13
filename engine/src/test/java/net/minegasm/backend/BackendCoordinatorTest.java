@@ -42,11 +42,34 @@ class BackendCoordinatorTest {
         FakeBackend ok = new FakeBackend("ok");
         BackendCoordinator coordinator = new BackendCoordinator(Arrays.asList(boom, ok));
 
-        coordinator.stopAll(StopReason.PANIC); // must not throw out of the coordinator
+        int unconfirmed = coordinator.stopAll(StopReason.PANIC); // must not throw out of the coordinator
 
         assertTrue(ok.stops.contains(StopReason.PANIC),
                 "a throwing backend must not prevent the other from stopping");
         assertTrue(boom.stops.contains(StopReason.PANIC), "the throwing backend still received the stop");
+        // A failed stop is the safety-critical case: it must not be discarded. It surfaces as a fault and
+        // the backend is quarantined, so the UI cannot keep reporting it as cleanly stopped (P1-6).
+        assertEquals(1, unconfirmed, "the failed stop is reported as unconfirmed");
+        assertTrue(coordinator.quarantined().contains("boom"), "a backend whose stop failed is quarantined");
+        assertFalse(coordinator.quarantined().contains("ok"), "the backend that stopped cleanly is not");
+        assertEquals(1, coordinator.faultCount(), "the failed stop is recorded for health reporting");
+        coordinator.close();
+    }
+
+    @Test
+    void aFailedEmergencyStopIsRecordedAndQuarantined() {
+        FakeBackend boom = new FakeBackend("boom");
+        boom.throwOnEmergencyStop = true;
+        FakeBackend ok = new FakeBackend("ok");
+        BackendCoordinator coordinator = new BackendCoordinator(Arrays.asList(boom, ok));
+
+        int unconfirmed = coordinator.emergencyStop(StopReason.WATCHDOG);
+
+        assertEquals(1, unconfirmed, "the watchdog's last-resort stop failed on one backend");
+        assertTrue(ok.emergencyStops > 0, "the other backend still got the emergency stop");
+        assertTrue(coordinator.quarantined().contains("boom"),
+                "a backend whose emergency stop failed is quarantined, not silently discarded");
+        assertEquals(1, coordinator.faultCount());
         coordinator.close();
     }
 
@@ -101,8 +124,10 @@ class BackendCoordinatorTest {
         private final String id;
         final List<StopReason> stops = new ArrayList<>();
         boolean throwOnStop;
+        boolean throwOnEmergencyStop;
         boolean throwOnGoverned;
         int governedCalls;
+        int emergencyStops;
         boolean started;
         boolean closed;
 
@@ -133,6 +158,14 @@ class BackendCoordinatorTest {
             stops.add(reason);
             if (throwOnStop) {
                 throw new RuntimeException("stop boom from " + id);
+            }
+        }
+
+        @Override
+        public void emergencyStop(StopReason reason) {
+            emergencyStops++;
+            if (throwOnEmergencyStop) {
+                throw new RuntimeException("emergency stop boom from " + id);
             }
         }
 

@@ -158,23 +158,54 @@ public final class BackendCoordinator implements AutoCloseable {
 
     /**
      * Stop every backend now, inline and guarded (brief 0003 §3.3): when this returns every reachable
-     * backend's stop has run, and one backend throwing cannot skip another.
+     * backend's stop has run, and one backend throwing cannot skip another. A stop that throws is not
+     * discarded: the backend is recorded as faulted and quarantined, so a failed stop, the operation that
+     * matters most to safety, becomes a visible unresolved fault rather than a silent one that the UI still
+     * reports as stopped (review P1-6). Returns the number of backends whose stop was not confirmed.
      */
-    public void stopAll(final StopReason reason) {
+    public int stopAll(final StopReason reason) {
+        int unconfirmed = 0;
         for (final HapticBackend b : backends) {
-            guard(() -> b.stop(reason));
+            if (!confirmStop(b, "stop failed", () -> b.stop(reason))) {
+                unconfirmed++;
+            }
         }
+        return unconfirmed;
     }
 
     /**
      * Fan an out-of-band emergency stop to every backend (the watchdog path). Like the others it never
      * blocks the caller, but unlike {@link #stopAll} each backend does only thread-safe work here, so this
-     * is safe to call from the watchdog thread while the driver is mid-cycle.
+     * is safe to call from the watchdog thread while the driver is mid-cycle. A failed emergency stop is
+     * recorded and quarantined the same way, since this is the watchdog's last resort. The fault surface is
+     * thread-safe, so recording from the watchdog thread is fine. Returns the number left unconfirmed.
      */
-    public void emergencyStop(final StopReason reason) {
+    public int emergencyStop(final StopReason reason) {
+        int unconfirmed = 0;
         for (final HapticBackend b : backends) {
-            guard(() -> b.emergencyStop(reason));
+            if (!confirmStop(b, "emergency stop failed", () -> b.emergencyStop(reason))) {
+                unconfirmed++;
+            }
         }
+        return unconfirmed;
+    }
+
+    /**
+     * Run a stop action; on a synchronous failure record the fault and quarantine the backend, so a stop
+     * that could not be confirmed leaves the backend in a fault state instead of being swallowed. Returns
+     * whether the stop completed. A backend whose stop throws is taken out of fan-out until it recovers,
+     * the same treatment a render fault gets. Asynchronous provider stops that fail only after their
+     * completion stage settles are not caught here; surfacing those needs a provider health callback, noted
+     * as the remaining part of this finding.
+     */
+    private boolean confirmStop(HapticBackend b, String label, Runnable action) {
+        RuntimeException fault = runGuarded(action);
+        if (fault != null) {
+            quarantined.add(b.id());
+            recordFault(b.id() + " " + label, fault);
+            return false;
+        }
+        return true;
     }
 
     public void pauseAll() {
