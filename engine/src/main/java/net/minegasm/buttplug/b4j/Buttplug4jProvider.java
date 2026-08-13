@@ -82,6 +82,11 @@ public final class Buttplug4jProvider implements HapticProvider {
     // changed it, so no write can reach a device after the stop that was meant to silence it.
     private final java.util.concurrent.atomic.AtomicLong sendEpoch =
             new java.util.concurrent.atomic.AtomicLong();
+    // Bumped on every connect, disconnect, and detected drop. A queued write captures it and refuses to
+    // run if the connection session changed, so a backlog from before a drop can't run after reconnect
+    // against a new client and device list (review follow-up P1-5).
+    private final java.util.concurrent.atomic.AtomicLong connGeneration =
+            new java.util.concurrent.atomic.AtomicLong();
 
     private volatile Consumer<ProviderStatus> statusListener = s -> {};
     private volatile Consumer<DeviceRegistrySnapshot> registryListener = s -> {};
@@ -167,6 +172,7 @@ public final class Buttplug4jProvider implements HapticProvider {
                     }
                     return status.get();
                 }
+                connGeneration.incrementAndGet(); // a fresh session; older queued writes are now stale
                 // connect() already requests and processes the initial DeviceList.
                 rebuildRegistry();
                 return status.get();
@@ -234,13 +240,17 @@ public final class Buttplug4jProvider implements HapticProvider {
             return CompletableFuture.completedFuture(null); // stale target (brief §9.5)
         }
         final long epoch = sendEpoch.get();
+        final long conn = connGeneration.get();
+        final long registryGen = command.registryGeneration();
         // Run the blocking library call off the worker thread so a hung device write can never wedge the
-        // driver cycle (review P1-1). If a stop-all bumped the epoch after this was queued, drop it so no
-        // write reaches a device after the stop. If a stop lands during the write, compensate with another
-        // stop so a device is never left non-zero (review follow-up P1-2).
+        // driver cycle (review P1-1). Re-check the session immediately before dispatch: skip if a stop-all
+        // (epoch), a reconnect (conn generation), or a device-list change (registry) happened after this was
+        // queued, so no stale write runs against a new session (P1-5). If a stop lands during the write,
+        // compensate so a device is never left non-zero (P1-2).
         try {
             sendExecutor.execute(() -> {
-                if (epoch != sendEpoch.get()) {
+                if (epoch != sendEpoch.get() || conn != connGeneration.get()
+                        || registryGen != registry.snapshot().generation()) {
                     return; // superseded before the write started
                 }
                 StopCompensation.writeThenMaybeStop(epoch, sendEpoch::get,
@@ -330,6 +340,7 @@ public final class Buttplug4jProvider implements HapticProvider {
     @Override
     public void disconnect() {
         connectGeneration.incrementAndGet(); // invalidate any connect still in flight
+        connGeneration.incrementAndGet();    // invalidate any queued device write from this session
         try {
             client.disconnect();
         } catch (RuntimeException ignored) {
