@@ -44,9 +44,12 @@ a regression test unless noted.
   owed zero is not lost across a reconnect. The link is supervised while any client is connected, so an
   owed zero is redelivered by the next authoritative resend even if a single write failed ambiguously.
   Go tests cover reconnect resend, owed-zero-after-drop, and per-role cross-client combination.
-  Still open as hardening, not correctness: moving every downstream write off the mutex into a single-owner
-  writer with explicit generation tokens. The authoritative full-state resend removes the stale-replay class
-  that motivated it, so this is a robustness improvement rather than a known unsafe path.
+  One narrow correctness edge stays open: an ambiguous failed nonzero write followed by the last client
+  disconnecting leaves the owed zero unrecorded with no client to keep the link supervised, so a nonzero
+  could sit at XToys with no mod attached. Client-connected supervision covers every case except that
+  teardown window. Closing it is the single-owner writer with explicit generation tokens (writes off the
+  mutex, delivery committed only if the generation is still current); the authoritative full-state resend
+  already removes the broader stale-replay class.
 - **P1-5 Buttplug writes not scoped to a session.** Each queued write re-checks the send epoch, the
   connection generation, and the registry generation immediately before dispatch, and the generations
   advance on connect, disconnect, and stop, so a backlog built before a drop is invalidated rather than run
@@ -76,8 +79,9 @@ a regression test unless noted.
 - **P1-6 lifecycle-failure outcomes and shared integration health** (next).
 - **Provider-level buttplug4j integration test** behind an injectable client seam (P1-5 residual).
 - **Write-off-mutex writer with generation tokens** in the XToys adapter (P1-4 hardening).
-- **Cross-backend conformance and hardware feel pass**, which needs Intiface, a toy, and XToys on a real
-  machine. Not runnable here.
+- **Hardware feel pass**, which needs Intiface, a toy, and XToys on a real machine. Not runnable here. (The
+  cross-backend conformance test is a unit test and is included: it feeds one governed set to both the bridge
+  forwarder and the Buttplug mixer and asserts a suppressed layer reaches neither.)
 
 ## Phase 2 reminder (region gets teeth)
 
