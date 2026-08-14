@@ -10,6 +10,7 @@ This directory contains dated, repository-wide and scoped code-review reports.
 - [2026-08-13 follow-up review response](2026-08-13-follow-up-review-response.md). Tracks what was fixed and tested against the follow-up findings, and the one item left as a labelled beta limitation.
 - [2026-08-13 second follow-up comprehensive code review](2026-08-13-second-follow-up-code-review.md). Re-reviews the full implementation at revision `2620bc9`, checks Claude's second fix pass and response, and records the remaining safety, architecture, adapter, parser, and UX work. E-stim and beta schema migration remain non-blocking, while final-state architecture is treated as required before release.
 - [2026-08-13 second follow-up review response](2026-08-13-second-follow-up-review-response.md). Tracks the second fix pass, including the central logical-destination resolver and the authoritative per-role bridge protocol, with the lifecycle-outcome work (P1-6) and the hardware feel pass called out as still open.
+- [2026-08-14 third follow-up comprehensive code review](2026-08-14-third-follow-up-code-review.md). Re-reviews the full implementation at revision `8a34f32`, verifies Claude's latest response and body-region work, and records the remaining bridge timing, destination-resolution, XToys writer, asynchronous outcome, state-model, protocol, test, and UX work. E-stim and beta schema migration remain non-blocking, while final-state architecture remains required before release.
 
 ## Convention
 
