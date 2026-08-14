@@ -8,12 +8,10 @@ import net.minegasm.buttplug.ProviderStatus;
 import net.minegasm.buttplug.StopCompensation;
 import net.minegasm.buttplug.StopSelection;
 import net.minegasm.device.DeviceRegistrySnapshot;
-import net.minegasm.device.HapticDevice;
 
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -26,9 +24,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-
-import io.github.blackspherefollower.buttplug4j.client.ButtplugClientDevice;
-import io.github.blackspherefollower.buttplug4j.client.ButtplugClientDeviceFeature;
 
 /**
  * {@link HapticProvider} backed by the buttplug4j client library (v4 feature-based spec). buttplug4j
@@ -307,7 +302,7 @@ public final class Buttplug4jProvider implements HapticProvider {
                 // library boundary. Scheduling another fire-and-forget stop here could report the write
                 // superseded while silently losing the only zero ordered after it.
                 StopCompensation.writeThenMaybeStop(epoch, sendEpoch::get,
-                        () -> dispatch(command), Buttplug4jProvider.this::compensatingStop);
+                        () -> client.run(command), Buttplug4jProvider.this::compensatingStop);
                 if (epoch == sendEpoch.get()) {
                     completion.complete(null);
                 } else {
@@ -338,47 +333,6 @@ public final class Buttplug4jProvider implements HapticProvider {
         }
     }
 
-    private void dispatch(OutputCommand command) {
-        ButtplugClientDeviceFeature feature = findFeature(
-                command.deviceIndex(), command.featureIndex()).orElseThrow(
-                () -> new CancellationException("target feature no longer exists"));
-        float f = command.value() / (float) B4jDeviceMapper.RESOLUTION;
-        int durationMs = command.durationMs() == null ? 0 : command.durationMs();
-        try {
-            switch (command.kind()) {
-                    case VIBRATE:
-                        feature.runVibrateFloat(f);
-                        break;
-                    case OSCILLATE:
-                        feature.runOscillateFloat(f);
-                        break;
-                    case ROTATE:
-                        feature.runRotateFloat(f);
-                        break;
-                    case CONSTRICT:
-                        feature.runConstrictFloat(f);
-                        break;
-                    case POSITION:
-                        feature.runPositionFloat(f);
-                        break;
-                    case TEMPERATURE:
-                        feature.runTemperatureFloat(f);
-                        break;
-                    case LED:
-                        feature.runLedFloat(f);
-                        break;
-                    case HW_POSITION_WITH_DURATION:
-                        feature.runHwPositionWithDurationFloat(f, durationMs);
-                        break;
-                    case UNKNOWN:
-                    default:
-                        break; // never rendered
-            }
-        } catch (Exception failure) {
-            throw new CompletionException(failure);
-        }
-    }
-
     @Override
     public CompletionStage<Void> stop(StopSelection selection) {
         if (!canSendMessages()) {
@@ -396,16 +350,10 @@ public final class Buttplug4jProvider implements HapticProvider {
                     client.stopAllDevices();
                 } else if (selection instanceof StopSelection.Device) {
                     StopSelection.Device d = (StopSelection.Device) selection;
-                    findDevice(d.deviceIndex()).ifPresent(this::stopDevice);
+                    client.stopDevice(d.deviceIndex());
                 } else if (selection instanceof StopSelection.Feature) {
                     StopSelection.Feature f = (StopSelection.Feature) selection;
-                    findDevice(f.deviceIndex()).ifPresent(device -> {
-                        try {
-                            device.sendStopDeviceCmd(f.featureIndex());
-                        } catch (Exception failure) {
-                            throw new CompletionException(failure);
-                        }
-                    });
+                    client.stopFeature(f.deviceIndex(), f.featureIndex());
                 } else {
                     throw new IllegalStateException("Unknown StopSelection: " + selection);
                 }
@@ -465,38 +413,8 @@ public final class Buttplug4jProvider implements HapticProvider {
                 new IllegalStateException("cannot " + operation + " while disconnected"));
     }
 
-    private void stopDevice(ButtplugClientDevice device) {
-        try {
-            device.sendStopDeviceCmd();
-        } catch (Exception ignored) {
-            // best effort
-        }
-    }
-
-    private Optional<ButtplugClientDevice> findDevice(int deviceIndex) {
-        List<ButtplugClientDevice> devices = client.devices();
-        if (devices == null) {
-            return Optional.empty();
-        }
-        return devices.stream().filter(d -> d.getDeviceIndex() == deviceIndex).findFirst();
-    }
-
-    private Optional<ButtplugClientDeviceFeature> findFeature(int deviceIndex, int featureIndex) {
-        return findDevice(deviceIndex).map(d -> {
-            Map<Integer, ButtplugClientDeviceFeature> features = d.getDeviceFeatures();
-            return features == null ? null : features.get(featureIndex);
-        });
-    }
-
     private void rebuildRegistry() {
-        List<HapticDevice> mapped = new ArrayList<>();
-        List<ButtplugClientDevice> devices = client.devices();
-        if (devices != null) {
-            for (ButtplugClientDevice device : devices) {
-                mapped.add(B4jDeviceMapper.map(device, 0L)); // generation stamped by registry.accept
-            }
-        }
-        DeviceRegistrySnapshot snapshot = registry.accept(mapped);
+        DeviceRegistrySnapshot snapshot = registry.accept(client.deviceSnapshots());
         registryListener.accept(snapshot);
         setState(snapshot.isEmpty() ? ConnectionState.CONNECTED_NO_DEVICES : ConnectionState.READY);
     }

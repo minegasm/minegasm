@@ -36,6 +36,7 @@ Write-Output "MAIN COMPILE OK ($($mainSrc.Count) files)"
 # WebSocketTransport are the loader-side JDK-WebSocket glue (java.net.http, Java 11+) and are compiled
 # by the Gradle build, not here, so this Java 8 slice stays free of them.
 $b4jLibs = "$build\libs\b4j"
+$b4jBuilt = $false
 if (Test-Path $b4jLibs) {
     $b4jCp = ((Get-ChildItem $b4jLibs -Filter *.jar | ForEach-Object { $_.FullName }) -join ';')
     $b4jSrc = @()
@@ -45,6 +46,7 @@ if (Test-Path $b4jLibs) {
     & "$bin\javac.exe" --release 8 -d "$out\b4j-classes" -cp "$out\classes;$gson;$b4jCp" "@$out\b4j-sources.txt" 2> "$out\javac-b4j.log"
     if ($LASTEXITCODE -ne 0) { Get-Content "$out\javac-b4j.log"; Write-Output "B4J COMPILE FAILED"; exit 1 }
     Write-Output "B4J COMPILE OK ($($b4jSrc.Count) files vs buttplug4j 4.0.278)"
+    $b4jBuilt = $true
 }
 
 if (-not $Test) { exit 0 }
@@ -52,10 +54,19 @@ if (-not $Test) { exit 0 }
 $testRoot = "$proj\engine\src\test\java"
 if (-not (Test-Path $testRoot)) { Write-Output "no tests yet"; exit 0 }
 $testSrc = Get-ChildItem $testRoot -Recurse -Filter *.java | Select-Object -ExpandProperty FullName
+# The b4j provider classes are compiled separately (against buttplug4j). Their tests use the neutral
+# facade seam, so they need the b4j classes but not the library. When the b4j step did not run (no library
+# jars present), skip those tests rather than fail the whole test compile.
+$b4jCpSuffix = ""
+if ($b4jBuilt) {
+    $b4jCpSuffix = ";$out\b4j-classes"
+} else {
+    $testSrc = $testSrc | Where-Object { $_ -notmatch '\\b4j\\' }
+}
 if ($testSrc.Count -eq 0) { Write-Output "no tests yet"; exit 0 }
 [System.IO.File]::WriteAllLines("$out\test-sources.txt", $testSrc)
 
-$cp = "$out\classes;$gson;$junit"
+$cp = "$out\classes;$gson;$junit$b4jCpSuffix"
 & "$bin\javac.exe" -d "$out\test-classes" -cp $cp "@$out\test-sources.txt" 2> "$out\javac-test.log"
 $testExit = $LASTEXITCODE
 Get-Content "$out\javac-test.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match "error:" }
@@ -63,7 +74,7 @@ if ($testExit -ne 0) { Write-Output "TEST COMPILE FAILED"; exit 1 }
 Write-Output "TEST COMPILE OK ($($testSrc.Count) files)"
 
 & "$bin\java.exe" -jar $junit execute `
-    --class-path "$out\classes;$out\test-classes;$gson" `
+    --class-path "$out\classes;$out\test-classes;$gson$b4jCpSuffix" `
     --scan-classpath="$out\test-classes" `
     --details=tree --disable-banner 2> "$out\junit.log"
 $runExit = $LASTEXITCODE

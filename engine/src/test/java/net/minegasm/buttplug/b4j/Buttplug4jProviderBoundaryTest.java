@@ -1,7 +1,8 @@
 package net.minegasm.buttplug.b4j;
 
-import io.github.blackspherefollower.buttplug4j.client.ButtplugClientDevice;
+import net.minegasm.buttplug.OutputCommand;
 import net.minegasm.buttplug.StopSelection;
+import net.minegasm.device.HapticDevice;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -73,7 +74,10 @@ class Buttplug4jProviderBoundaryTest {
         @Override public void startScanning() { }
         @Override public void stopScanning() { }
         @Override public void requestDeviceList() { }
-        @Override public List<ButtplugClientDevice> devices() { return Collections.emptyList(); }
+        @Override public List<HapticDevice> deviceSnapshots() { return Collections.emptyList(); }
+        @Override public void run(OutputCommand command) { }
+        @Override public void stopDevice(int deviceIndex) { }
+        @Override public void stopFeature(int deviceIndex, int featureIndex) { }
 
         @Override
         public void stopAllDevices() throws Exception {
