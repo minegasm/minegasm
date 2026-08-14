@@ -47,3 +47,34 @@ The intent is that a hardware feel pass, with more than one toy in different pla
 this. Likely revisions to weigh then: whether the reward family should really be genital or something
 gentler, whether level-up deserves its own treatment, and whether any activity texture (mining, harvest)
 reads better on a specific region than whole body. None of that changes the mechanism, only this table.
+
+## Possible extension: grouping regions (a hierarchy)
+
+Status: not built, captured here for the feel pass to decide.
+
+Today `BodyRegion` is flat. The only grouping is `WHOLE_BODY`, which reaches everything. `overlaps` is "equal,
+or either side is whole body" and `contains` is "whole body, or itself." So a region like `LOWER_BODY`, if it
+were added now, would overlap only itself and whole body, not `GENITAL` or `ANAL`, which is not what a
+grouping region should mean.
+
+The model is built to grow into a hierarchy without changing anything that consumes it. The two relations
+are already the seams; whole body is just the top of a tree that currently has one level. Generalize them
+from the flat special case to a containment map, for example:
+
+- `LOWER_BODY` contains `GENITAL`, `ANAL`, `PERINEAL`
+- `UPPER_BODY` contains `NIPPLE`, `ORAL`
+- `WHOLE_BODY` contains everything (the existing top)
+
+Then `contains(a, b)` means a is an ancestor of b or equal to it, and `overlaps(a, b)` is
+`contains(a, b) || contains(b, a)`. Everything else falls out with no other change:
+
+- A device tagged `LOWER_BODY` receives genital and anal effects, since it contains both.
+- An effect tagged `LOWER_BODY` reaches a genital-tagged device.
+- A `LOWER_BODY` exclusive owns, and so suppresses, lower-priority genital and anal layers of the same role
+  in the governor, since it contains their region. That is the intended "this warning owns the whole lower
+  body" behavior, and it already works for whole body today.
+
+Two things to keep in mind before building it. The flat `overlaps`/`contains` become hierarchy-aware (a
+small ancestor map plus a walk), and every existing test has to still hold at the whole-body default, since
+untagged setups must not change. And the groupings themselves are an anatomy and product call, not a code
+question, so the taxonomy wants real hardware behind it. The mechanism is easy; the tree is the judgement.
