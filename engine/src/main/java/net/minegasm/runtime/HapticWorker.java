@@ -36,6 +36,12 @@ public final class HapticWorker {
     private final Supplier<RuntimeConfig> config;
 
     private final AtomicLong lastHealthyCycleNs = new AtomicLong();
+    private final Object heartbeatLock = new Object();
+    // Recovery must never re-enable output halfway through a cycle whose scene snapshot was taken while
+    // the watchdog latch was still active. A non-blocking tryLock lets the watchdog defer recovery when a
+    // backend is genuinely hung without making the client or watchdog thread wait for that backend.
+    private final java.util.concurrent.locks.ReentrantLock cycleTransition =
+            new java.util.concurrent.locks.ReentrantLock();
     private volatile StopReason lastStopReason;
     private volatile boolean outputEnabled = true; // master latch mirror, recomputed from the causes below
     // The runtime causes holding output off, tracked independently so a watchdog stop and a user panic can
@@ -98,22 +104,31 @@ public final class HapticWorker {
      * backend keeps its own dispatched commands (see {@code ButtplugBackend.lastCommands}).
      */
     public synchronized void cycle(long nowNs) {
-        if (paused) {
-            lastHealthyCycleNs.set(nowNs);
-            return;
+        cycleTransition.lock();
+        try {
+            if (paused) {
+                recordHealthyCycle(nowNs);
+                return;
+            }
+            RuntimeConfig cfg = config.get();
+            // Only accrue fatigue when a rendering backend can actually drive the body; with nothing
+            // rendering, nothing fatigues (brief §10.6). The governor expires stale scenes, decays and
+            // accounts fatigue, and bakes the attenuation into the primitives it hands back.
+            boolean accountLoad = cfg.enabled() && backends.anyBodyDriving();
+            GovernedOutput output = scenes.resolve(nowNs, cfg.fatigueProtection(), accountLoad);
+            int faulted = backends.onGovernedOutput(output);
+            // Don't claim a healthy heartbeat for a cycle where a backend faulted (it is now quarantined
+            // and stopped). Subsequent cycles skip it, so one failure does not trip the watchdog.
+            if (faulted == 0) {
+                recordHealthyCycle(nowNs);
+            }
+        } finally {
+            cycleTransition.unlock();
         }
-        RuntimeConfig cfg = config.get();
-        // Only accrue fatigue when a rendering backend can actually drive the body; with nothing
-        // rendering, nothing fatigues (brief §10.6). The governor expires stale scenes, decays and
-        // accounts fatigue, and bakes the attenuation into the primitives it hands back.
-        boolean accountLoad = cfg.enabled() && backends.anyBodyDriving();
-        List<HapticScene> held = scenes.govern(nowNs, cfg.fatigueProtection(), accountLoad);
-        int faulted = backends.onGovernedScenes(held, nowNs);
-        // Don't claim a healthy heartbeat for a cycle where a backend faulted (it is now quarantined and
-        // stopped). Subsequent cycles skip the quarantined backend, so the heartbeat resumes at once and a
-        // one-off fault won't trip the watchdog, but a cycle that failed to fully drive output is not
-        // reported as healthy.
-        if (faulted == 0) {
+    }
+
+    private void recordHealthyCycle(long nowNs) {
+        synchronized (heartbeatLock) {
             lastHealthyCycleNs.set(nowNs);
         }
     }
@@ -152,12 +167,37 @@ public final class HapticWorker {
      * stop is actually latched, so it can never resume output while a user panic is still active. Uses
      * causeLock, not the cycle monitor, so it never blocks; the governor's own lock serializes the reset.
      */
-    public void recoverFromWatchdogStop() {
-        synchronized (causeLock) {
-            if (stopCauses.remove(StopCause.WATCHDOG)) {
-                scenes.reset(); // drop stale held scenes before output resumes
-                applyLatch();
+    public boolean recoverFromWatchdogStop() {
+        if (!cycleTransition.tryLock()) {
+            return false;
+        }
+        try {
+            synchronized (causeLock) {
+                if (stopCauses.remove(StopCause.WATCHDOG)) {
+                    scenes.reset(); // drop stale held scenes before output resumes
+                    applyLatch();
+                }
             }
+            return true;
+        } finally {
+            cycleTransition.unlock();
+        }
+    }
+
+    /**
+     * Fire only if the heartbeat is still the stale value the watchdog observed. The heartbeat and this
+     * transition share one small lock, closing the final gap where a healthy cycle could complete between
+     * a watchdog re-read and its stop.
+     */
+    boolean emergencyStopIfHeartbeatStalled(long observedHeartbeatNs, long nowNs, long thresholdNs,
+                                             StopReason reason) {
+        synchronized (heartbeatLock) {
+            long current = lastHealthyCycleNs.get();
+            if (current == 0L || current != observedHeartbeatNs || nowNs - current <= thresholdNs) {
+                return false;
+            }
+            emergencyStop(reason);
+            return true;
         }
     }
 

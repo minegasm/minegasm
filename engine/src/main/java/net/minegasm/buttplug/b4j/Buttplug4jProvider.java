@@ -19,6 +19,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -28,7 +29,6 @@ import java.util.function.Consumer;
 
 import io.github.blackspherefollower.buttplug4j.client.ButtplugClientDevice;
 import io.github.blackspherefollower.buttplug4j.client.ButtplugClientDeviceFeature;
-import io.github.blackspherefollower.buttplug4j.connectors.jetty.websocket.client.ButtplugClientWSClient;
 
 /**
  * {@link HapticProvider} backed by the buttplug4j client library (v4 feature-based spec). buttplug4j
@@ -38,13 +38,14 @@ import io.github.blackspherefollower.buttplug4j.connectors.jetty.websocket.clien
  *
  * <p>Output is sent through the feature's {@code run*Float} methods: the engine's normalized value
  * (quantised to {@link B4jDeviceMapper#RESOLUTION}) is converted back to a {@code 0..1} float and
- * buttplug4j scales it to the hardware's advertised range. Fire-and-forget, like the native provider.
+ * buttplug4j scales it to the hardware's advertised range. Each returned completion represents the
+ * blocking library call, including a late error or a write superseded before dispatch.
  *
  * <p>Compiled by the Gradle build only; verified to compile against buttplug4j 4.0.278.
  */
 public final class Buttplug4jProvider implements HapticProvider {
 
-    private final ButtplugClientWSClient client;
+    private final B4jClientFacade client;
     private final DeviceRegistry registry = new DeviceRegistry();
     private final AtomicReference<ProviderStatus> status =
             new AtomicReference<>(ProviderStatus.disconnected());
@@ -70,14 +71,29 @@ public final class Buttplug4jProvider implements HapticProvider {
     // lets a hung write wedge the whole driver cycle (review P1-1), so they run here instead, one at a
     // time on a bounded queue that drops the oldest pending write under backpressure (the scheduler
     // re-sends current state next cycle, so a drop self-heals). The worker's send() returns immediately.
-    private final ExecutorService sendExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+    private interface SupersedableWrite extends Runnable {
+        void supersede(String detail);
+    }
+
+    private final ThreadPoolExecutor sendExecutor = new ThreadPoolExecutor(
+            1, 1, 0L, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<Runnable>(256),
             r -> {
                 Thread t = new Thread(r, "minegasm-buttplug4j-send");
                 t.setDaemon(true);
                 return t;
             },
-            new ThreadPoolExecutor.DiscardOldestPolicy());
+            (rejected, executor) -> {
+                if (executor.isShutdown()) {
+                    supersede(rejected, "provider is shutting down");
+                    return;
+                }
+                Runnable dropped = executor.getQueue().poll();
+                supersede(dropped, "superseded by a newer queued output");
+                if (!executor.getQueue().offer(rejected)) {
+                    supersede(rejected, "output queue remained full");
+                }
+            });
     // Bumped on every stop-all. A queued write captures the epoch at submit and skips itself if a stop
     // changed it, so no write can reach a device after the stop that was meant to silence it.
     private final java.util.concurrent.atomic.AtomicLong sendEpoch =
@@ -92,15 +108,17 @@ public final class Buttplug4jProvider implements HapticProvider {
     private volatile Consumer<DeviceRegistrySnapshot> registryListener = s -> {};
 
     public Buttplug4jProvider(String clientName) {
-        this.client = new ButtplugClientWSClient(clientName);
+        this(new LibraryB4jClientFacade(clientName));
+    }
+
+    Buttplug4jProvider(B4jClientFacade client) {
+        this.client = client;
         // Any device add/remove/change re-reads the full device list, keeping our registry a faithful
         // snapshot with a fresh generation (mirrors the v4 "full DeviceList is truth" rule).
-        client.setDeviceAddedHandler(device -> rebuildRegistry());
-        client.setDeviceRemovedHandler(device -> rebuildRegistry());
-        client.setDeviceChangedHandler(device -> rebuildRegistry());
-        client.setScanningFinishedHandler(() -> setState(
+        client.onDeviceChanged(this::rebuildRegistry);
+        client.onScanningFinished(() -> setState(
                 registry.snapshot().isEmpty() ? ConnectionState.CONNECTED_NO_DEVICES : ConnectionState.READY));
-        client.setErrorHandler(error -> setError(error.getErrorMessage()));
+        client.onError(this::setError);
     }
 
     @Override
@@ -237,7 +255,7 @@ public final class Buttplug4jProvider implements HapticProvider {
     public CompletionStage<Void> send(OutputCommand command) {
         if (!canSendMessages()
                 || command.registryGeneration() != registry.snapshot().generation()) {
-            return CompletableFuture.completedFuture(null); // stale target (brief §9.5)
+            return failed(new CancellationException("output target is disconnected or stale"));
         }
         final long epoch = sendEpoch.get();
         final long conn = connGeneration.get();
@@ -247,27 +265,87 @@ public final class Buttplug4jProvider implements HapticProvider {
         // (epoch), a reconnect (conn generation), or a device-list change (registry) happened after this was
         // queued, so no stale write runs against a new session (P1-5). If a stop lands during the write,
         // compensate so a device is never left non-zero (P1-2).
+        CompletableFuture<Void> completion = new CompletableFuture<>();
         try {
-            sendExecutor.execute(() -> {
-                if (epoch != sendEpoch.get() || conn != connGeneration.get()
-                        || registryGen != registry.snapshot().generation()) {
-                    return; // superseded before the write started
-                }
-                StopCompensation.writeThenMaybeStop(epoch, sendEpoch::get,
-                        () -> dispatch(command), () -> stop(StopSelection.all()));
-            });
+            sendExecutor.execute(new PendingWrite(command, epoch, conn, registryGen, completion));
         } catch (RuntimeException rejected) {
-            // executor shutting down during close: nothing to send
+            completion.completeExceptionally(rejected);
         }
-        return CompletableFuture.completedFuture(null);
+        return completion;
+    }
+
+    private final class PendingWrite implements SupersedableWrite {
+        private final OutputCommand command;
+        private final long epoch;
+        private final long connection;
+        private final long registryGeneration;
+        private final CompletableFuture<Void> completion;
+
+        private PendingWrite(OutputCommand command, long epoch, long connection,
+                             long registryGeneration, CompletableFuture<Void> completion) {
+            this.command = command;
+            this.epoch = epoch;
+            this.connection = connection;
+            this.registryGeneration = registryGeneration;
+            this.completion = completion;
+        }
+
+        @Override
+        public void supersede(String detail) {
+            completion.completeExceptionally(new CancellationException(detail));
+        }
+
+        @Override
+        public void run() {
+            if (epoch != sendEpoch.get() || connection != connGeneration.get()
+                    || registryGeneration != registry.snapshot().generation()) {
+                supersede("output superseded before dispatch");
+                return;
+            }
+            try {
+                // If a stop races this blocking write, make the compensating zero a real, observed
+                // library boundary. Scheduling another fire-and-forget stop here could report the write
+                // superseded while silently losing the only zero ordered after it.
+                StopCompensation.writeThenMaybeStop(epoch, sendEpoch::get,
+                        () -> dispatch(command), Buttplug4jProvider.this::compensatingStop);
+                if (epoch == sendEpoch.get()) {
+                    completion.complete(null);
+                } else {
+                    supersede("output superseded by stop");
+                }
+            } catch (RuntimeException failure) {
+                if (!(failure instanceof CancellationException)) {
+                    Throwable cause = failure instanceof CompletionException && failure.getCause() != null
+                            ? failure.getCause() : failure;
+                    setError(cause.getMessage());
+                }
+                completion.completeExceptionally(failure);
+            }
+        }
+    }
+
+    private static void supersede(Runnable task, String detail) {
+        if (task instanceof SupersedableWrite) {
+            ((SupersedableWrite) task).supersede(detail);
+        }
+    }
+
+    private void compensatingStop() {
+        try {
+            client.stopAllDevices();
+        } catch (Exception failure) {
+            throw new CompletionException(failure);
+        }
     }
 
     private void dispatch(OutputCommand command) {
-        findFeature(command.deviceIndex(), command.featureIndex()).ifPresent(feature -> {
-            float f = command.value() / (float) B4jDeviceMapper.RESOLUTION;
-            int durationMs = command.durationMs() == null ? 0 : command.durationMs();
-            try {
-                switch (command.kind()) {
+        ButtplugClientDeviceFeature feature = findFeature(
+                command.deviceIndex(), command.featureIndex()).orElseThrow(
+                () -> new CancellationException("target feature no longer exists"));
+        float f = command.value() / (float) B4jDeviceMapper.RESOLUTION;
+        int durationMs = command.durationMs() == null ? 0 : command.durationMs();
+        try {
+            switch (command.kind()) {
                     case VIBRATE:
                         feature.runVibrateFloat(f);
                         break;
@@ -295,11 +373,10 @@ public final class Buttplug4jProvider implements HapticProvider {
                     case UNKNOWN:
                     default:
                         break; // never rendered
-                }
-            } catch (Exception ignored) {
-                // A single failed output must not disturb the worker (brief §9.4).
             }
-        });
+        } catch (Exception failure) {
+            throw new CompletionException(failure);
+        }
     }
 
     @Override
@@ -309,6 +386,7 @@ public final class Buttplug4jProvider implements HapticProvider {
         }
         if (selection instanceof StopSelection.All) {
             sendEpoch.incrementAndGet(); // invalidate any queued device writes so none run after the stop
+            supersedeQueuedWrites("output superseded by stop");
         }
         return CompletableFuture.runAsync(() -> {
             try {
@@ -324,8 +402,8 @@ public final class Buttplug4jProvider implements HapticProvider {
                     findDevice(f.deviceIndex()).ifPresent(device -> {
                         try {
                             device.sendStopDeviceCmd(f.featureIndex());
-                        } catch (Exception ignored) {
-                            // best effort
+                        } catch (Exception failure) {
+                            throw new CompletionException(failure);
                         }
                     });
                 } else {
@@ -333,6 +411,7 @@ public final class Buttplug4jProvider implements HapticProvider {
                 }
             } catch (Exception e) {
                 setError(e.getMessage());
+                throw new CompletionException(e);
             }
         }, stopExecutor);
     }
@@ -341,6 +420,7 @@ public final class Buttplug4jProvider implements HapticProvider {
     public void disconnect() {
         connectGeneration.incrementAndGet(); // invalidate any connect still in flight
         connGeneration.incrementAndGet();    // invalidate any queued device write from this session
+        supersedeQueuedWrites("output superseded by disconnect");
         try {
             client.disconnect();
         } catch (RuntimeException ignored) {
@@ -355,13 +435,23 @@ public final class Buttplug4jProvider implements HapticProvider {
         disconnect();
         executor.shutdownNow();
         stopExecutor.shutdownNow();
-        sendExecutor.shutdownNow();
+        for (Runnable abandoned : sendExecutor.shutdownNow()) {
+            supersede(abandoned, "provider closed before dispatch");
+        }
     }
 
     // --- helpers ---------------------------------------------------------------------------
 
     private boolean canSendMessages() {
         return isLocallyConnected(status.get().state());
+    }
+
+    private void supersedeQueuedWrites(String detail) {
+        List<Runnable> queued = new ArrayList<>();
+        sendExecutor.getQueue().drainTo(queued);
+        for (Runnable task : queued) {
+            supersede(task, detail);
+        }
     }
 
     private static <T> CompletableFuture<T> failed(Throwable cause) {
@@ -384,7 +474,7 @@ public final class Buttplug4jProvider implements HapticProvider {
     }
 
     private Optional<ButtplugClientDevice> findDevice(int deviceIndex) {
-        List<ButtplugClientDevice> devices = client.getDevices();
+        List<ButtplugClientDevice> devices = client.devices();
         if (devices == null) {
             return Optional.empty();
         }
@@ -400,7 +490,7 @@ public final class Buttplug4jProvider implements HapticProvider {
 
     private void rebuildRegistry() {
         List<HapticDevice> mapped = new ArrayList<>();
-        List<ButtplugClientDevice> devices = client.getDevices();
+        List<ButtplugClientDevice> devices = client.devices();
         if (devices != null) {
             for (ButtplugClientDevice device : devices) {
                 mapped.add(B4jDeviceMapper.map(device, 0L)); // generation stamped by registry.accept

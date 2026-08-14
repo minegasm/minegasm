@@ -284,7 +284,7 @@ public final class ClassicConfigScreen extends GuiScreen {
         boolean connected = state != ConnectionState.DISCONNECTED;
         boolean busy = state == ConnectionState.CONNECTING || state == ConnectionState.NEGOTIATING
                 || state == ConnectionState.STOPPING;
-        boolean panicked = !client.runtime().worker().isOutputEnabled();
+        boolean panicked = !client.outputStatus().permitted();
         boolean enabled = client.config().enabled();
 
         if (adapterBtn != null) {

@@ -1,11 +1,11 @@
 // Command xtoys-adapter bridges Minegasm's local bridge to XToys.
 //
 // Minegasm dials out to this process over plain TCP and sends one JSON object per line: an "output" frame
-// carrying the whole current level per role, and a "stop" on any stop/panic (see docs/bridge/PROTOCOL.md).
-// Each output frame is authoritative: the adapter sets each role to the level it is handed, so a scene
-// ending or being suppressed retracts as soon as its role's level drops, without the adapter combining a
-// stream of per-scene events. This adapter forwards each role to XToys over the webhook's WebSocket, which
-// the included script (xtoys-minegasm.json) matches by action name and uses to drive your outputs.
+// carrying the whole current logical destination set, and a "stop" on any stop or panic.
+// Each output frame is authoritative: the adapter replaces the complete logical destination set, so a
+// scene ending or being suppressed retracts without the adapter combining a stream of per-scene events.
+// In the default role routing mode, the adapter combines destinations by role for the included XToys
+// script. Destination routing keeps role, body region, and output class separate.
 //
 // A role is device-independent (IMPACT, REWARD, TEXTURE, WARNING, AMBIENT, CONTROL). The adapter exposes
 // each role as its own XToys output rather than collapsing everything to one level, so several actuators
@@ -56,6 +56,8 @@ const (
 // use as XToys action names. The shipped script has a matching Webhook trigger and output per entry.
 var roles = []string{"impact", "reward", "texture", "warning", "ambient", "control"}
 
+const protocolVersion = 1
+
 func main() {
 	listen := flag.String("listen", "127.0.0.1:12347", "TCP address to accept Minegasm's bridge on")
 	webhook := flag.String("webhook", "", "XToys webhook id (from a Webhook trigger in your XToys script)")
@@ -63,6 +65,7 @@ func main() {
 	scale := flag.Int("scale", 100, "intensity sent at full strength (XToys reads 0..scale)")
 	min := flag.Int("min", 20, "motor start threshold: any nonzero effect maps to at least this (0 disables)")
 	verbose := flag.Bool("verbose", false, "log every message")
+	routing := flag.String("routing", "role", "XToys action routing: role or destination")
 	flag.Parse()
 
 	if *webhook == "" {
@@ -74,12 +77,16 @@ func main() {
 	if *min > *scale {
 		*min = *scale
 	}
+	if *routing != "role" && *routing != "destination" {
+		log.Fatal("-routing must be role or destination")
+	}
 
 	x := &xtoys{
 		wsURL:          strings.TrimRight(*endpoint, "/") + "/" + *webhook,
 		scale:          *scale,
 		min:            *min,
 		verbose:        *verbose,
+		routing:        *routing,
 		last:           map[string]int{},
 		state:          map[string]clientOutput{},
 		listeners:      map[net.Conn]bool{},
@@ -105,7 +112,7 @@ func main() {
 }
 
 // handle reads the line-delimited bridge protocol from one Minegasm connection and drives XToys. Each
-// output frame is that connection's whole current per-role state, so the adapter just replaces this
+// output frame is that connection's whole current destination state, so the adapter just replaces this
 // client's entry; a dropped connection self-clears on close.
 func handle(conn net.Conn, x *xtoys) {
 	peer := conn.RemoteAddr()
@@ -136,8 +143,11 @@ func handle(conn net.Conn, x *xtoys) {
 		if json.Unmarshal(line, &frame) != nil {
 			continue
 		}
-		var typ string
-		json.Unmarshal(frame["type"], &typ)
+		typ, compatible := protocolType(frame)
+		if !compatible {
+			log.Printf("[bridge] refusing unsupported protocol version from %s", peer)
+			return
+		}
 		switch typ {
 		case "output":
 			x.applyOutput(client, frame)
@@ -147,16 +157,59 @@ func handle(conn net.Conn, x *xtoys) {
 	}
 }
 
-// levelsOf reads the authoritative per-role levels from an output frame, clamped to [0,1]. Every role is
-// present in the result; a role the frame omits maps to 0, so a role the mod dropped retracts.
-func levelsOf(rawRoles json.RawMessage) map[string]float64 {
-	var reported map[string]float64
-	json.Unmarshal(rawRoles, &reported)
+func protocolType(frame map[string]json.RawMessage) (string, bool) {
+	var version int
+	if err := json.Unmarshal(frame["v"], &version); err != nil || version != protocolVersion {
+		return "", false
+	}
+	var typ string
+	if err := json.Unmarshal(frame["type"], &typ); err != nil {
+		return "", false
+	}
+	return typ, true
+}
+
+type destination struct {
+	Role        string  `json:"role"`
+	Region      string  `json:"region"`
+	OutputClass string  `json:"outputClass"`
+	Level       float64 `json:"level"`
+}
+
+// levelsOf reads the complete destination snapshot. Role mode keeps compatibility with the shipped
+// six-output script; destination mode exposes one XToys action per role, region, and output class so an
+// operator can route independent logical destinations without the adapter guessing about devices.
+func levelsOf(rawDestinations json.RawMessage, routing string) map[string]float64 {
+	var reported []destination
+	json.Unmarshal(rawDestinations, &reported)
 	out := map[string]float64{}
-	for _, role := range roles {
-		out[role] = clamp01(reported[role])
+	if routing == "role" {
+		for _, role := range roles {
+			out[role] = 0
+		}
+	}
+	for _, d := range reported {
+		if !validRole(d.Role) || d.Region == "" || d.OutputClass == "" {
+			continue
+		}
+		key := d.Role
+		if routing == "destination" {
+			key = d.Role + "-" + d.Region + "-" + d.OutputClass
+		}
+		if level := clamp01(d.Level); level > out[key] {
+			out[key] = level
+		}
 	}
 	return out
+}
+
+func validRole(candidate string) bool {
+	for _, role := range roles {
+		if candidate == role {
+			return true
+		}
+	}
+	return false
 }
 
 func clamp01(v float64) float64 {
@@ -179,8 +232,9 @@ type message struct {
 // refresh. The mod sends the whole state on every change and re-sends it periodically, so a live effect
 // keeps refreshing the expiry; a dropped or half-open link lets it lapse and the role zeroes.
 type clientOutput struct {
-	levels map[string]float64
-	expiry time.Time
+	levels     map[string]float64
+	expiry     time.Time
+	generation int64
 }
 
 // xtoys streams to the XToys webhook over a single WebSocket. Writes are serialized under mu; each client's
@@ -192,8 +246,10 @@ type xtoys struct {
 	scale   int
 	min     int
 	verbose bool
+	routing string
 
 	mu          sync.Mutex
+	writeMu     sync.Mutex
 	conn        *websocket.Conn
 	last        map[string]int // intensity XToys is believed to hold per role; -1 means unknown
 	pendingZero bool           // a non-zero role could not be zeroed while offline; owe XToys a zero
@@ -206,6 +262,10 @@ type xtoys struct {
 	dialThrottle   time.Duration // minimum gap between failed dials
 	clientSeq      int64         // hands each Minegasm connection a distinct id to namespace its output
 	clients        int           // count of connected Minegasm clients, for the accept limit
+	generation     uint64        // changes with every authoritative state transition
+	forceResync    bool          // a fresh socket needs a complete snapshot, zeroes included
+	writing        bool
+	writingLevels  map[string]int
 }
 
 // tryAddClient admits a Minegasm connection if under the limit. Returns false if it should be refused.
@@ -252,25 +312,31 @@ func (x *xtoys) reconnectLoop() {
 	}
 }
 
-// resyncAll forces a full resend of every role's current level (zeroes included) after a reconnect, so
-// XToys is put into a known state rather than left with whatever it had before the drop. Caller holds mu.
-func (x *xtoys) resyncAll() {
-	for _, role := range roles {
-		x.last[role] = -1 // unknown, so recompute sends every role
-	}
-	x.pendingZero = false
-	x.recompute()
-}
-
-// onDisconnected records that the socket dropped: what XToys now holds is unknown, and if any role was
-// non-zero we owe it a zero we could not deliver. Caller holds mu.
-func (x *xtoys) onDisconnected() {
-	for _, role := range roles {
-		if x.last[role] > 0 {
+// onDisconnectedLocked records uncertainty after a close or failed write. Any known, explicitly
+// attempted, or currently in-flight nonzero keeps a zero obligation latched until a complete zero
+// snapshot succeeds. Caller holds x.mu.
+func (x *xtoys) onDisconnectedLocked(attempted map[string]int) {
+	for channel, level := range x.last {
+		if level > 0 || attempted[channel] > 0 {
 			x.pendingZero = true
 		}
-		x.last[role] = -1
+		x.last[channel] = -1
 	}
+	for channel, level := range attempted {
+		if level > 0 {
+			x.pendingZero = true
+		}
+		x.last[channel] = -1
+	}
+	if x.writing {
+		for channel, level := range x.writingLevels {
+			if level > 0 {
+				x.pendingZero = true
+			}
+			x.last[channel] = -1
+		}
+	}
+	x.forceResync = true
 	x.notifyDownstream()
 }
 
@@ -286,7 +352,7 @@ func (x *xtoys) downstreamWord() string {
 // whole chain, not just that this adapter is running. Best-effort with a short deadline so a slow mod
 // socket can't stall the XToys path (see docs/bridge/PROTOCOL.md).
 func writeControl(conn net.Conn, typ, downstream string) {
-	payload, _ := json.Marshal(map[string]interface{}{"v": 1, "type": typ, "downstream": downstream})
+	payload, _ := json.Marshal(map[string]interface{}{"v": protocolVersion, "type": typ, "downstream": downstream})
 	conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
 	conn.Write(append(payload, '\n'))
 }
@@ -338,68 +404,80 @@ func (x *xtoys) scaleLevel(v float64) int {
 	return x.min + int(math.Round(v*float64(x.scale-x.min)))
 }
 
-// applyOutput replaces one client's authoritative per-role state and recomputes output. A frame with
+// applyOutput replaces one client's authoritative destination state and recomputes output. A frame with
 // ttlMs<=0 drops the client's output. The state is namespaced by client, so two clients never overwrite
 // each other, and there is one entry per client, so it cannot grow without limit.
 func (x *xtoys) applyOutput(client string, frame map[string]json.RawMessage) {
-	levels := levelsOf(frame["roles"])
+	levels := levelsOf(frame["destinations"], x.routing)
 	var ttlMs int64
-	json.Unmarshal(frame["ttlMs"], &ttlMs)
+	var generation int64
+	if json.Unmarshal(frame["ttlMs"], &ttlMs) != nil ||
+		json.Unmarshal(frame["generation"], &generation) != nil || generation < 0 {
+		return
+	}
 	if ttlMs > maxTTLms {
 		ttlMs = maxTTLms // ttl ceiling
 	}
 
 	x.mu.Lock()
-	defer x.mu.Unlock()
+	if previous, present := x.state[client]; present && generation <= previous.generation {
+		x.mu.Unlock()
+		return
+	}
 	if ttlMs <= 0 {
 		delete(x.state, client)
 	} else {
 		x.state[client] = clientOutput{
-			levels: levels,
-			expiry: time.Now().Add(time.Duration(ttlMs) * time.Millisecond),
+			levels:     levels,
+			expiry:     time.Now().Add(time.Duration(ttlMs) * time.Millisecond),
+			generation: generation,
 		}
 	}
-	x.recompute()
+	x.stateChangedLocked()
+	x.mu.Unlock()
+	x.flushAsync()
 }
 
 // stopClient drops only the given client's output and recomputes, so one client disconnecting or panicking
 // never clears another still-connected client's output.
 func (x *xtoys) stopClient(client string) {
 	x.mu.Lock()
-	defer x.mu.Unlock()
 	delete(x.state, client)
-	x.recompute()
+	x.stateChangedLocked()
+	x.mu.Unlock()
+	x.flushAsync()
 }
 
 // stopAll drops every client's output and releases all output (used by tests).
 func (x *xtoys) stopAll() {
 	x.mu.Lock()
-	defer x.mu.Unlock()
 	x.state = map[string]clientOutput{}
-	x.recompute()
+	x.stateChangedLocked()
+	x.mu.Unlock()
+	x.flushAsync()
 }
 
-// recompute expires stale clients, sends any role whose combined level changed, and rearms the expiry
-// timer. Caller holds x.mu.
-func (x *xtoys) recompute() {
+// stateChangedLocked expires stale clients, advances the authoritative generation, and rearms expiry.
+// It never performs downstream I/O. Caller holds x.mu.
+func (x *xtoys) stateChangedLocked() {
 	now := time.Now()
 	for client, s := range x.state {
 		if !s.expiry.After(now) {
 			delete(x.state, client)
 		}
 	}
-	for _, role := range roles {
-		var peak float64
-		for _, s := range x.state {
-			if v := s.levels[role]; v > peak {
-				peak = v
-			}
-		}
-		level := x.scaleLevel(peak)
-		if level != x.last[role] {
-			x.send(role, level)
+	// A stop or lower authoritative generation must not sit behind a five-second blocked nonzero write.
+	// Closing the socket interrupts that writer; reconnect then sends the newest full snapshot. The state
+	// transition itself is already committed under this mutex, and ambiguity conservatively owes a zero.
+	if x.writing {
+		desired := x.desiredLocked()
+		if reducesUncommittedOutput(desired, x.writingLevels, x.last) && x.conn != nil {
+			x.pendingZero = true
+			conn := x.conn
+			go conn.Close()
 		}
 	}
+	x.generation++
 
 	if x.timer != nil {
 		x.timer.Stop()
@@ -418,41 +496,136 @@ func (x *xtoys) recompute() {
 		}
 		x.timer = time.AfterFunc(delay, func() {
 			x.mu.Lock()
-			defer x.mu.Unlock()
-			x.recompute()
+			x.stateChangedLocked()
+			x.mu.Unlock()
+			x.flushAsync()
 		})
 	}
 }
 
-// send writes one role message if the socket is up. On a write failure the socket is dropped and last is
-// left unchanged, so the next frame re-sends after a reconnect. Caller holds x.mu.
-func (x *xtoys) send(role string, level int) {
-	if level < 0 {
-		level = 0
+func reducesUncommittedOutput(next, inFlight, delivered map[string]int) bool {
+	for channel, level := range inFlight {
+		if next[channel] < level && delivered[channel] != level {
+			return true
+		}
 	}
-	if x.conn == nil {
-		return // offline: the reconnect loop dials and resends the full state, so don't dial per frame
+	return false
+}
+
+func (x *xtoys) flushAsync() {
+	go x.flush()
+}
+
+// desiredLocked combines every client's current authoritative state. Caller holds x.mu.
+func (x *xtoys) desiredLocked() map[string]int {
+	desired := map[string]int{}
+	for _, role := range roles {
+		if x.routing == "role" {
+			desired[role] = 0
+		}
 	}
-	payload, _ := json.Marshal(message{Action: "minegasm-" + role, Intensity: level})
-	if x.verbose {
-		log.Printf("[xtoys] send %s", payload)
+	for _, state := range x.state {
+		for channel, raw := range state.levels {
+			level := x.scaleLevel(raw)
+			if level > desired[channel] {
+				desired[channel] = level
+			}
+		}
 	}
-	x.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-	if err := x.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
-		log.Printf("[xtoys] send failed: %v", err)
-		x.conn.Close()
-		x.conn = nil
-		x.onDisconnected() // the onward link dropped: state is unknown and a zero may now be owed
-		return
+	// A channel seen on the previous connection remains part of a complete zero snapshot.
+	for channel := range x.last {
+		if _, present := desired[channel]; !present {
+			desired[channel] = 0
+		}
 	}
-	x.last[role] = level
+	return desired
+}
+
+// flush is the single downstream writer. State is copied under x.mu, but WebSocket writes happen only
+// under writeMu and never under the state mutex. If state changes during a write, the generation check
+// loops and writes the newest complete state before returning.
+func (x *xtoys) flush() {
+	x.writeMu.Lock()
+	defer x.writeMu.Unlock()
+	for {
+		x.mu.Lock()
+		conn := x.conn
+		if conn == nil {
+			x.mu.Unlock()
+			return
+		}
+		generation := x.generation
+		desired := x.desiredLocked()
+		force := x.forceResync
+		x.writing = true
+		x.writingLevels = desired
+		x.mu.Unlock()
+
+		failed := false
+		for channel, level := range desired {
+			x.mu.Lock()
+			previous := x.last[channel]
+			x.mu.Unlock()
+			if !force && level == previous {
+				continue
+			}
+			payload, _ := json.Marshal(message{Action: "minegasm-" + channel, Intensity: level})
+			if x.verbose {
+				log.Printf("[xtoys] send %s", payload)
+			}
+			conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+				log.Printf("[xtoys] send failed: %v", err)
+				x.mu.Lock()
+				if x.conn == conn {
+					x.conn = nil
+					x.onDisconnectedLocked(desired)
+				}
+				x.writing = false
+				x.mu.Unlock()
+				conn.Close()
+				failed = true
+				break
+			}
+			x.mu.Lock()
+			x.last[channel] = level
+			x.mu.Unlock()
+		}
+		if failed {
+			return
+		}
+
+		x.mu.Lock()
+		x.writing = false
+		if x.conn != conn {
+			x.mu.Unlock()
+			return
+		}
+		if generation == x.generation {
+			x.forceResync = false
+			if allZero(desired) {
+				x.pendingZero = false
+			}
+			x.mu.Unlock()
+			return
+		}
+		x.mu.Unlock()
+	}
+}
+
+func allZero(levels map[string]int) bool {
+	for _, level := range levels {
+		if level > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // tryDialAndResync opens the WebSocket without holding the mutex (the handshake can block up to its
-// timeout), then adopts the connection and resends the full current state under the lock. Throttled so a
-// down server is retried at most every few seconds. Because the resync runs entirely under the lock, a
-// stop the mod sends is serialized against it: it either clears the state before the resync reads it, or
-// runs after and sends the zeros itself, so an owed zero is never lost across a reconnect (review P1-4).
+// timeout), then adopts the connection and asks the single writer to send the current full state.
+// Throttling prevents a down server from being hammered. A concurrent stop advances the state generation,
+// so the writer either sees the zero immediately or loops and sends it after the older snapshot.
 func (x *xtoys) tryDialAndResync() {
 	x.mu.Lock()
 	if x.conn != nil || time.Now().Before(x.nextDial) {
@@ -465,21 +638,25 @@ func (x *xtoys) tryDialAndResync() {
 	conn, _, err := dialer.Dial(x.wsURL, nil)
 
 	x.mu.Lock()
-	defer x.mu.Unlock()
 	if err != nil {
 		x.nextDial = time.Now().Add(x.dialThrottle)
 		log.Printf("[xtoys] connect failed: %v", err)
+		x.mu.Unlock()
 		return
 	}
 	if x.conn != nil { // a concurrent dial won the race; keep the existing one
+		x.mu.Unlock()
 		conn.Close()
 		return
 	}
 	x.conn = conn
+	x.forceResync = true
+	x.generation++
 	log.Printf("[xtoys] connected to %s", x.wsURL)
-	go x.readLoop(conn)
 	x.notifyDownstream() // tell the mod the onward link is up now
-	x.resyncAll()        // resend the full state to the freshly connected socket
+	x.mu.Unlock()
+	go x.readLoop(conn)
+	x.flushAsync()
 }
 
 // readLoop drains inbound messages so gorilla answers pings and we notice a close; on any read error it
@@ -490,7 +667,7 @@ func (x *xtoys) readLoop(conn *websocket.Conn) {
 			x.mu.Lock()
 			if x.conn == conn {
 				x.conn = nil
-				x.onDisconnected() // state is unknown and a zero may now be owed
+				x.onDisconnectedLocked(map[string]int{})
 			}
 			x.mu.Unlock()
 			conn.Close()

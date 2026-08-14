@@ -593,7 +593,7 @@ public final class MinegasmClient {
 
     /** Master-disabled or panic-latched: no test path may emit output. */
     private boolean testBlocked() {
-        return !config.get().enabled() || !runtime.worker().isOutputEnabled();
+        return !outputStatus().permitted();
     }
 
     /** {targeted feature count, 1 if any is a motion feature else 0} across enabled Buttplug devices. */
@@ -663,22 +663,39 @@ public final class MinegasmClient {
         return runtime.quarantinedBackends().contains(bridgeIdForName(name));
     }
 
+    public net.minegasm.backend.BackendOutcome buttplugFailure() {
+        return outputViewState().failure("buttplug");
+    }
+
+    public net.minegasm.backend.BackendOutcome bridgeFailure(String name) {
+        return outputViewState().failure(bridgeIdForName(name));
+    }
+
+    public net.minegasm.backend.BackendOutcome buttplugOutcome() {
+        return outputViewState().latest("buttplug");
+    }
+
+    public net.minegasm.backend.BackendOutcome bridgeOutcome(String name) {
+        return outputViewState().latest(bridgeIdForName(name));
+    }
+
     /**
      * One immutable snapshot of why output is or isn't flowing, for every screen and command to read (so a
      * button label can't disagree with the live state). Folds the runtime causes the worker owns (user
-     * stop, watchdog) together with the config disable toggle and any quarantined backend.
+     * stop, watchdog) together with the config disable toggle. Backend faults stay scoped to their
+     * integration and do not turn this into a false global stop.
      */
     public net.minegasm.runtime.OutputStatus outputStatus() {
-        java.util.EnumSet<net.minegasm.runtime.StopCause> causes =
-                java.util.EnumSet.noneOf(net.minegasm.runtime.StopCause.class);
-        causes.addAll(runtime.worker().outputStatus().causes());
-        if (!config.get().enabled()) {
-            causes.add(net.minegasm.runtime.StopCause.DISABLED);
-        }
-        if (!runtime.quarantinedBackends().isEmpty()) {
-            causes.add(net.minegasm.runtime.StopCause.BACKEND_FAULT);
-        }
-        return net.minegasm.runtime.OutputStatus.of(causes);
+        return outputViewState().global();
+    }
+
+    public net.minegasm.runtime.OutputViewState outputViewState() {
+        return runtime.outputViewState();
+    }
+
+    /** One shared predicate for commands and screens that can only act while the global gate is open. */
+    public boolean isOutputPermitted() {
+        return outputStatus().permitted();
     }
 
     /**
@@ -689,8 +706,19 @@ public final class MinegasmClient {
      */
     public List<String> bridgeStatusLines() {
         List<String> lines = new ArrayList<>();
+        net.minegasm.runtime.OutputViewState view = outputViewState();
+        lines.add("Output: " + view.global().reason() + ", body driving: "
+                + (view.bodyDriving() ? "yes" : "no"));
+        net.minegasm.backend.BackendOutcome buttplugResult = view.latest("buttplug");
+        if (buttplugResult != null) {
+            lines.add("Buttplug last operation: " + buttplugResult);
+        }
         for (HapticConfig.Bridge bridge : config.get().bridges()) {
             lines.add("Bridge " + bridge.name() + ": " + bridgeStateLabel(bridge));
+            net.minegasm.backend.BackendOutcome result = view.latest(bridge.id());
+            if (result != null) {
+                lines.add("Bridge " + bridge.name() + " last operation: " + result);
+            }
         }
         long faults = runtime.backendFaultCount();
         if (faults > 0) {

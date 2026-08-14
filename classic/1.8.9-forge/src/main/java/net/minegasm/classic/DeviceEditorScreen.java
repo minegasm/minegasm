@@ -157,17 +157,18 @@ public final class DeviceEditorScreen extends GuiScreen {
                         device.deviceTouched = true;
                     })));
 
-            // Body region: cycles Not set -> each region -> back. Not set resolves to whole body.
-            list.add(new Row("Body region", (x, y, w, h) -> {
-                CallbackButton[] holder = new CallbackButton[1];
-                holder[0] = new CallbackButton(x, y, w, h,
-                        DeviceEditorModel.regionLabel(device.region), () -> {
-                            device.region = DeviceEditorModel.nextRegion(device.region);
+            boolean firstRegion = true;
+            for (net.minegasm.core.BodyRegion choice : DeviceEditorModel.regionChoices()) {
+                String label = (device.region == choice ? "[x] " : "[ ] ")
+                        + DeviceEditorModel.regionLabel(choice);
+                list.add(new Row(firstRegion ? "Body region" : "", (x, y, w, h) ->
+                        buttonList.add(new CallbackButton(x, y, w, h, label, () -> {
+                            device.region = choice;
                             device.deviceTouched = true;
-                            holder[0].displayString = DeviceEditorModel.regionLabel(device.region);
-                        });
-                buttonList.add(holder[0]);
-            }));
+                            initGui();
+                        }))));
+                firstRegion = false;
+            }
 
             for (DeviceEditorModel.FeatureRow feature : device.features) {
                 String featureLabel = feature.description + " (" + feature.kind.wireName() + ")";

@@ -2,6 +2,7 @@ package net.minegasm.backend;
 
 import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
+import net.minegasm.runtime.GovernedOutput;
 
 import java.util.Collections;
 import java.util.List;
@@ -11,14 +12,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Owns every enabled {@link HapticBackend} and fans lifecycle calls to all of them (brief 0003 §3.2),
- * guarding each call so one backend's failure never blocks the others. Scene fan-out is not here: scenes
- * are governed centrally and reach each backend through the {@link net.minegasm.runtime.SceneGovernor}
- * (ADR-018), so this class only starts, stops, pauses, and closes backends.
+ * guarding each call so one backend's failure never blocks the others. Scenes and logical destinations
+ * are governed centrally by {@link net.minegasm.runtime.SceneGovernor}; this class distributes that one
+ * result and coordinates lifecycle, quarantine, and outcome health.
  *
- * <p>Calls run inline on the caller's thread, which keeps stops synchronous: after a stop returns, every
- * backend's StopCmd is out and local state cleared, so a delayed cycle cannot reassert output. Backends
- * must keep {@code stop} non-blocking, so inline fan-out never holds up the caller (including panic);
- * isolating a hung backend is that backend's job.
+ * <p>Calls run inline long enough to invalidate local output and request a stop. Transport completion is
+ * asynchronous and reaches this coordinator through structured outcomes, so a failed or timed-out stop
+ * remains quarantined and visible.
  */
 public final class BackendCoordinator implements AutoCloseable {
 
@@ -41,6 +41,9 @@ public final class BackendCoordinator implements AutoCloseable {
 
     public BackendCoordinator(List<HapticBackend> backends) {
         this.backends = new CopyOnWriteArrayList<>(backends);
+        for (HapticBackend backend : backends) {
+            registerOutcomeListener(backend);
+        }
     }
 
     public List<HapticBackend> backends() {
@@ -50,12 +53,64 @@ public final class BackendCoordinator implements AutoCloseable {
     /** Add a backend that is already started, so it joins the fan-out from the next cycle. */
     public void add(HapticBackend backend) {
         quarantined.remove(backend.id()); // a freshly added backend starts un-quarantined
+        registerOutcomeListener(backend);
         backends.add(backend);
+    }
+
+    private void registerOutcomeListener(final HapticBackend backend) {
+        backend.setOutcomeListener(outcome -> {
+            if (outcome == null || !outcome.unresolvedFault()
+                    || outcome.operation() == BackendOperation.TEST) {
+                return;
+            }
+            boolean newlyQuarantined = quarantined.add(backend.id());
+            RuntimeException failure = new IllegalStateException(outcome.toString());
+            recordFault(backend.id() + " " + outcome.operation().name().toLowerCase()
+                    + " " + outcome.state().name().toLowerCase(), failure);
+            // A failed ordinary write should trigger one best-effort emergency zero. A failed stop is
+            // already unresolved and must not recursively retry itself.
+            if (newlyQuarantined && outcome.operation() == BackendOperation.SEND) {
+                RuntimeException stopFault = runGuarded(
+                        () -> backend.emergencyStop(StopReason.BACKEND_FAULT));
+                if (stopFault != null) {
+                    recordFault(backend.id() + " emergency stop failed", stopFault);
+                }
+            }
+        });
+    }
+
+    /** Latest structured outcome per backend, preserving configured backend order. */
+    public java.util.Map<String, BackendOutcome> latestOutcomes() {
+        java.util.Map<String, BackendOutcome> out = new java.util.LinkedHashMap<>();
+        for (HapticBackend backend : backends) {
+            BackendOutcome latest = backend.latestOutcome();
+            if (latest != null) {
+                out.put(backend.id(), latest);
+            }
+        }
+        return java.util.Collections.unmodifiableMap(out);
+    }
+
+    /** Failures stay visible even when a compensating stop or reconnect produces a newer outcome. */
+    public java.util.Map<String, BackendOutcome> unresolvedFailures() {
+        java.util.Map<String, BackendOutcome> out = new java.util.LinkedHashMap<>();
+        for (HapticBackend backend : backends) {
+            BackendOutcome failure = backend.unresolvedFailure();
+            if (failure != null) {
+                out.put(backend.id(), failure);
+            }
+        }
+        return java.util.Collections.unmodifiableMap(out);
     }
 
     /** Lift a backend's quarantine (e.g. after the user reconnects it), letting it rejoin the fan-out. */
     public void clearQuarantine(String backendId) {
         quarantined.remove(backendId);
+        for (HapticBackend backend : backends) {
+            if (backend.id().equals(backendId)) {
+                backend.clearOutcomeFailure();
+            }
+        }
     }
 
     /** Ids of backends currently quarantined after a render fault, for a persistent hub fault badge. */
@@ -83,12 +138,19 @@ public final class BackendCoordinator implements AutoCloseable {
      * heartbeat for a faulting cycle.
      */
     public int onGovernedScenes(final List<HapticScene> governed, final long nowNs) {
+        return onGovernedOutput(new GovernedOutput(governed,
+                new net.minegasm.runtime.ResolvedDestinationSnapshot(0L, nowNs,
+                        java.util.Collections.emptyMap())));
+    }
+
+    /** Fan one complete central governance result to every healthy backend. */
+    public int onGovernedOutput(final GovernedOutput output) {
         int faulted = 0;
         for (final HapticBackend b : backends) {
             if (quarantined.contains(b.id())) {
                 continue;
             }
-            RuntimeException fault = runGuarded(() -> b.onGovernedScenes(governed, nowNs));
+            RuntimeException fault = runGuarded(() -> b.onGovernedOutput(output));
             if (fault != null) {
                 faulted++;
                 // Fail toward stopped for this backend, then quarantine it until it is reconnected.
@@ -146,6 +208,16 @@ public final class BackendCoordinator implements AutoCloseable {
         return false;
     }
 
+    /** Whether at least one healthy backend currently holds a non-zero authoritative output state. */
+    public boolean anyOutputActive() {
+        for (HapticBackend b : backends) {
+            if (!quarantined.contains(b.id()) && b.isOutputActive()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Whether any backend's device set changed while paused, so frozen scenes must be discarded. */
     public boolean anyRegistryChangedSincePause() {
         for (HapticBackend b : backends) {
@@ -193,10 +265,9 @@ public final class BackendCoordinator implements AutoCloseable {
     /**
      * Run a stop action; on a synchronous failure record the fault and quarantine the backend, so a stop
      * that could not be confirmed leaves the backend in a fault state instead of being swallowed. Returns
-     * whether the stop completed. A backend whose stop throws is taken out of fan-out until it recovers,
-     * the same treatment a render fault gets. Asynchronous provider stops that fail only after their
-     * completion stage settles are not caught here; surfacing those needs a provider health callback, noted
-     * as the remaining part of this finding.
+     * whether the synchronous request was accepted. A backend whose call throws is taken out of fan-out
+     * immediately. A later provider failure arrives through the backend outcome listener and applies the
+     * same quarantine without blocking this caller.
      */
     private boolean confirmStop(HapticBackend b, String label, Runnable action) {
         RuntimeException fault = runGuarded(action);

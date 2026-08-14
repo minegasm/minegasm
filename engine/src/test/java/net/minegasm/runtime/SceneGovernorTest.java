@@ -1,16 +1,19 @@
 package net.minegasm.runtime;
 
 import net.minegasm.core.CouplingMode;
+import net.minegasm.core.BodyRegion;
 import net.minegasm.core.GameEventKind;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticPrimitive;
 import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticRoute;
 import net.minegasm.core.HapticScene;
+import net.minegasm.core.OutputKind;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.EnumSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -211,5 +214,71 @@ class SceneGovernorTest {
 
         assertTrue(hasScene(governed, "warn"));
         assertTrue(hasScene(governed, "amb"), "a different role is untouched by another role's exclusive");
+    }
+
+    @Test
+    void inactiveExclusiveCannotSuppressCurrentOutput() {
+        SceneGovernor gov = new SceneGovernor();
+        HapticLayer delayed = new HapticLayer("delayed", HapticRole.AMBIENT,
+                new HapticPrimitive.Hold(0.8f, 1_000, 0, 0), HapticRoute.buzzAll(),
+                CouplingMode.EXCLUSIVE, 100, 500 * 1_000_000L, 1_000 * 1_000_000L, "delayed");
+        HapticLayer current = new HapticLayer("current", HapticRole.AMBIENT,
+                new HapticPrimitive.Hold(0.4f, 1_000, 0, 0), HapticRoute.buzzAll(),
+                CouplingMode.MAX, 10, 0, 1_000 * 1_000_000L, "current");
+        gov.submit(new HapticScene("delayed", GameEventKind.AMBIENT, 100,
+                Collections.singletonList(delayed), 0, 2 * SECOND, "delayed"), 0);
+        gov.submit(new HapticScene("current", GameEventKind.AMBIENT, 10,
+                Collections.singletonList(current), 0, 2 * SECOND, "current"), 0);
+
+        List<HapticScene> beforeStart = gov.govern(100 * 1_000_000L, false, false);
+
+        assertFalse(hasScene(beforeStart, "delayed"));
+        assertTrue(hasScene(beforeStart, "current"));
+    }
+
+    @Test
+    void exclusiveMotionDoesNotSuppressStrengthAtTheSameRoleAndRegion() {
+        SceneGovernor gov = new SceneGovernor();
+        HapticRoute motion = new HapticRoute(EnumSet.of(OutputKind.POSITION),
+                Collections.emptySet(), Collections.emptySet(), Collections.emptySet(), null);
+        HapticLayer exclusiveMotion = new HapticLayer("motion", HapticRole.AMBIENT,
+                new HapticPrimitive.Hold(0.8f, 1_000, 0, 0), motion,
+                CouplingMode.EXCLUSIVE, 100, 0, SECOND, "motion");
+        HapticLayer strength = new HapticLayer("strength", HapticRole.AMBIENT,
+                new HapticPrimitive.Hold(0.4f, 1_000, 0, 0), HapticRoute.buzzAll(),
+                CouplingMode.MAX, 10, 0, SECOND, "strength");
+        gov.submit(new HapticScene("motion", GameEventKind.AMBIENT, 100,
+                Collections.singletonList(exclusiveMotion), 0, 2 * SECOND, "motion"), 0);
+        gov.submit(new HapticScene("strength", GameEventKind.AMBIENT, 10,
+                Collections.singletonList(strength), 0, 2 * SECOND, "strength"), 0);
+
+        GovernedOutput output = gov.resolve(100 * 1_000_000L, false, false);
+
+        assertTrue(hasScene(output.scenes(), "motion"));
+        assertTrue(hasScene(output.scenes(), "strength"));
+        assertEquals(2, output.destinations().levels().size(),
+                "motion and strength remain independent logical destinations");
+    }
+
+    @Test
+    void fatigueAccountsOnlySurvivingOutputAndKeepsRegionsIndependent() {
+        SceneGovernor gov = new SceneGovernor();
+        HapticLayer winner = new HapticLayer("winner", HapticRole.AMBIENT,
+                new HapticPrimitive.Hold(0.3f, 60_000, 0, 0), HapticRoute.buzzAll(),
+                CouplingMode.EXCLUSIVE, 100, 0, 60 * SECOND, "winner", BodyRegion.GENITAL);
+        HapticLayer suppressed = new HapticLayer("suppressed", HapticRole.AMBIENT,
+                new HapticPrimitive.Hold(0.9f, 60_000, 0, 0), HapticRoute.buzzAll(),
+                CouplingMode.MAX, 10, 0, 60 * SECOND, "suppressed", BodyRegion.GENITAL);
+        gov.submit(new HapticScene("winner", GameEventKind.AMBIENT, 100,
+                Collections.singletonList(winner), 0, 60 * SECOND, "winner"), 0);
+        gov.submit(new HapticScene("suppressed", GameEventKind.AMBIENT, 10,
+                Collections.singletonList(suppressed), 0, 60 * SECOND, "suppressed"), 0);
+        gov.resolve(0, false, true);
+        gov.resolve(SECOND, false, true);
+
+        assertEquals(0.3, gov.fatigueLoadFor(HapticRole.AMBIENT, BodyRegion.GENITAL), 1e-6,
+                "the suppressed 0.9 layer never enters the fatigue budget");
+        assertEquals(0.0, gov.fatigueLoadFor(HapticRole.AMBIENT, BodyRegion.NIPPLE), 1e-6,
+                "a separate body region has an independent budget");
     }
 }

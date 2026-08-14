@@ -76,18 +76,28 @@ public final class DeviceEditorModel {
         return kind.wireName() + "|" + feature.featureIndex() + "|" + feature.description();
     }
 
-    // The region choices a screen cycles through, in order, with "not set" (null) first. Shared here so
-    // every loader offers the same list and wording rather than each maintaining its own.
-    private static final BodyRegion[] REGION_ORDER = BodyRegion.values();
+    private static final List<BodyRegion> REGION_CHOICES = regionChoicesList();
+
+    private static List<BodyRegion> regionChoicesList() {
+        List<BodyRegion> choices = new ArrayList<>();
+        choices.add(null);
+        choices.addAll(Arrays.asList(BodyRegion.values()));
+        return java.util.Collections.unmodifiableList(choices);
+    }
+
+    /** Direct choices used by every loader's list. The first entry is unassigned ({@code null}). */
+    public static List<BodyRegion> regionChoices() {
+        return REGION_CHOICES;
+    }
 
     /** The label for a region control, with null shown as "Not set" (distinct from an explicit whole body). */
     public static String regionLabel(BodyRegion region) {
         if (region == null) {
-            return "Not set";
+            return "Unassigned (routes everywhere)";
         }
         switch (region) {
             case WHOLE_BODY:
-                return "Whole body";
+                return "Whole body (intentional)";
             case GENERIC_A:
                 return "Custom A";
             case GENERIC_B:
@@ -96,15 +106,6 @@ public final class DeviceEditorModel {
                 String name = region.name().toLowerCase(Locale.ROOT);
                 return Character.toUpperCase(name.charAt(0)) + name.substring(1);
         }
-    }
-
-    /** The next region when the user clicks the control: null (not set), then each region, then back. */
-    public static BodyRegion nextRegion(BodyRegion current) {
-        if (current == null) {
-            return REGION_ORDER[0];
-        }
-        int idx = Arrays.asList(REGION_ORDER).indexOf(current);
-        return idx + 1 >= REGION_ORDER.length ? null : REGION_ORDER[idx + 1];
     }
 
     /** Rebuild the persisted config: the original with only touched device/calibration entries replaced. */
@@ -153,8 +154,8 @@ public final class DeviceEditorModel {
         public boolean enabled;
         public double minLevel;
         public double maxLevel;
-        // The body region this device is worn on; null means not set (resolves to whole-body). Edited via
-        // DeviceEditorModel.nextRegion / regionLabel so every loader cycles the same choices.
+        // The body region this device is worn on; null means unassigned and routes everywhere. Every
+        // loader presents the same direct list from DeviceEditorModel.regionChoices().
         public BodyRegion region;
         public final List<FeatureRow> features;
         public final boolean calibrationApplies;

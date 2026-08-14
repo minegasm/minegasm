@@ -57,10 +57,11 @@ public final class MinegasmHubScreen extends Screen {
                 b -> toggleEnabled(), x, 44, half, h));
         // Stop only when running; Resume only for a user panic. A watchdog stop shows its own state and is
         // not resumable by this button, so a resume can never clear a live watchdog stall (review P1-2).
-        if (client.runtime().worker().isUserStopped()) {
+        net.minegasm.runtime.OutputStatus output = client.outputStatus();
+        if (output.userResumable()) {
             addRenderableWidget(button(Component.translatable("minegasm.safety.resume"),
                     b -> resumeOutput(), x + half + 4, 44, half, h));
-        } else if (client.runtime().worker().isWatchdogStopped()) {
+        } else if (!output.permitted()) {
             Button wd = addRenderableWidget(button(Component.translatable("minegasm.safety.watchdog"),
                     b -> {}, x + half + 4, 44, half, h));
             wd.active = false;
@@ -168,7 +169,9 @@ public final class MinegasmHubScreen extends Screen {
 
     private Component buttplugLabel() {
         if (client.buttplugFaulted()) {
-            return Component.translatable("minegasm.hub.buttplug_fault");
+            net.minegasm.backend.BackendOutcome failure = client.buttplugFailure();
+            return Component.literal("Buttplug: FAULT"
+                    + (failure == null ? "" : " (" + failure + ")"));
         }
         int devices = client.provider().devices().all().size();
         return Component.translatable("minegasm.hub.buttplug",
@@ -182,7 +185,9 @@ public final class MinegasmHubScreen extends Screen {
         if (!b.enabled()) {
             stateKey = "minegasm.hub.bridge_off";
         } else if (client.bridgeFaulted(b.name())) {
-            stateKey = "minegasm.hub.bridge_fault";
+            net.minegasm.backend.BackendOutcome failure = client.bridgeFailure(b.name());
+            return Component.literal("Bridge " + b.name() + ": FAULT"
+                    + (failure == null ? "" : " (" + failure + ")"));
         } else if (!client.bridgeConnected(b.name())) {
             stateKey = "minegasm.hub.bridge_waiting";
         } else {
@@ -225,8 +230,10 @@ public final class MinegasmHubScreen extends Screen {
 
     /** A code for the safety state so the tick can rebuild the button when it changes. */
     private int safetyCode() {
-        return (client.runtime().worker().isUserStopped() ? 1 : 0)
-                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0)
+        net.minegasm.runtime.OutputStatus output = client.outputStatus();
+        return (output.userStopped() ? 1 : 0)
+                | (output.watchdogStopped() ? 2 : 0)
+                | (output.disabled() ? 8 : 0)
                 | (client.buttplugFaulted() ? 4 : 0);
     }
 
@@ -266,7 +273,7 @@ public final class MinegasmHubScreen extends Screen {
 
     /** Whether output is latched off by panic/watchdog, so the banner warns it is stopped. */
     private boolean outputStopped() {
-        return !client.runtime().worker().isOutputEnabled();
+        return !client.outputStatus().permitted();
     }
 
     private void openButtplug() {

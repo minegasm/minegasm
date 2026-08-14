@@ -6,8 +6,8 @@ import java.util.Set;
 
 /**
  * An immutable snapshot of why output is or isn't flowing, so every screen and command reads one truth
- * instead of each recomputing from a boolean (second follow-up review P1-2, UX #1). Output is permitted
- * only when no blocking {@link StopCause} is active.
+ * instead of each recomputing from a boolean. Global causes gate output; a backend fault is scoped health
+ * information and does not claim healthy integrations stopped.
  */
 public final class OutputStatus {
 
@@ -23,9 +23,11 @@ public final class OutputStatus {
         return new OutputStatus(copy);
     }
 
-    /** Output flows only when nothing is holding it off. */
+    /** Whether the global gate permits output. Per-backend quarantine is deliberately not a global gate. */
     public boolean permitted() {
-        return causes.isEmpty();
+        return !causes.contains(StopCause.USER_STOP)
+                && !causes.contains(StopCause.WATCHDOG)
+                && !causes.contains(StopCause.DISABLED);
     }
 
     public boolean has(StopCause cause) {
@@ -57,24 +59,30 @@ public final class OutputStatus {
      * stall or a disabled toggle never offers a one-click resume that would clear the wrong cause.
      */
     public boolean userResumable() {
-        return causes.contains(StopCause.USER_STOP);
+        return causes.contains(StopCause.USER_STOP)
+                && !causes.contains(StopCause.WATCHDOG)
+                && !causes.contains(StopCause.DISABLED);
     }
 
-    /** A short reason string for a status line, most safety-relevant cause first. */
+    /** A short status string that retains every active cause. */
     public String reason() {
         if (causes.isEmpty()) {
             return "running";
         }
+        java.util.List<String> active = new java.util.ArrayList<>();
         if (causes.contains(StopCause.WATCHDOG)) {
-            return "watchdog stopped";
+            active.add("watchdog stopped");
         }
         if (causes.contains(StopCause.USER_STOP)) {
-            return "user stopped";
+            active.add("user stopped");
         }
         if (causes.contains(StopCause.BACKEND_FAULT)) {
-            return "backend fault";
+            active.add("backend fault");
         }
-        return "disabled";
+        if (causes.contains(StopCause.DISABLED)) {
+            active.add("disabled");
+        }
+        return String.join(", ", active);
     }
 
     @Override

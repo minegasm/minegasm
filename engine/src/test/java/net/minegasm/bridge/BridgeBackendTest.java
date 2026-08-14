@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import net.minegasm.core.CouplingMode;
+import net.minegasm.backend.BackendOperation;
+import net.minegasm.backend.BackendOutcomeState;
 import net.minegasm.core.GameEventKind;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticPrimitive;
@@ -11,6 +13,9 @@ import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticRoute;
 import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
+import net.minegasm.runtime.GovernedOutput;
+import net.minegasm.runtime.SceneGovernor;
+import net.minegasm.runtime.ResolvedDestinationSnapshot;
 import net.minegasm.time.FakeClock;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +27,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Backend behavior: send when open and enabled, drop otherwise, and stop-all on every stop path. */
@@ -36,30 +42,44 @@ class BridgeBackendTest {
     @Test
     void submitSendsAnAuthoritativeOutputSnapshotWhenOpenAndEnabled() {
         backend.start();
-        backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
+        clock.advanceMillis(10);
+        backend.onGovernedOutput(output(scene(), clock.nanoTime()));
         assertEquals(1, transport.sent.size());
         JsonObject frame = JsonParser.parseString(transport.sent.get(0)).getAsJsonObject();
         assertEquals("output", frame.get("type").getAsString());
-        assertEquals(0.8f, frame.getAsJsonObject("roles").get("impact").getAsFloat(), 1e-6f,
-                "the impact role carries the layer's peak level");
+        assertEquals(0.8f, frame.getAsJsonArray("destinations").get(0).getAsJsonObject()
+                .get("level").getAsFloat(), 1e-6f,
+                "the sampled impulse is at full level after its attack");
     }
 
     @Test
     void aVanishedSceneRetractsByDroppingItsRoleToZero() {
         backend.start();
-        backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
-        assertEquals(0.8f, roles(transport.sent.get(0)).get("impact").getAsFloat(), 1e-6f);
+        clock.advanceMillis(10);
+        backend.onGovernedOutput(output(scene(), clock.nanoTime()));
+        assertEquals(0.8f, destinations(transport.sent.get(0)).get(0).getAsJsonObject()
+                .get("level").getAsFloat(), 1e-6f);
         // The scene ends: the next governed set is empty, so the authoritative snapshot drops impact to 0
         // rather than leaving the adapter holding the last effect (second follow-up review P1-3).
-        backend.onGovernedScenes(java.util.Collections.emptyList(), clock.nanoTime());
+        backend.onGovernedOutput(new GovernedOutput(java.util.Collections.emptyList(),
+                new ResolvedDestinationSnapshot(2L, clock.nanoTime(), java.util.Collections.emptyMap())));
         assertEquals(2, transport.sent.size(), "an emptied set still sends: the retraction snapshot");
-        assertEquals(0f, roles(transport.sent.get(1)).get("impact").getAsFloat(), 1e-6f);
+        assertEquals(0, destinations(transport.sent.get(1)).size());
     }
 
     @Test
     void submitDropsWhenNoAdapterConnected() {
-        backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime()); // never started, so transport not open
+        backend.onGovernedOutput(output(scene(), clock.nanoTime())); // never started, so transport not open
         assertTrue(transport.sent.isEmpty());
+    }
+
+    @Test
+    void disconnectedTestReportsFailureWithoutPoisoningBackendHealth() {
+        backend.test(scene(), clock.nanoTime());
+
+        assertEquals(BackendOperation.TEST, backend.latestOutcome().operation());
+        assertEquals(BackendOutcomeState.FAILED, backend.latestOutcome().state());
+        assertNull(backend.unresolvedFailure(), "a diagnostic failure is action feedback, not quarantine");
     }
 
     @Test
@@ -68,7 +88,7 @@ class BridgeBackendTest {
         backend.setOutputEnabled(false);
         assertEquals(1, transport.sent.size(), "disabling output sends a stop so the adapter zeros now");
         assertEquals("stop", type(transport.sent.get(0)));
-        backend.onGovernedScenes(java.util.Collections.singletonList(scene()), clock.nanoTime());
+        backend.onGovernedOutput(output(scene(), clock.nanoTime()));
         assertEquals(1, transport.sent.size(), "a disabled backend must not emit output");
     }
 
@@ -125,8 +145,14 @@ class BridgeBackendTest {
         return o.get("type").getAsString();
     }
 
-    private static JsonObject roles(String frame) {
-        return JsonParser.parseString(frame).getAsJsonObject().getAsJsonObject("roles");
+    private static com.google.gson.JsonArray destinations(String frame) {
+        return JsonParser.parseString(frame).getAsJsonObject().getAsJsonArray("destinations");
+    }
+
+    private static GovernedOutput output(HapticScene scene, long nowNs) {
+        SceneGovernor governor = new SceneGovernor(1);
+        governor.submit(scene, nowNs);
+        return governor.resolve(nowNs, false, false);
     }
 
     private static HapticScene scene() {

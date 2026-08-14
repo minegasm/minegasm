@@ -75,7 +75,7 @@ public final class BridgeEditScreen16 extends Screen {
             // short screen; the test is gated like Buttplug's: output on and this bridge's adapter connected.
             String bridgeName = bridges.get(index).name();
             boolean canTest = client.config().enabled()
-                    && client.runtime().worker().isOutputEnabled()
+                    && client.isOutputPermitted()
                     && client.bridgeConnected(bridgeName);
             int half = (w - 4) / 2;
             Button test = addButton(new Button(x, height - 26, half, h, new TextComponent("Test output"),

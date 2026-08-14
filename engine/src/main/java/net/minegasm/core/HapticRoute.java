@@ -46,6 +46,29 @@ public final class HapticRoute {
         return allowedOutputs;
     }
 
+    /** The logical output families this route can reach. */
+    public Set<OutputClass> outputClasses() {
+        return Collections.unmodifiableSet(OutputClass.ofKinds(allowedOutputs));
+    }
+
+    /**
+     * Copy this route with only the output kinds in {@code outputClass}. Physical include and exclude
+     * filters and delivery spread are retained.
+     */
+    public HapticRoute restrictedTo(OutputClass outputClass) {
+        EnumSet<OutputKind> restricted = EnumSet.noneOf(OutputKind.class);
+        for (OutputKind kind : allowedOutputs) {
+            if (OutputClass.of(kind) == outputClass) {
+                restricted.add(kind);
+            }
+        }
+        if (restricted.isEmpty()) {
+            throw new IllegalArgumentException("route does not include " + outputClass);
+        }
+        return new HapticRoute(restricted, includedDeviceIndexes, includedFeatures, excludedFeatures,
+                deliveryMode);
+    }
+
     public Set<Integer> includedDeviceIndexes() {
         return includedDeviceIndexes;
     }

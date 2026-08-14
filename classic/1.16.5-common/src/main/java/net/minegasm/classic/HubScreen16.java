@@ -50,10 +50,11 @@ public final class HubScreen16 extends Screen {
                 b -> toggleEnabled()));
         // Stop only when running; Resume only for a user panic; a watchdog stop is shown but not resumable
         // by this button, so a resume can never clear a live watchdog stall (review P1-2).
-        if (client.runtime().worker().isUserStopped()) {
+        net.minegasm.runtime.OutputStatus output = client.outputStatus();
+        if (output.userResumable()) {
             addButton(new Button(x + half + 4, 44, half, h, new TextComponent("Resume"),
                     b -> resumeOutput()));
-        } else if (client.runtime().worker().isWatchdogStopped()) {
+        } else if (!output.permitted()) {
             Button wd = addButton(new Button(x + half + 4, 44, half, h,
                     new TextComponent("Watchdog stopped"), b -> { }));
             wd.active = false;
@@ -174,7 +175,8 @@ public final class HubScreen16 extends Screen {
 
     private String buttplugLabel() {
         if (client.buttplugFaulted()) {
-            return "Buttplug: FAULT (quarantined)";
+            net.minegasm.backend.BackendOutcome failure = client.buttplugFailure();
+            return "Buttplug: FAULT" + (failure == null ? "" : " (" + failure + ")");
         }
         int devices = client.provider().devices().all().size();
         return "Buttplug: " + client.status().state().name().toLowerCase(Locale.ROOT)
@@ -211,8 +213,10 @@ public final class HubScreen16 extends Screen {
     }
 
     private int safetyCode() {
-        return (client.runtime().worker().isUserStopped() ? 1 : 0)
-                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0)
+        net.minegasm.runtime.OutputStatus output = client.outputStatus();
+        return (output.userStopped() ? 1 : 0)
+                | (output.watchdogStopped() ? 2 : 0)
+                | (output.disabled() ? 8 : 0)
                 | (client.buttplugFaulted() ? 4 : 0);
     }
 
@@ -226,7 +230,7 @@ public final class HubScreen16 extends Screen {
         GuiComponent.drawCenteredString(pose, font, title, width / 2, 12, 0xFFFFFF);
         GuiComponent.drawCenteredString(pose, font,
                 new TextComponent("Integrations, output, and settings"), width / 2, 26, 0xA0A0A0);
-        if (!client.runtime().worker().isOutputEnabled()) {
+        if (!client.outputStatus().permitted()) {
             GuiComponent.drawCenteredString(pose, font, new TextComponent("OUTPUT STOPPED"),
                     width / 2, 64, 0xFF5555);
         }

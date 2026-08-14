@@ -71,7 +71,7 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
             int half = (w - 4) / 2;
             GuiButton test = new GuiButton(ID_TEST, x, height - 26, half, 20, "Test output");
             test.enabled = client.config().enabled()
-                    && client.runtime().worker().isOutputEnabled()
+                    && client.isOutputPermitted()
                     && client.bridgeConnected(BridgeList.bridges(client).get(index).name());
             buttonList.add(test);
             buttonList.add(new GuiButton(ID_CANCEL, x + half + 4, height - 26, half, 20, "Cancel"));

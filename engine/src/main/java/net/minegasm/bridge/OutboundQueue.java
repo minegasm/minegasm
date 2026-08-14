@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
+import java.util.function.BiConsumer;
 
 /**
  * A bounded, FIFO, one-in-flight outbound frame queue for the bridge (brief 0002 §4.3, "queues are
@@ -19,13 +20,20 @@ final class OutboundQueue {
 
     private final int capacity;
     private final Function<String, CompletionStage<Void>> sender;
+    private final BiConsumer<String, Throwable> completion;
     private final Deque<String> queue = new ArrayDeque<>();
     private boolean inFlight;
     private boolean closed;
 
     OutboundQueue(int capacity, Function<String, CompletionStage<Void>> sender) {
+        this(capacity, sender, (frame, error) -> { });
+    }
+
+    OutboundQueue(int capacity, Function<String, CompletionStage<Void>> sender,
+                  BiConsumer<String, Throwable> completion) {
         this.capacity = Math.max(1, capacity);
         this.sender = sender;
+        this.completion = completion;
     }
 
     /** Enqueue a frame, dropping the oldest pending frame if the queue is full. */
@@ -67,6 +75,12 @@ final class OutboundQueue {
         }
     }
 
+    boolean hasInFlight() {
+        synchronized (this) {
+            return inFlight;
+        }
+    }
+
     private void pump() {
         String frame;
         synchronized (this) {
@@ -82,13 +96,18 @@ final class OutboundQueue {
         try {
             stage = sender.apply(frame);
         } catch (RuntimeException failed) {
-            completed();
+            completed(frame, failed);
             return;
         }
-        stage.whenComplete((v, error) -> completed());
+        if (stage == null) {
+            completed(frame, new IllegalStateException("bridge sender returned no completion"));
+            return;
+        }
+        stage.whenComplete((v, error) -> completed(frame, error));
     }
 
-    private void completed() {
+    private void completed(String frame, Throwable error) {
+        completion.accept(frame, error);
         synchronized (this) {
             inFlight = false;
         }

@@ -88,6 +88,19 @@ class BackendCoordinatorTest {
     }
 
     @Test
+    void aFailedDiagnosticTestDoesNotQuarantineLiveOutput() {
+        FakeBackend backend = new FakeBackend("testable");
+        BackendCoordinator coordinator = new BackendCoordinator(Collections.singletonList(backend));
+
+        backend.emit(new BackendOutcome("testable", BackendOperation.TEST,
+                BackendOutcomeState.FAILED, 1L, 2L, "no compatible target"));
+
+        assertFalse(coordinator.quarantined().contains("testable"));
+        assertEquals(0, coordinator.faultCount());
+        coordinator.close();
+    }
+
+    @Test
     void aBackendThrowingDuringFanOutIsStoppedAndRecordedNotSwallowed() {
         FakeBackend boom = new FakeBackend("boom");
         boom.throwOnGoverned = true;
@@ -130,6 +143,7 @@ class BackendCoordinatorTest {
         int emergencyStops;
         boolean started;
         boolean closed;
+        java.util.function.Consumer<BackendOutcome> outcomeListener = outcome -> { };
 
         FakeBackend(String id) {
             this.id = id;
@@ -151,6 +165,15 @@ class BackendCoordinatorTest {
             if (throwOnGoverned) {
                 throw new RuntimeException("render boom from " + id);
             }
+        }
+
+        @Override
+        public void setOutcomeListener(java.util.function.Consumer<BackendOutcome> listener) {
+            outcomeListener = listener;
+        }
+
+        void emit(BackendOutcome outcome) {
+            outcomeListener.accept(outcome);
         }
 
         @Override

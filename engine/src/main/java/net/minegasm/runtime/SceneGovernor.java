@@ -1,15 +1,20 @@
 package net.minegasm.runtime;
 
 import net.minegasm.core.CouplingMode;
+import net.minegasm.core.BodyRegion;
 import net.minegasm.core.HapticLayer;
 import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticScene;
+import net.minegasm.core.LogicalDestination;
+import net.minegasm.core.OutputClass;
 import net.minegasm.render.PrimitiveEvaluator;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.LinkedHashMap;
 
 /**
  * The central scene-governance stage that ADR-018 lifts out of the per-cycle renderer. It owns the
@@ -18,11 +23,10 @@ import java.util.Map;
  * governed snapshot on its own cadence. One monitor guards the store so those two threads never see it
  * half-updated.
  *
- * <p>This is where the aggregate stages accrue over the roadmap. {@link #govern} decays and accounts
- * fatigue centrally and bakes the per-role attenuation into the scene's primitives before returning it,
- * so every backend, the worker and any semantic backend alike, consumes an already-governed scene
- * rather than each applying its own attenuation. The Phase-6 body budget slots in the same way. The
- * fan-out currency stays the device-neutral {@link HapticScene}.
+ * <p>This is where the aggregate stages accrue over the roadmap. {@link #resolve} decays and accounts
+ * fatigue centrally and bakes per-role, per-region attenuation into the scene's primitives. Each cycle
+ * produces one {@link GovernedOutput}: active scenes remain available for physical route refinement,
+ * while semantic backends consume the same time-sampled destination snapshot.
  *
  * <p><b>Stop ordering.</b> This lock keeps the store consistent across threads, but it is not what makes
  * a stop safe on its own. The worker takes a snapshot and then renders and dispatches it while holding
@@ -40,6 +44,8 @@ public final class SceneGovernor {
     private final int capacity;
     private long droppedCount;
     private long lastGovernNs;
+    private boolean hasGoverned;
+    private long snapshotGeneration;
 
     public SceneGovernor() {
         this(DEFAULT_CAPACITY);
@@ -82,8 +88,8 @@ public final class SceneGovernor {
     }
 
     /**
-     * The central governance step: expire stale scenes, decay and account fatigue, and return the held
-     * scenes with the per-role fatigue attenuation baked into their primitives.
+     * Compatibility scene view of the central governance result. New backends consume {@link #resolve}
+     * so they also receive the authoritative destination snapshot.
      *
      * @param fatigueOn   whether fatigue attenuation is applied (the user's protection toggle); load is
      *                    still accounted when off, so enabling protection sees the accumulated history
@@ -91,28 +97,47 @@ public final class SceneGovernor {
      *                    false when output is suppressed (disabled, panicked) so idle time never fatigues
      */
     public synchronized List<HapticScene> govern(long nowNs, boolean fatigueOn, boolean accountLoad) {
+        return resolve(nowNs, fatigueOn, accountLoad).scenes();
+    }
+
+    /**
+     * Resolve one immutable, time-aware output result. Layers outside their window or currently at zero
+     * are absent for this cycle. Multi-family routes are split before competition, preventing an
+     * exclusive motion layer from suppressing independent strength output. Fatigue is applied and
+     * recorded only after competition, by role and region.
+     */
+    public synchronized GovernedOutput resolve(long nowNs, boolean fatigueOn, boolean accountLoad) {
         store.update(nowNs);
         fatigue.update(nowNs);
-        long dt = lastGovernNs == 0L ? 0L : nowNs - lastGovernNs;
+        long dt = hasGoverned ? Math.max(0L, nowNs - lastGovernNs) : 0L;
         lastGovernNs = nowNs;
+        hasGoverned = true;
 
-        List<HapticScene> held = store.snapshot();
-        EnumMap<HapticRole, Float> achievedByRole = new EnumMap<>(HapticRole.class);
-        List<HapticScene> governed = new ArrayList<>(held.size());
-        for (HapticScene scene : held) {
+        List<HapticScene> held = activeAndClassified(store.snapshot(), nowNs);
+        List<HapticScene> resolved = resolveExclusivity(held);
+        List<HapticScene> governed = new ArrayList<>(resolved.size());
+        Map<LogicalDestination, Float> levels = new LinkedHashMap<>();
+        EnumMap<HapticRole, EnumMap<BodyRegion, Float>> achieved = new EnumMap<>(HapticRole.class);
+        for (HapticScene scene : resolved) {
             List<HapticLayer> layers = scene.layers();
             List<HapticLayer> rebuilt = null;
             for (int i = 0; i < layers.size(); i++) {
                 HapticLayer layer = layers.get(i);
-                float factor = fatigueOn ? fatigue.factor(layer.role()) : 1f;
+                float factor = fatigueOn ? fatigue.factor(layer.role(), layer.bodyRegion()) : 1f;
                 long layerStart = scene.createdAtNs() + layer.startOffsetNs();
-                long layerEnd = layerStart + layer.expiresAfterNs();
-                if (nowNs >= layerStart && nowNs < layerEnd) {
-                    float achieved =
-                            PrimitiveEvaluator.levelAt(layer.primitive(), nowNs - layerStart) * factor;
-                    if (achieved > 0f) {
-                        achievedByRole.merge(layer.role(), achieved, Math::max);
+                float current = PrimitiveEvaluator.levelAt(layer.primitive(), nowNs - layerStart) * factor;
+                if (current > 0f) {
+                    for (OutputClass outputClass : layer.route().outputClasses()) {
+                        LogicalDestination destination = new LogicalDestination(layer.role(),
+                                layer.bodyRegion(), outputClass);
+                        mergeMax(levels, destination, current);
                     }
+                    EnumMap<BodyRegion, Float> byRegion = achieved.get(layer.role());
+                    if (byRegion == null) {
+                        byRegion = new EnumMap<>(BodyRegion.class);
+                        achieved.put(layer.role(), byRegion);
+                    }
+                    mergeMax(byRegion, layer.bodyRegion(), current);
                 }
                 if (factor < 1f) {
                     if (rebuilt == null) {
@@ -124,27 +149,65 @@ public final class SceneGovernor {
             governed.add(rebuilt == null ? scene : scene.withLayers(rebuilt));
         }
         if (accountLoad && dt > 0L) {
-            for (Map.Entry<HapticRole, Float> e : achievedByRole.entrySet()) {
-                fatigue.record(e.getKey(), e.getValue(), dt);
+            for (Map.Entry<HapticRole, EnumMap<BodyRegion, Float>> role : achieved.entrySet()) {
+                for (Map.Entry<BodyRegion, Float> region : role.getValue().entrySet()) {
+                    fatigue.record(role.getKey(), region.getKey(), region.getValue(), dt);
+                }
             }
         }
-        return resolveExclusivity(governed);
+        ResolvedDestinationSnapshot destinations = new ResolvedDestinationSnapshot(
+                ++snapshotGeneration, nowNs, levels);
+        return new GovernedOutput(governed, destinations);
+    }
+
+    /** Keep only currently active, non-zero layers and split routes into one layer per output family. */
+    private static List<HapticScene> activeAndClassified(List<HapticScene> held, long nowNs) {
+        List<HapticScene> out = new ArrayList<>(held.size());
+        for (HapticScene scene : held) {
+            List<HapticLayer> active = new ArrayList<>();
+            for (HapticLayer layer : scene.layers()) {
+                long start = scene.createdAtNs() + layer.startOffsetNs();
+                long end = saturatingAdd(start, layer.expiresAfterNs());
+                if (nowNs < start || nowNs >= end
+                        || PrimitiveEvaluator.levelAt(layer.primitive(), nowNs - start) <= 0f) {
+                    continue;
+                }
+                Set<OutputClass> classes = layer.route().outputClasses();
+                for (OutputClass outputClass : classes) {
+                    active.add(classes.size() == 1 ? layer
+                            : layer.withRoute(layer.route().restrictedTo(outputClass)));
+                }
+            }
+            if (!active.isEmpty()) {
+                out.add(active.size() == scene.layers().size() && active.equals(scene.layers())
+                        ? scene : scene.withLayers(active));
+            }
+        }
+        return out;
+    }
+
+    private static long saturatingAdd(long a, long b) {
+        if (b > 0L && a > Long.MAX_VALUE - b) {
+            return Long.MAX_VALUE;
+        }
+        if (b < 0L && a < Long.MIN_VALUE - b) {
+            return Long.MIN_VALUE;
+        }
+        return a + b;
+    }
+
+    private static <K> void mergeMax(Map<K, Float> levels, K key, float value) {
+        Float previous = levels.get(key);
+        if (previous == null || value > previous) {
+            levels.put(key, value);
+        }
     }
 
     /**
-     * Resolve priority and exclusivity once, centrally, so every backend consumes one already-resolved set
-     * (second follow-up review P1-3). Within a role, an EXCLUSIVE layer suppresses a strictly lower-priority
-     * layer of that role, but only when it wholly contains that layer's body region: a whole-body exclusive
-     * owns the whole role, while a region-scoped exclusive owns only same-region (and whole-body-contained)
-     * lower layers and leaves other regions alone. A scene left with no layers drops out. Doing this here,
-     * rather than separately in each backend, keeps the bridge and the device renderer from resolving the
-     * same governed set differently.
-     *
-     * <p>This is the coarse, device-neutral pass: it only drops a layer an exclusive wholly contains, never
-     * one it merely partially overlaps. A region-scoped exclusive facing a whole-body lower layer keeps both
-     * here; the renderer, which has a device model, then ducks the whole-body layer on the exclusive's
-     * region features while it keeps playing elsewhere. The bridge is region-blind (an adapter has no device
-     * model), so region-scoped exclusivity is a renderer-path refinement, not something the bridge enforces.
+     * Resolve priority and exclusivity once, centrally. Competition requires the same role and output
+     * class, plus a containing body region. A region-scoped exclusive cannot delete a whole-body layer
+     * because it owns only part of that layer's reach. Physical renderers refine that partial overlap
+     * against device placement, while the bridge preserves both destinations for its adapter.
      */
     private static List<HapticScene> resolveExclusivity(List<HapticScene> governed) {
         List<HapticLayer> exclusives = new ArrayList<>();
@@ -175,12 +238,22 @@ public final class SceneGovernor {
         return out;
     }
 
-    /** A layer is suppressed by any higher-priority same-role exclusive that wholly contains its region. */
+    /** A layer is suppressed only by a higher-priority exclusive on the same complete destination. */
     private static boolean suppressed(HapticLayer layer, List<HapticLayer> exclusives) {
         for (HapticLayer e : exclusives) {
             if (e.role() == layer.role()
                     && e.priority() > layer.priority()
-                    && e.bodyRegion().contains(layer.bodyRegion())) {
+                    && e.bodyRegion().contains(layer.bodyRegion())
+                    && intersects(e.route().outputClasses(), layer.route().outputClasses())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean intersects(Set<OutputClass> a, Set<OutputClass> b) {
+        for (OutputClass outputClass : a) {
+            if (b.contains(outputClass)) {
                 return true;
             }
         }
@@ -197,13 +270,15 @@ public final class SceneGovernor {
         store.clear();
         fatigue.reset();
         lastGovernNs = 0L;
+        hasGoverned = false;
+        snapshotGeneration++;
     }
 
     /** Shift every held scene and the fatigue clock forward after a real-time pause. */
     public synchronized void shiftTime(long deltaNs) {
         store.shiftTime(deltaNs);
         fatigue.shiftTime(deltaNs);
-        if (lastGovernNs > 0L && deltaNs > 0L) {
+        if (hasGoverned && deltaNs > 0L) {
             lastGovernNs += deltaNs;
         }
     }
@@ -218,5 +293,10 @@ public final class SceneGovernor {
 
     public synchronized long droppedCount() {
         return droppedCount;
+    }
+
+    /** Current decayed load for diagnostics and deterministic governance tests. */
+    double fatigueLoadFor(HapticRole role, BodyRegion region) {
+        return fatigue.loadFor(role, region);
     }
 }

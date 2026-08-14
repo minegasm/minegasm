@@ -178,20 +178,18 @@ public final class ButtplugProvider implements HapticProvider {
     }
 
     /**
-     * Send a feature-level output command. Dropped (as a completed no-op) if the socket is closed or
-     * the command's captured generation no longer matches the registry (brief §5.3, §9.5). Output is
-     * fire-and-forget: it is never awaited. A late {@code Ok} is ignored; a late {@code Error} is
-     * surfaced to the status/error history by {@link #handle} but does not fail the send.
+     * Send a feature-level output command. A closed socket or stale registry generation completes as a
+     * cancellation. Otherwise the returned stage follows the matching protocol reply, so a late
+     * {@code Error} or request timeout reaches backend health instead of being reported as delivered.
      */
     public CompletionStage<Void> send(OutputCommand command) {
         if (!canSendMessages()) {
-            return CompletableFuture.completedFuture(null);
+            return cancelled("output dropped while disconnected");
         }
         if (command.registryGeneration() != registry.snapshot().generation()) {
-            return CompletableFuture.completedFuture(null); // stale target
+            return cancelled("output target generation is stale");
         }
-        transport.send(ButtplugCodec.outputCmd(nextId.getAndIncrement(), command));
-        return CompletableFuture.completedFuture(null);
+        return sendRequest(id -> ButtplugCodec.outputCmd(id, command)).thenApply(reply -> null);
     }
 
     /**
@@ -206,18 +204,18 @@ public final class ButtplugProvider implements HapticProvider {
         // A plain instanceof chain with explicit casts: the engine also compiles as Java 8 source for
         // the Classic build, so it uses neither switch type patterns nor instanceof pattern bindings.
         if (selection instanceof StopSelection.All) {
-            transport.send(ButtplugCodec.stopAll(nextId.getAndIncrement()));
+            return sendRequest(ButtplugCodec::stopAll).thenApply(reply -> null);
         } else if (selection instanceof StopSelection.Device) {
             StopSelection.Device d = (StopSelection.Device) selection;
-            transport.send(ButtplugCodec.stopDevice(nextId.getAndIncrement(), d.deviceIndex()));
+            return sendRequest(id -> ButtplugCodec.stopDevice(id, d.deviceIndex()))
+                    .thenApply(reply -> null);
         } else if (selection instanceof StopSelection.Feature) {
             StopSelection.Feature f = (StopSelection.Feature) selection;
-            transport.send(ButtplugCodec.stopFeature(nextId.getAndIncrement(),
-                    f.deviceIndex(), f.featureIndex()));
+            return sendRequest(id -> ButtplugCodec.stopFeature(id,
+                    f.deviceIndex(), f.featureIndex())).thenApply(reply -> null);
         } else {
             throw new IllegalStateException("Unknown StopSelection: " + selection);
         }
-        return CompletableFuture.completedFuture(null);
     }
 
     private boolean canSendMessages() {
@@ -243,6 +241,10 @@ public final class ButtplugProvider implements HapticProvider {
         CompletableFuture<T> future = new CompletableFuture<>();
         future.completeExceptionally(cause);
         return future;
+    }
+
+    private static <T> CompletableFuture<T> cancelled(String detail) {
+        return failed(new java.util.concurrent.CancellationException(detail));
     }
 
     @Override

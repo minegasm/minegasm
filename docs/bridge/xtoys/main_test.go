@@ -7,11 +7,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+var frameGeneration int64
 
 // fakeXToys is a minimal WebSocket server that records the intensity sent per action and lets a test drop
 // the live connection to simulate a downstream outage.
@@ -75,6 +78,7 @@ func newTestAdapter(wsURL string) *xtoys {
 		wsURL:          wsURL,
 		scale:          100,
 		min:            20,
+		routing:        "role",
 		last:           map[string]int{},
 		state:          map[string]clientOutput{},
 		listeners:      map[net.Conn]bool{},
@@ -83,17 +87,56 @@ func newTestAdapter(wsURL string) *xtoys {
 	}
 }
 
-// outputFrame builds an authoritative per-role output frame: the whole current state, roles the mod omits
-// are implicitly zero.
+// outputFrame builds an authoritative destination snapshot.
 func outputFrame(levels map[string]float64, ttlMs int) map[string]json.RawMessage {
+	destinations := make([]map[string]interface{}, 0, len(levels))
+	for role, level := range levels {
+		destinations = append(destinations, map[string]interface{}{
+			"role": role, "region": "whole_body", "outputClass": "strength", "level": level,
+		})
+	}
 	raw, _ := json.Marshal(map[string]interface{}{
-		"type":  "output",
-		"ttlMs": ttlMs,
-		"roles": levels,
+		"v": protocolVersion, "type": "output", "generation": atomic.AddInt64(&frameGeneration, 1),
+		"ttlMs": ttlMs, "destinations": destinations,
 	})
 	var frame map[string]json.RawMessage
 	json.Unmarshal(raw, &frame)
 	return frame
+}
+
+func TestProtocolVersionFailsClosed(t *testing.T) {
+	cases := []string{
+		`{"type":"output"}`,
+		`{"v":1.0,"type":"output"}`,
+		`{"v":"1","type":"output"}`,
+		`{"v":2,"type":"output"}`,
+	}
+	for _, raw := range cases {
+		var frame map[string]json.RawMessage
+		json.Unmarshal([]byte(raw), &frame)
+		if _, ok := protocolType(frame); ok {
+			t.Fatalf("accepted incompatible frame %s", raw)
+		}
+	}
+	var valid map[string]json.RawMessage
+	json.Unmarshal([]byte(`{"v":1,"type":"output"}`), &valid)
+	if typ, ok := protocolType(valid); !ok || typ != "output" {
+		t.Fatal("rejected protocol v1 output")
+	}
+}
+
+func TestDisconnectDuringUncommittedNonzeroOwesZero(t *testing.T) {
+	x := newTestAdapter("")
+	x.mu.Lock()
+	x.writing = true
+	x.writingLevels = map[string]int{"impact": 84}
+	x.onDisconnectedLocked(map[string]int{})
+	owed := x.pendingZero
+	x.mu.Unlock()
+
+	if !owed {
+		t.Fatal("an ambiguous in-flight nonzero must keep a zero obligation")
+	}
 }
 
 func waitFor(t *testing.T, what string, cond func() bool) {

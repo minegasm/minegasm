@@ -27,38 +27,38 @@ should refuse a version it does not recognize rather than guess.
 
 ### output
 
-The authoritative current output, one level per role, in `[0, 1]`. Minegasm sends it whenever the
-level changes and re-sends it periodically while output is active; it is device-independent and
-carries no Buttplug output kinds or device routing.
+The authoritative current output, sampled after timing, signal shaping, priority, exclusivity, and
+fatigue. Each level is in `[0, 1]` and addressed by role, body region, and device-neutral output class.
+Minegasm sends the complete set whenever it changes and periodically while output is active.
 
 ```json
 {
   "v": 1,
   "type": "output",
+  "generation": 42,
   "ttlMs": 6000,
-  "roles": {
-    "impact": 0.8,
-    "reward": 0,
-    "texture": 0,
-    "warning": 0,
-    "ambient": 0,
-    "control": 0
-  }
+  "destinations": [
+    {"role": "impact", "region": "genital", "outputClass": "strength", "level": 0.8},
+    {"role": "reward", "region": "nipple", "outputClass": "motion", "level": 0.4}
+  ]
 }
 ```
 
-- **Each frame is the full state.** Set every role to the level given and leave the rest of your
-  outputs alone only if they are not roles. A role that drops to `0`, or that a frame omits, is off:
-  apply it as off. This is what makes a scene ending or being suppressed retract, so you never combine
-  a stream of events or track when one ends. There is nothing to "add" or "remove"; you mirror the
-  latest snapshot.
-- `roles` keys are the six roles Minegasm emits, lowercased: `impact`, `reward`, `texture`, `warning`,
-  `ambient`, `control`. Treat a missing key as `0`.
+- **Each frame is the full state.** A destination that drops to `0`, or that a newer frame omits, is off.
+  Mirror the latest snapshot instead of accumulating events.
+- `role` is one of `impact`, `reward`, `texture`, `warning`, `ambient`, or `control`.
+- `region` is `whole_body`, `genital`, `anal`, `nipple`, `perineal`, `oral`, `generic_a`, or `generic_b`.
+- `outputClass` is `strength`, `motion`, `constriction`, `thermal`, `light`, or `unknown`. It is a logical
+  capability family, not a request for a particular brand or protocol command.
+- `generation` increases with central governance snapshots. Ignore an output frame older than the newest
+  generation already accepted on that connection.
+- A bounded integration test adds `"purpose":"test"`. It follows the same authoritative and TTL rules;
+  the marker lets status surfaces distinguish a test result from gameplay delivery.
 - `ttlMs` is how long to hold these levels without a fresh frame before zeroing everything. **Honor
   it:** the periodic re-send keeps it refreshed, so if it lapses the link is gone and output must
   stop on its own, without depending on a later stop arriving.
 - Map each role level to your device however you like (scale, floor for a motor's start threshold).
-  Roles let several actuators run at once; route each to whatever output you want in your adapter.
+  Destinations let several actuators run at once; route each to the suitable output in your adapter.
 
 ### stop
 

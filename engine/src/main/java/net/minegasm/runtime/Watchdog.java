@@ -27,17 +27,28 @@ public final class Watchdog {
      * client tick polls it, an observer independent of the worker thread it watches). Refires at
      * most once per threshold window so a sustained stall does not spam {@code StopCmd}.
      */
-    public boolean check() {
+    public synchronized boolean check() {
         long last = worker.lastHealthyCycleNs();
         if (last == 0) {
             return false; // worker not yet running
         }
         long now = clock.nanoTime();
         if (now - last > thresholdNs) {
+            // The worker heartbeat can advance between the first read and this transition. Re-read it
+            // under our transition lock so two observers cannot latch a stale watchdog stop after a
+            // concurrent recovery.
+            long current = worker.lastHealthyCycleNs();
+            if (current != last && now - current <= thresholdNs) {
+                worker.recoverFromWatchdogStop();
+                return false;
+            }
+            last = current;
             if (now - lastFiredNs > thresholdNs) {
-                lastFiredNs = now;
-                worker.emergencyStop(StopReason.WATCHDOG);
-                return true;
+                if (worker.emergencyStopIfHeartbeatStalled(last, now, thresholdNs,
+                        StopReason.WATCHDOG)) {
+                    lastFiredNs = now;
+                    return true;
+                }
             }
             return false;
         }

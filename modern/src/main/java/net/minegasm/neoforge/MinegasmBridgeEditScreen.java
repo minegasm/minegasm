@@ -89,7 +89,7 @@ public final class MinegasmBridgeEditScreen extends Screen {
             // test is gated like Buttplug's: only when output is on and this bridge's adapter is connected.
             String bridgeName = bridges.get(index).name();
             boolean canTest = client.config().enabled()
-                    && client.runtime().worker().isOutputEnabled()
+                    && client.isOutputPermitted()
                     && client.bridgeConnected(bridgeName);
             int half = (width - 4) / 2;
             Button test = addRenderableWidget(button(Component.translatable("minegasm.devices.test_output"),

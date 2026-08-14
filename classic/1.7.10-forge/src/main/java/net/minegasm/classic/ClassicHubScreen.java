@@ -51,7 +51,7 @@ public final class ClassicHubScreen extends GuiScreen {
 
         buttonList.add(new GuiButton(ID_ENABLED, x, 44, half, h, enabledLabel()));
         GuiButton safety = new GuiButton(ID_PANIC, x + half + 4, 44, half, h, panicLabel());
-        safety.enabled = !client.runtime().worker().isWatchdogStopped(); // a watchdog stop isn't resumable here
+        safety.enabled = client.outputStatus().permitted() || client.outputStatus().userResumable();
         buttonList.add(safety);
 
         // Fixed bottom block, anchored to the screen bottom so it never scrolls away.
@@ -164,7 +164,7 @@ public final class ClassicHubScreen extends GuiScreen {
         drawDefaultBackground();
         drawCenteredString(fontRendererObj, "Minegasm", width / 2, 12, 0xFFFFFF);
         drawCenteredString(fontRendererObj, "Integrations, output, and settings", width / 2, 26, 0xA0A0A0);
-        if (!client.runtime().worker().isOutputEnabled()) {
+        if (!client.outputStatus().permitted()) {
             drawCenteredString(fontRendererObj, "OUTPUT STOPPED", width / 2, 64, 0xFF5555);
         }
         drawCenteredString(fontRendererObj, "Integrations", width / 2, 78, 0xFFFFFF);
@@ -180,8 +180,10 @@ public final class ClassicHubScreen extends GuiScreen {
     }
 
     private int safetyCode() {
-        return (client.runtime().worker().isUserStopped() ? 1 : 0)
-                | (client.runtime().worker().isWatchdogStopped() ? 2 : 0)
+        net.minegasm.runtime.OutputStatus output = client.outputStatus();
+        return (output.userStopped() ? 1 : 0)
+                | (output.watchdogStopped() ? 2 : 0)
+                | (output.disabled() ? 8 : 0)
                 | (client.buttplugFaulted() ? 4 : 0);
     }
 
@@ -197,9 +199,9 @@ public final class ClassicHubScreen extends GuiScreen {
     }
 
     private void togglePanic() {
-        if (client.runtime().worker().isUserStopped()) {
+        if (client.outputStatus().userResumable()) {
             client.clearPanic(); // clears only the user-stop cause
-        } else if (!client.runtime().worker().isWatchdogStopped()) {
+        } else if (client.outputStatus().permitted()) {
             client.panic();
         }
     }
@@ -209,10 +211,10 @@ public final class ClassicHubScreen extends GuiScreen {
     }
 
     private String panicLabel() {
-        if (client.runtime().worker().isUserStopped()) {
+        if (client.outputStatus().userResumable()) {
             return "Resume";
         }
-        if (client.runtime().worker().isWatchdogStopped()) {
+        if (!client.outputStatus().permitted()) {
             return "Watchdog stopped";
         }
         return "Stop";
@@ -220,7 +222,8 @@ public final class ClassicHubScreen extends GuiScreen {
 
     private String buttplugLabel() {
         if (client.buttplugFaulted()) {
-            return "Buttplug: FAULT (quarantined)";
+            net.minegasm.backend.BackendOutcome failure = client.buttplugFailure();
+            return "Buttplug: FAULT" + (failure == null ? "" : " (" + failure + ")");
         }
         int devices = client.provider().devices().all().size();
         return "Buttplug: " + client.status().state().name().toLowerCase(Locale.ROOT)

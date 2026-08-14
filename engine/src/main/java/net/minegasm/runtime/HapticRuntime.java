@@ -64,6 +64,10 @@ public final class HapticRuntime {
     private final Map<String, BridgeBackend> bridgeBackends = new ConcurrentHashMap<>();
     private final Map<String, URI> bridgeUris = new ConcurrentHashMap<>();
     private volatile boolean started;
+    private volatile boolean closed;
+    private final java.util.concurrent.atomic.AtomicLong watchdogFaultCount =
+            new java.util.concurrent.atomic.AtomicLong();
+    private volatile String lastWatchdogFault;
 
     private boolean gameActive;
     private boolean worldPresent;
@@ -187,7 +191,13 @@ public final class HapticRuntime {
         return buttplug.lastCommands();
     }
 
-    public void start() {
+    public synchronized void start() {
+        if (closed) {
+            throw new IllegalStateException("runtime is closed");
+        }
+        if (started) {
+            return;
+        }
         started = true;
         coordinator.start();
         worker.start();
@@ -204,19 +214,36 @@ public final class HapticRuntime {
         watchdogExec.scheduleAtFixedRate(() -> {
             try {
                 watchdog.check();
-            } catch (RuntimeException ignored) {
-                // Never let a watchdog check exception stop the timer; the next tick retries.
+            } catch (RuntimeException failure) {
+                watchdogFaultCount.incrementAndGet();
+                lastWatchdogFault = failure.getClass().getSimpleName()
+                        + (failure.getMessage() == null ? "" : ": " + failure.getMessage());
+                // Never let one check exception stop the timer; the next poll retries.
             }
         }, WATCHDOG_POLL_MS, WATCHDOG_POLL_MS, TimeUnit.MILLISECONDS);
     }
 
-    public void shutdown() {
+    public synchronized void shutdown() {
+        if (closed) {
+            return;
+        }
+        closed = true;
         if (watchdogExec != null) {
             watchdogExec.shutdownNow();
             watchdogExec = null;
         }
         worker.shutdown();
         coordinator.close();
+        started = false;
+    }
+
+    /** Number of independent watchdog poll failures retained for diagnostics. */
+    public long watchdogFaultCount() {
+        return watchdogFaultCount.get();
+    }
+
+    public String lastWatchdogFault() {
+        return lastWatchdogFault;
     }
 
     /**
@@ -310,6 +337,20 @@ public final class HapticRuntime {
     /** A bounded snapshot of the most recent backend render faults, oldest first. */
     public List<String> backendFaults() {
         return coordinator.recentFaults();
+    }
+
+    /** One immutable state for global controls, integration cards, commands, and test feedback. */
+    public OutputViewState outputViewState() {
+        java.util.EnumSet<StopCause> causes = java.util.EnumSet.noneOf(StopCause.class);
+        causes.addAll(worker.outputStatus().causes());
+        if (!config.get().enabled()) {
+            causes.add(StopCause.DISABLED);
+        }
+        if (!coordinator.quarantined().isEmpty()) {
+            causes.add(StopCause.BACKEND_FAULT);
+        }
+        return new OutputViewState(OutputStatus.of(causes), coordinator.anyOutputActive(),
+                coordinator.latestOutcomes(), coordinator.unresolvedFailures());
     }
 
     public HapticWorker worker() {

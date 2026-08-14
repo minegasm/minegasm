@@ -20,7 +20,8 @@ final class BridgeStatus {
             return "off";
         }
         if (client.bridgeFaulted(bridge.name())) {
-            return "FAULT";
+            net.minegasm.backend.BackendOutcome failure = client.bridgeFailure(bridge.name());
+            return "FAULT" + (failure == null ? "" : " (" + failure + ")");
         }
         if (!client.bridgeConnected(bridge.name())) {
             return "waiting for adapter";

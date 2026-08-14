@@ -1,32 +1,37 @@
 package net.minegasm.bridge;
 
 import net.minegasm.backend.HapticBackend;
-import net.minegasm.core.HapticRole;
+import net.minegasm.backend.BackendOperation;
+import net.minegasm.backend.BackendOutcome;
+import net.minegasm.backend.BackendOutcomeTracker;
 import net.minegasm.core.HapticScene;
-import net.minegasm.runtime.BridgeRoleForwarder;
+import net.minegasm.runtime.BridgeDestinationForwarder;
+import net.minegasm.runtime.GovernedOutput;
+import net.minegasm.runtime.ResolvedDestinationSnapshot;
+import net.minegasm.runtime.SceneGovernor;
 import net.minegasm.runtime.StopReason;
 import net.minegasm.time.Clock;
 
 import java.net.URI;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.function.Consumer;
 
 /**
- * The local-bridge backend (brief 0002 §4.3, 0003 §3.4): fans each scene out as a versioned JSON
- * message to a user-run adapter over an outbound, loopback-by-default connection. The extension point
+ * The local-bridge backend (brief 0002 §4.3, 0003 §3.4): forwards authoritative logical destination
+ * snapshots as versioned JSON over an outbound, loopback-by-default connection. The extension point
  * for integrations that do not justify code in the mod (XToys, DIY hardware, eventually OpenShock). The
  * socket lives behind {@link BridgeTransport} in the loader layer; this class is Java 8 and library-free.
  *
  * <p><b>Governed input.</b> The bridge consumes the central governed set (ADR-018): scenes arrive already
  * coalesced, fatigue-attenuated, and exclusivity-resolved from {@link net.minegasm.runtime.SceneGovernor}.
- * {@link net.minegasm.runtime.BridgeRoleForwarder} renders that set to one authoritative level per role
+ * {@link net.minegasm.runtime.BridgeDestinationForwarder} sends the central destination snapshot
  * and sends the whole snapshot only when it changes (or to refresh the TTL), so a steady effect is sent
  * once rather than every tick and, because each frame is the full state, a scene ending or being
- * suppressed retracts at the adapter as its role's level drops. The aggregate body budget (Phase 6) will
+ * suppressed retracts at the adapter when its destination disappears. The aggregate body budget will
  * attenuate the governed scene centrally before it reaches here, the prerequisite before any electrostim
  * adapter rides this bridge (ADR-016). Outbound frames go through a bounded, one-in-flight
  * {@link OutboundQueue} that drops oldest when full, so a burst cannot grow memory and a stop cannot be
@@ -50,7 +55,7 @@ public final class BridgeBackend implements HapticBackend {
     private final Supplier<BridgeTransport> transportFactory;
     private final BridgeCodec codec = new BridgeCodec();
     private final OutboundQueue outbound;
-    private final BridgeRoleForwarder forwarder;
+    private final BridgeDestinationForwarder forwarder;
     private final URI endpoint;
     private final String id;
     private final Clock clock;
@@ -60,6 +65,7 @@ public final class BridgeBackend implements HapticBackend {
     private volatile boolean stopped;
     private volatile boolean outputEnabled = true;
     private volatile long lastHealthyCycleNs;
+    private volatile boolean outputActive;
     // What the adapter reports about its own onward link (XToys webhook, device, ...). UNKNOWN until the
     // adapter says otherwise, and reset to UNKNOWN when the socket drops.
     private volatile DownstreamState downstream = DownstreamState.UNKNOWN;
@@ -72,8 +78,19 @@ public final class BridgeBackend implements HapticBackend {
     // worker thread (via resyncOnNextCycle), never cross-thread, so its maps are not raced.
     private final java.util.concurrent.atomic.AtomicLong stopGeneration =
             new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong pendingStopGeneration =
+            new java.util.concurrent.atomic.AtomicLong();
+    // Check-and-enqueue shares this boundary with stop generation and queue replacement. Without one
+    // ordering point, an output could pass its generation check, pause, then append behind a stop.
+    private final Object enqueueLock = new Object();
     private long cycleGeneration; // worker-thread only: the generation captured for the current cycle
     private ScheduledExecutorService reconnect;
+    private final ScheduledExecutorService deliveryTimeouts;
+    private final java.util.concurrent.atomic.AtomicLong operationGeneration =
+            new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong wireGeneration =
+            new java.util.concurrent.atomic.AtomicLong();
+    private final BackendOutcomeTracker outcomes;
 
     public BridgeBackend(Supplier<BridgeTransport> transportFactory, URI endpoint, Clock clock) {
         this(transportFactory, endpoint, "bridge", clock);
@@ -85,8 +102,14 @@ public final class BridgeBackend implements HapticBackend {
         this.endpoint = endpoint;
         this.id = id == null || id.trim().isEmpty() ? "bridge" : id;
         this.clock = clock;
+        this.outcomes = new BackendOutcomeTracker(this.id, clock::nanoTime, 5_000L);
+        this.deliveryTimeouts = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "minegasm-bridge-timeout-" + this.id);
+            thread.setDaemon(true);
+            return thread;
+        });
         this.outbound = new OutboundQueue(QUEUE_CAPACITY, this::sendFrame);
-        this.forwarder = new BridgeRoleForwarder(this::submit);
+        this.forwarder = new BridgeDestinationForwarder(this::submit);
     }
 
     @Override
@@ -112,7 +135,10 @@ public final class BridgeBackend implements HapticBackend {
     }
 
     @Override
-    public void start() {
+    public synchronized void start() {
+        if (!stopped && reconnect != null) {
+            return;
+        }
         stopped = false;
         ensureConnected(); // dial once now (so tests and a ready adapter connect immediately)
         // Then keep a supervisor dialing: retry until the adapter is up, reconnect if it restarts.
@@ -145,17 +171,87 @@ public final class BridgeBackend implements HapticBackend {
             if (error == null) {
                 lastHealthyCycleNs = clock.nanoTime();
                 resyncOnNextCycle = true; // re-send in-flight effects to the newly connected adapter
+                if (pendingStopGeneration.get() > 0L) {
+                    outbound.clearAndOffer(codec.encodeStop());
+                }
             }
         });
     }
 
-    /** Send a frame through whatever transport is currently connected; dropped if there is none. */
+    /** Send through the current transport, reporting unavailable or timed-out delivery as a failure. */
     private java.util.concurrent.CompletionStage<Void> sendFrame(String frame) {
         BridgeTransport current = transport;
-        if (current != null) {
-            return current.send(frame);
+        java.util.concurrent.CompletionStage<Void> stage;
+        if (current != null && current.isOpen()) {
+            stage = withTimeout(current.send(frame), current);
+        } else {
+            java.util.concurrent.CompletableFuture<Void> failed = new java.util.concurrent.CompletableFuture<>();
+            failed.completeExceptionally(new IllegalStateException("bridge transport is not connected"));
+            stage = failed;
         }
-        return java.util.concurrent.CompletableFuture.completedFuture(null);
+        final long operation = operationGeneration.incrementAndGet();
+        final long lifecycle = stopGeneration.get();
+        final BackendOperation kind = frame.contains("\"type\":\"stop\"")
+                ? BackendOperation.STOP : frame.contains("\"purpose\":\"test\"")
+                ? BackendOperation.TEST : BackendOperation.SEND;
+        outcomes.observe(kind, operation, stage, () -> lifecycle != stopGeneration.get());
+        if (kind == BackendOperation.SEND) {
+            final boolean activeAfterDelivery = !frame.contains("\"destinations\":[]");
+            stage.whenComplete((ignored, error) -> {
+                if (error == null && lifecycle == stopGeneration.get()) {
+                    outputActive = activeAfterDelivery;
+                }
+            });
+        }
+        if (kind == BackendOperation.STOP) {
+            stage.whenComplete((ignored, error) -> {
+                if (error == null) {
+                    pendingStopGeneration.compareAndSet(lifecycle, 0L);
+                }
+            });
+        }
+        return stage;
+    }
+
+    private java.util.concurrent.CompletionStage<Void> withTimeout(
+            java.util.concurrent.CompletionStage<Void> source, BridgeTransport owner) {
+        final java.util.concurrent.CompletableFuture<Void> bounded =
+                new java.util.concurrent.CompletableFuture<>();
+        final java.util.concurrent.ScheduledFuture<?> timeout = deliveryTimeouts.schedule(() -> {
+            if (bounded.completeExceptionally(
+                    new java.util.concurrent.TimeoutException("bridge write timed out"))) {
+                owner.close();
+            }
+        }, 5_000L, TimeUnit.MILLISECONDS);
+        source.whenComplete((ignored, error) -> {
+            timeout.cancel(false);
+            if (error == null) {
+                bounded.complete(null);
+            } else {
+                bounded.completeExceptionally(error);
+            }
+        });
+        return bounded;
+    }
+
+    @Override
+    public void setOutcomeListener(Consumer<BackendOutcome> listener) {
+        outcomes.setListener(listener);
+    }
+
+    @Override
+    public BackendOutcome latestOutcome() {
+        return outcomes.latest();
+    }
+
+    @Override
+    public BackendOutcome unresolvedFailure() {
+        return outcomes.unresolvedFailure();
+    }
+
+    @Override
+    public void clearOutcomeFailure() {
+        outcomes.clearFailure();
     }
 
     @Override
@@ -167,7 +263,12 @@ public final class BridgeBackend implements HapticBackend {
     }
 
     @Override
-    public void onGovernedScenes(List<HapticScene> governed, long nowNs) {
+    public boolean isOutputActive() {
+        return outputActive;
+    }
+
+    @Override
+    public void onGovernedOutput(GovernedOutput output) {
         // Change-driven: this backend's forwarder decides what actually goes on the wire (steady effects
         // sent once, TTL re-armed). It self-gates via submit() below when panicked or disconnected. All
         // forwarder state lives on this thread: reset it here (never cross-thread) when a link came up or a
@@ -177,39 +278,63 @@ public final class BridgeBackend implements HapticBackend {
             forwarder.reset();
         }
         cycleGeneration = stopGeneration.get();
-        forwarder.forward(governed, nowNs);
+        forwarder.forward(output.destinations());
     }
 
     /**
-     * The forwarder's sink: encode the authoritative per-role snapshot as an {@code output} frame if the
+     * The forwarder's sink: encode the authoritative destination snapshot as an {@code output} frame if the
      * adapter can receive it. Returns whether the frame was accepted, so the forwarder records it as sent
      * only when it actually went out and retries a drop on the next cycle rather than treating it as
      * delivered. Drops if a stop bumped the generation after this cycle began, so an output never lands
      * behind a stop.
      */
-    private boolean submit(EnumMap<HapticRole, Float> levels) {
-        BridgeTransport current = transport;
-        if (!outputEnabled || current == null || !current.isOpen()
-                || cycleGeneration != stopGeneration.get()) {
-            return false; // panic-latched, disconnected, or a stop raced this cycle: drop and retry later
+    private boolean submit(ResolvedDestinationSnapshot snapshot) {
+        synchronized (enqueueLock) {
+            BridgeTransport current = transport;
+            if (!outputEnabled || current == null || !current.isOpen()
+                    || cycleGeneration != stopGeneration.get() || pendingStopGeneration.get() > 0L) {
+                return false; // panic, disconnect, or stop race: retry on a later governed cycle
+            }
+            outbound.offer(codec.encodeOutput(wireSnapshot(snapshot), OUTPUT_TTL_MS));
+            lastHealthyCycleNs = clock.nanoTime();
+            return true;
         }
-        outbound.offer(codec.encodeOutput(levels, OUTPUT_TTL_MS));
-        lastHealthyCycleNs = clock.nanoTime();
-        return true;
     }
 
     @Override
     public void test(HapticScene scene, long nowNs) {
-        // Render one scene to the same authoritative per-role snapshot the steady path uses and send it with
+        // Render one scene to the same authoritative destination snapshot the steady path uses and send it with
         // the scene's remaining lifetime as its TTL, so the adapter holds it that long and then zeroes. The
         // steady forward path stays silent while idle (an all-off snapshot sends nothing), so it does not
         // overwrite the test. Isolated to this bridge: no other backend sees it.
-        BridgeTransport current = transport;
-        if (outputEnabled && current != null && current.isOpen()) {
+        synchronized (enqueueLock) {
+            BridgeTransport current = transport;
+            String blocked = !outputEnabled ? "output is disabled"
+                    : current == null || !current.isOpen() ? "bridge transport is not connected"
+                    : pendingStopGeneration.get() > 0L ? "the previous stop is not confirmed"
+                    : null;
+            if (blocked != null) {
+                reportTestFailure(blocked);
+                return;
+            }
             long ttlMs = Math.max(0L, (scene.expiresAtNs() - nowNs) / 1_000_000L);
-            outbound.offer(codec.encodeOutput(
-                    BridgeRoleForwarder.rolesOf(java.util.Collections.singletonList(scene)), ttlMs));
+            SceneGovernor isolated = new SceneGovernor(1);
+            isolated.submit(scene, nowNs);
+            outbound.offer(codec.encodeTestOutput(wireSnapshot(
+                    isolated.resolve(nowNs, false, false).destinations()), ttlMs));
         }
+    }
+
+    private void reportTestFailure(String detail) {
+        java.util.concurrent.CompletableFuture<Void> failed = new java.util.concurrent.CompletableFuture<>();
+        failed.completeExceptionally(new IllegalStateException(detail));
+        long generation = operationGeneration.incrementAndGet();
+        outcomes.observe(BackendOperation.TEST, generation, failed, () -> false);
+    }
+
+    private ResolvedDestinationSnapshot wireSnapshot(ResolvedDestinationSnapshot snapshot) {
+        return new ResolvedDestinationSnapshot(wireGeneration.incrementAndGet(),
+                snapshot.sampledAtNs(), snapshot.levels());
     }
 
     @Override
@@ -218,9 +343,14 @@ public final class BridgeBackend implements HapticBackend {
         // cannot enqueue an effect behind this stop. Then clearAndOffer the stop, dropping every queued
         // effect. The forwarder is reset on the next cycle (worker thread), not here, so its maps are never
         // touched cross-thread. Every effect also carries a TTL, so a dropped connection self-clears.
-        stopGeneration.incrementAndGet();
-        resyncOnNextCycle = true;
-        outbound.clearAndOffer(codec.encodeStop());
+        synchronized (enqueueLock) {
+            long generation = stopGeneration.incrementAndGet();
+            outputActive = false;
+            pendingStopGeneration.set(generation);
+            resyncOnNextCycle = true;
+            interruptInFlightWrite();
+            outbound.clearAndOffer(codec.encodeStop());
+        }
     }
 
     @Override
@@ -228,9 +358,24 @@ public final class BridgeBackend implements HapticBackend {
         // Out-of-band (watchdog) path: only thread-safe actions. Same generation bump so a concurrent cycle
         // can't append an effect behind the stop, and clearAndOffer through the synchronized queue tells the
         // adapter to zero now. The forwarder reset is deferred to the worker thread via resyncOnNextCycle.
-        stopGeneration.incrementAndGet();
-        resyncOnNextCycle = true;
-        outbound.clearAndOffer(codec.encodeStop());
+        synchronized (enqueueLock) {
+            long generation = stopGeneration.incrementAndGet();
+            outputActive = false;
+            pendingStopGeneration.set(generation);
+            resyncOnNextCycle = true;
+            interruptInFlightWrite();
+            outbound.clearAndOffer(codec.encodeStop());
+        }
+    }
+
+    private void interruptInFlightWrite() {
+        if (!outbound.hasInFlight()) {
+            return;
+        }
+        BridgeTransport current = transport;
+        if (current != null) {
+            current.close();
+        }
     }
 
     @Override
@@ -273,6 +418,8 @@ public final class BridgeBackend implements HapticBackend {
             reconnect.shutdownNow();
         }
         outbound.close();
+        deliveryTimeouts.shutdownNow();
+        outcomes.close();
         BridgeTransport current = transport;
         if (current != null) {
             current.close();
@@ -294,5 +441,6 @@ public final class BridgeBackend implements HapticBackend {
         // next tick, so a dropped or restarted adapter reconnects without a game restart. We no longer
         // know the downstream state once the socket is gone.
         downstream = DownstreamState.UNKNOWN;
+        outputActive = false;
     }
 }

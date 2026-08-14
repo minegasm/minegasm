@@ -125,10 +125,15 @@ class TcpLineBridgeTransportTest {
     }
 
     @Test
-    void sendIsANoOpWhenNotConnected() throws Exception {
+    void sendFailsWhenNotConnected() {
         transport = new TcpLineBridgeTransport();
-        // never connected: send completes without throwing and reports not open
-        transport.send("{\"type\":\"effect\"}").toCompletableFuture().get(1, TimeUnit.SECONDS);
+        java.util.concurrent.CompletableFuture<Void> send = transport
+                .send("{\"type\":\"effect\"}")
+                .toCompletableFuture();
+
+        assertThrows(java.util.concurrent.ExecutionException.class,
+                () -> send.get(1, TimeUnit.SECONDS),
+                "a disconnected transport must report that the frame was not delivered");
         assertFalse(transport.isOpen());
     }
 

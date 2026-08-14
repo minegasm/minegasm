@@ -69,10 +69,13 @@ Flags:
 | `-scale` | `100` | the `intensity` sent at full strength |
 | `-min` | `20` | motor start threshold: any nonzero effect maps to at least this (`0` disables) |
 | `-endpoint` | `wss://webhook.xtoys.app` | XToys webhook WebSocket base URL |
+| `-routing` | `role` | `role` for the shipped script, or `destination` for role, region, and output-class actions |
 | `-verbose` | off | log every request |
 
-The action names (`minegasm-impact`, `minegasm-reward`, and so on) are fixed to match the shipped
-script, so there's no flag for them.
+The default action names (`minegasm-impact`, `minegasm-reward`, and so on) match the shipped script.
+With `-routing destination`, actions include the full address, for example
+`minegasm-impact-genital-strength`. Destination routing needs a custom XToys script, but lets you map
+different regions and output classes independently.
 
 ## Point Minegasm at it
 
@@ -81,8 +84,9 @@ e.g. `tcp://127.0.0.1:12347`, and enable it. Start the adapter first, then launc
 
 ## How intensity is derived
 
-Minegasm sends the whole current level per role as one authoritative snapshot, so the adapter just
-mirrors it: each role's level maps to an intensity and any role at 0 is off. A level of 0 sends 0; any
+Minegasm sends one authoritative snapshot sampled after timing, signal shaping, competition, and fatigue.
+In the default role mode, the adapter combines each role's destinations to their strongest current level.
+A level of 0 sends 0; any
 nonzero level maps into `[min, scale]`, so a faint effect still clears the motor's start threshold
 instead of sending an imperceptible value. (A game hit can arrive near 0.04, which is a `4` without the
 floor.) Only roles whose scaled value changed produce a message, and a snapshot where every role is
@@ -90,12 +94,9 @@ unchanged sends nothing, so a steady effect streams quietly. When several Minega
 each role takes the strongest level across them. See `../PROTOCOL.md`.
 
 Because every snapshot is the full state, an effect ending or being suppressed retracts as soon as its
-role drops to 0; the adapter never tracks individual scenes or when they end. Priority and exclusivity
-are resolved centrally in Minegasm before the snapshot is sent: within a role, a higher-priority
-exclusive effect suppresses lower-priority ones, so a warning wins over ambient on the same role.
-Cross-role behavior does not yet match native Buttplug's per-actuator ducking, where several roles
-sharing one motor duck each other; on the bridge each role is a separate output and they run
-independently. Full cross-backend parity is a known beta limitation.
+destination disappears. The adapter never tracks individual scenes. Priority and exclusivity are resolved
+centrally before the snapshot is sent. Use destination routing when separate regions or output families
+must remain distinct in XToys.
 
 ## If the toy barely moves
 

@@ -2,7 +2,7 @@
 """Reference adapter for the Minegasm local bridge.
 
 The bridge connects out to this process over plain TCP and sends one JSON object per line: an
-`output` message with the whole current level per role, and a `stop` message on any stop/panic. This
+`output` message with the complete current logical destination set, and a `stop` message on any stop or panic. This
 adapter just prints them, it is the smallest thing that proves the protocol and a starting point for
 a real adapter (drive a motor, forward to another API, blink an LED).
 
@@ -10,11 +10,12 @@ No dependencies; standard library only. Run it, then enable the bridge in Minega
 (transport `tcp`, endpoint `tcp://127.0.0.1:12347`) and start the game.
 
 Message shapes (see docs/bridge/PROTOCOL.md):
-  {"v":1,"type":"output","ttlMs":6000,"roles":{"impact":0.8,"reward":0,...}}
+  {"v":1,"type":"output","generation":42,"ttlMs":6000,
+   "destinations":[{"role":"impact","region":"genital","outputClass":"strength","level":0.8}]}
   {"v":1,"type":"stop"}
 
-Each output frame is the full state: set every role to the level given, and treat a role at 0 or a
-missing role as off. The ttlMs is how long to hold the levels without a fresh frame before zeroing,
+Each output frame is the full state. Treat a missing destination as off. The ttlMs is how long to hold
+the levels without a fresh frame before zeroing,
 so a dropped connection can never leave something running.
 """
 
@@ -49,9 +50,9 @@ class Handler(socketserver.StreamRequestHandler):
             return
         kind = msg.get("type")
         if kind == "output":
-            roles = msg.get("roles", {})
-            active = {r: v for r, v in roles.items() if v}
-            print(f"[output] ttl={msg.get('ttlMs')}ms "
+            destinations = msg.get("destinations", [])
+            active = [d for d in destinations if d.get("level")]
+            print(f"[output] generation={msg.get('generation')} ttl={msg.get('ttlMs')}ms "
                   f"{active if active else 'all off'}")
         elif kind == "stop":
             print("[stop] stop-all")

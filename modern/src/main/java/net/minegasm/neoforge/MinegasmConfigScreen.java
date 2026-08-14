@@ -98,7 +98,7 @@ public final class MinegasmConfigScreen extends Screen {
         refresh.active = connected && !busy;
         y += gap;
 
-        boolean panic = !client.runtime().worker().isOutputEnabled();
+        boolean panic = !client.outputStatus().permitted();
         Button test = addRenderableWidget(button(
                 Component.translatable("minegasm.devices.test_output"),
                 b -> client.testButtplugOutput(0.25f), leftX, y, columnWidth, h));

@@ -15,19 +15,22 @@ Recipe / domain        (net.minegasm.recipe, net.minegasm.core, net.minegasm.pac
   RecipeEngine + Presets + {Classic,Balanced}RecipePack or a FileRecipePack (shareable scene packs)
       → HapticScene
               ▼
-Central governance     (net.minegasm.runtime, ADR-018)
+Central governance     (net.minegasm.runtime, ADR-020)
   SceneGovernor: SceneStore (hold, coalesce latest-wins, expiry, bounded) + FatigueGovernor
-                 (decay, account, bake per-role attenuation) → governed HapticScene set
+                 (active timing, output-class competition, post-resolution regional fatigue)
+                 → GovernedOutput {active scenes, ResolvedDestinationSnapshot}
               ▼
 Driver + backends      (net.minegasm.runtime, net.minegasm.backend, net.minegasm.bridge)
-  HapticWorker (neutral driver) advances govern() once per ~15 ms cycle and fans the governed set to
-  every backend via BackendCoordinator; it renders nothing itself. Rendering and semantic backends run
-  concurrently off the one governed set:
-    ├─ ButtplugBackend  (rendering) onGovernedScenes → SceneMixer → FeatureScheduler → OutputCommand
+  HapticWorker (neutral driver) advances resolve() once per ~15 ms cycle and fans one GovernedOutput to
+  every backend via BackendCoordinator; it renders nothing itself:
+    ├─ ButtplugBackend  (rendering) scenes → SceneMixer → FeatureScheduler → OutputCommand
     │       → ButtplugProvider → ButtplugCodec → ButtplugTransport → Intiface → devices
     ├─ (a future native integration implements the same seam and runs alongside)
-    └─ BridgeBackend    (semantic) onGovernedScenes → GovernedSceneForwarder (change-driven)
-          → BridgeCodec → OutboundQueue → BridgeTransport (TCP) → adapter
+    └─ BridgeBackend    (semantic) destination snapshot → BridgeDestinationForwarder (change-driven)
+          → BridgeCodec v2 → OutboundQueue → BridgeTransport (TCP) → adapter
+
+  BackendOutcomeTracker: accepted → delivered | failed | timed out | superseded
+          → BackendCoordinator quarantine + OutputViewState
 ```
 
 ## Threading (brief §6)
@@ -38,7 +41,7 @@ Driver + backends      (net.minegasm.runtime, net.minegasm.backend, net.minegasm
   cycle and fans the governed set to every backend; each backend renders or forwards it on that thread.
   All durations/expiry/cooldowns use `System.nanoTime()` via the `Clock` abstraction, so behaviour is
   identical under tick-rate changes or stalls.
-- **Provider thread(s)** parse protocol frames into immutable messages; they never call Minecraft.
+- **Provider thread(s)** parse protocol frames and complete delivery outcomes; they never call Minecraft.
 
 ## Key invariants
 
@@ -47,9 +50,9 @@ Driver + backends      (net.minegasm.runtime, net.minegasm.backend, net.minegasm
   index in a new list is a new logical device.
 - **Held endpoints need a stop**: vibration holds its level until changed, so the scheduler emits an
   explicit zero when a gesture ends (`FeatureScheduler.accept`).
-- **Stop wins**: `HapticWorker.requestStop` clears the governor (scenes and fatigue) and the bridge
-  forwarder state *and* sends `StopCmd`, all under the worker monitor, so a delayed cycle cannot reassert
-  output on either backend.
+- **Stop wins locally before I/O completes**: a stop clears the governor and advances backend generations,
+  so stale writes cannot reassert output. Physical stop confirmation is a separate asynchronous outcome.
+  A failed or timed-out confirmation remains quarantined and visible.
 - **Bounded everything**: tick buffer (128), the governor's discrete scene store (64), and per-feature
   pending state all have documented overflow policies.
 
@@ -64,10 +67,11 @@ Driver + backends      (net.minegasm.runtime, net.minegasm.backend, net.minegasm
 
 ## Extension seams
 
-- `HapticBackend`: add an output backend by implementing `onGovernedScenes` (render it to devices, or
-  forward it). The driver fans the central governed set to every backend each cycle, so a native
+- `HapticBackend`: add an output backend by consuming `onGovernedOutput`. Rendering backends use active
+  scenes for physical mapping; semantic backends use the resolved destination snapshot. The driver fans
+  the same central result to every backend each cycle, so a native
   integration runs concurrently with Buttplug and the bridge with no privileged path (brief 0003 §3.2,
-  ADR-018).
+  ADR-020).
 - `BridgeTransport`: swap the bridge's transport (TCP by default, a future WebSocket/OSC) without
   touching the backend or codec.
 - `ButtplugTransport`: swap the JDK WebSocket for a client library without touching the engine.

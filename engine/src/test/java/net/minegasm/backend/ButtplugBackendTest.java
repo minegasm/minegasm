@@ -26,9 +26,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -106,10 +109,64 @@ class ButtplugBackendTest {
         assertFalse(drivesOutput(), "master-off drops the live test so re-enabling does not restart it");
     }
 
+    @Test
+    void lateSendFailureQuarantinesTheBackend() {
+        CompletableFuture<Void> send = new CompletableFuture<>();
+        provider.nextSend = send;
+        BackendCoordinator coordinator = new BackendCoordinator(Collections.singletonList(backend));
+
+        backend.onGovernedScenes(Collections.singletonList(longTest(1_000_000_000L)),
+                1_000_000_000L);
+        assertEquals(BackendOutcomeState.ACCEPTED, backend.latestOutcome().state());
+
+        send.completeExceptionally(new IllegalStateException("device write failed"));
+
+        assertEquals(BackendOutcomeState.FAILED, backend.unresolvedFailure().state());
+        assertTrue(coordinator.quarantined().contains("buttplug"),
+                "an asynchronous provider error enters persistent backend health");
+    }
+
+    @Test
+    void lateStopFailureRemainsAnUnresolvedFault() {
+        CompletableFuture<Void> stop = new CompletableFuture<>();
+        provider.nextStop = stop;
+        BackendCoordinator coordinator = new BackendCoordinator(Collections.singletonList(backend));
+
+        backend.stop(StopReason.PANIC);
+        assertEquals(BackendOutcomeState.ACCEPTED, backend.latestOutcome().state(),
+                "stop requested and stop confirmed are distinct states");
+        stop.completeExceptionally(new IllegalStateException("stop rejected"));
+
+        assertEquals(BackendOutcomeState.FAILED, backend.unresolvedFailure().state());
+        assertEquals(BackendOperation.STOP, backend.unresolvedFailure().operation());
+        assertTrue(coordinator.quarantined().contains("buttplug"));
+    }
+
+    @Test
+    void watchdogStopPreventsACycleAlreadyRenderingFromSendingAfterTheStop() throws Exception {
+        provider.blockDevices = true;
+        Thread cycle = new Thread(() -> backend.onGovernedScenes(
+                Collections.singletonList(longTest(1_000_000_000L)), 1_000_000_000L));
+        cycle.start();
+        assertTrue(provider.devicesEntered.await(2, TimeUnit.SECONDS));
+
+        backend.emergencyStop(StopReason.WATCHDOG);
+        provider.releaseDevices.countDown();
+        cycle.join(2_000L);
+
+        assertFalse(cycle.isAlive());
+        assertTrue(provider.sent.isEmpty(), "the in-progress render cannot dispatch behind its stop");
+    }
+
     /** A provider over a fixed device snapshot that records the commands it is asked to send. */
     private static final class RecordingProvider implements HapticProvider {
         private final DeviceRegistrySnapshot snapshot;
         final List<OutputCommand> sent = new ArrayList<>();
+        CompletableFuture<Void> nextSend;
+        CompletableFuture<Void> nextStop;
+        volatile boolean blockDevices;
+        final CountDownLatch devicesEntered = new CountDownLatch(1);
+        final CountDownLatch releaseDevices = new CountDownLatch(1);
 
         RecordingProvider(DeviceRegistrySnapshot snapshot) {
             this.snapshot = snapshot;
@@ -138,16 +195,28 @@ class ButtplugBackendTest {
         @Override
         public CompletionStage<Void> send(OutputCommand command) {
             sent.add(command);
-            return CompletableFuture.completedFuture(null);
+            CompletableFuture<Void> selected = nextSend;
+            nextSend = null;
+            return selected == null ? CompletableFuture.completedFuture(null) : selected;
         }
 
         @Override
         public CompletionStage<Void> stop(StopSelection selection) {
-            return CompletableFuture.completedFuture(null);
+            CompletableFuture<Void> selected = nextStop;
+            nextStop = null;
+            return selected == null ? CompletableFuture.completedFuture(null) : selected;
         }
 
         @Override
         public DeviceRegistrySnapshot devices() {
+            if (blockDevices) {
+                devicesEntered.countDown();
+                try {
+                    releaseDevices.await(2, TimeUnit.SECONDS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             return snapshot;
         }
 

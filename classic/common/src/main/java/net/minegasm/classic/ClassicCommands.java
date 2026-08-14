@@ -232,7 +232,7 @@ public final class ClassicCommands {
             out.error("Not connected. Run '/minegasm connect' first.");
             return;
         }
-        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+        if (!client.isOutputPermitted()) {
             out.error("Haptics are disabled or stopped. Enable and resume first.");
             return;
         }
@@ -241,12 +241,13 @@ public final class ClassicCommands {
             out.error("No connected device has a feature to test.");
             return;
         }
-        out.info("Sent a 25% / 400 ms test to Buttplug (" + targeted
-                + (targeted == 1 ? " feature)." : " features)."));
+        out.info("Accepted a 25% / 400 ms Buttplug test for " + targeted
+                + (targeted == 1 ? " feature. " : " features. ")
+                + "Run '/minegasm status' to see delivery.");
     }
 
     private static void testBridge(MinegasmClient client, Feedback out, String name) {
-        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+        if (!client.isOutputPermitted()) {
             out.error("Haptics are disabled or stopped. Enable and resume first.");
             return;
         }
@@ -262,7 +263,8 @@ public final class ClassicCommands {
             return;
         }
         client.testBridgeOutput(name, 0.25f, 400);
-        out.info("Sent a 25% / 400 ms test to bridge " + name + ".");
+        out.info("Accepted a 25% / 400 ms test for bridge " + name
+                + ". Run '/minegasm status' to see delivery.");
     }
 
     private static void test(MinegasmClient client, Feedback out, String[] args) {
@@ -327,7 +329,7 @@ public final class ClassicCommands {
             out.error("Not connected. Run '/minegasm connect' first.");
             return;
         }
-        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+        if (!client.isOutputPermitted()) {
             out.error("Haptics are disabled or stopped. Enable and resume first.");
             return;
         }
@@ -355,8 +357,7 @@ public final class ClassicCommands {
                     + String.join(", ", TRIGGER_EVENTS.keySet()));
             return;
         }
-        if (!client.isConnected() || !client.config().enabled()
-                || !client.runtime().worker().isOutputEnabled()) {
+        if (!client.isConnected() || !client.isOutputPermitted()) {
             out.error("Haptics are unavailable (disconnected, disabled, or stopped).");
             return;
         }

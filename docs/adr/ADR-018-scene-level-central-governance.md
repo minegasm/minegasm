@@ -1,6 +1,10 @@
 # ADR-018: Central governance is scene-level, not per-cycle signal-level
 
-**Status:** accepted, then extended. The original decision kept fatigue per-backend; a later cycle moved
+**Status:** superseded by ADR-020. This document remains the history of the original scene-level design.
+The implementation later needed a central time-sampled logical destination snapshot for consistent
+bridge timing, complete routing axes, and post-resolution safety accounting.
+
+The original decision kept fatigue per-backend; a later cycle moved
 it central once the second backend (the local bridge) landed, which is the trigger brief 0003 §3.3 named.
 Fatigue is now governed centrally as a scene-level attenuation (see "Fatigue centralization" below); the
 aggregate body budget is still deferred to Phase 6. Refines brief 0003 §3.3.

@@ -10,6 +10,9 @@ import net.minegasm.core.HapticPrimitive;
 import net.minegasm.core.HapticRole;
 import net.minegasm.core.HapticRoute;
 import net.minegasm.core.HapticScene;
+import net.minegasm.core.BodyRegion;
+import net.minegasm.core.LogicalDestination;
+import net.minegasm.core.OutputClass;
 import net.minegasm.device.DeviceRegistrySnapshot;
 import net.minegasm.render.EndpointTarget;
 import net.minegasm.testsupport.Configs;
@@ -17,7 +20,6 @@ import net.minegasm.testsupport.Devices;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -49,11 +51,11 @@ class CrossBackendResolutionTest {
         gov.submit(sameRoleScene("excl", CouplingMode.EXCLUSIVE, 100, 0.3f), 0);
         gov.submit(sameRoleScene("loud", CouplingMode.MAX, 10, 0.9f), 0);
 
-        List<HapticScene> resolved = gov.govern(20 * MS, false, false);
+        GovernedOutput output = gov.resolve(20 * MS, false, false);
+        List<HapticScene> resolved = output.scenes();
 
         // The bridge renders the resolved set to per-role levels.
-        EnumMap<HapticRole, Float> roles = BridgeRoleForwarder.rolesOf(resolved);
-        assertEquals(0.3f, roles.get(HapticRole.IMPACT), 1e-6f,
+        assertEquals(0.3f, output.destinations().levels().values().iterator().next(), 1e-6f,
                 "the bridge sees only the surviving exclusive level, never the suppressed 0.9");
 
         // The Buttplug mixer renders the same resolved set to per-feature targets.
@@ -65,5 +67,31 @@ class CrossBackendResolutionTest {
         assertTrue(rendered < 0.9f,
                 "the mixer never sees the suppressed louder layer either; both backends agree");
         assertEquals(0.3f, rendered, 1e-3f, "and it renders the surviving exclusive level");
+    }
+
+    @Test
+    void bridgeSnapshotUsesTheSameCurrentTimingAsTheRenderer() {
+        HapticLayer delayed = new HapticLayer("delayed", HapticRole.IMPACT,
+                new HapticPrimitive.Hold(0.7f, 250, 0, 0), HapticRoute.buzzAll(),
+                CouplingMode.MAX, 10, 100 * MS, 250 * MS, null);
+        HapticScene scene = new HapticScene("delayed", GameEventKind.AMBIENT, 10,
+                Collections.singletonList(delayed), 0, 500 * MS, null);
+        SceneGovernor gov = new SceneGovernor();
+        gov.submit(scene, 0);
+
+        GovernedOutput before = gov.resolve(50 * MS, false, false);
+        assertTrue(before.destinations().isAllZero(), "the bridge cannot start a delayed layer early");
+        assertTrue(before.scenes().isEmpty(), "the renderer sees the same inactive set");
+
+        GovernedOutput active = gov.resolve(150 * MS, false, false);
+        LogicalDestination destination = new LogicalDestination(HapticRole.IMPACT,
+                BodyRegion.WHOLE_BODY, OutputClass.STRENGTH);
+        assertEquals(0.7f, active.destinations().level(destination), 1e-6f);
+
+        RuntimeConfig cfg = Configs.enabled(MinegasmMode.IMMERSION, RecipePackId.BALANCED);
+        Map<String, EndpointTarget> targets = new SceneMixer().render(active.scenes(),
+                Devices.singleVibrate(), cfg, 150 * MS);
+        assertEquals(0.7f, targets.values().iterator().next().level(), 1e-3f,
+                "bridge and physical renderer sample the same active level");
     }
 }

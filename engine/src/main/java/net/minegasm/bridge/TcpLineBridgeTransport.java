@@ -87,12 +87,12 @@ public final class TcpLineBridgeTransport implements BridgeTransport {
     @Override
     public CompletionStage<Void> send(String frame) {
         if (!open || closed) {
-            return CompletableFuture.completedFuture(null); // no-op when not connected
+            return failed(new IllegalStateException("bridge transport is not connected"));
         }
         final OutputStream target = out;
         final ExecutorService exec = writer;
         if (target == null || exec == null) {
-            return CompletableFuture.completedFuture(null);
+            return failed(new IllegalStateException("bridge writer is unavailable"));
         }
         CompletableFuture<Void> done = new CompletableFuture<>();
         try {
@@ -102,14 +102,20 @@ public final class TcpLineBridgeTransport implements BridgeTransport {
                     target.flush();
                     done.complete(null);
                 } catch (IOException write) {
-                    done.complete(null); // treat a failed write as done so the queue keeps draining
+                    done.completeExceptionally(write);
                     fail(write);
                 }
             });
         } catch (RuntimeException rejected) {
-            done.complete(null); // executor shut down mid-close
+            done.completeExceptionally(rejected);
         }
         return done;
+    }
+
+    private static <T> CompletableFuture<T> failed(Throwable cause) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        future.completeExceptionally(cause);
+        return future;
     }
 
     @Override

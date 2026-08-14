@@ -7,6 +7,35 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Backend operations now report accepted, delivered, failed, timed out, or superseded. Late send and
+  stop failures remain visible per integration and quarantine only the affected backend.
+- Device editors now show direct body-region choices. Unassigned and intentional whole-body routing are
+  explained separately.
+
+### Changed
+
+- The local bridge remains on beta protocol version 1. Output is now a time-sampled authoritative set keyed by role,
+  body region, and output class, with a monotonic generation and TTL.
+- Central governance now removes inactive and currently zero layers before competition, keeps unrelated
+  output classes independent, accounts fatigue after suppression, and budgets it per role and region.
+- Output screens and commands now read one shared global safety state while keeping backend faults scoped
+  to their own integration. The shared view distinguishes connected capacity from output that is
+  currently nonzero.
+
+### Fixed
+
+- Delayed, expired, shaped, and gapped primitives no longer turn into immediate constant bridge output.
+- XToys no longer holds its state mutex during WebSocket writes. A lower or stopped generation can
+  interrupt an uncommitted write, and an uncertain nonzero write keeps a zero obligation through reconnect.
+- Concurrent watchdog observers now serialize their transition, runtime start is idempotent, and the real
+  independent timer path is covered while the worker monitor is blocked.
+- Backend stop ordering now also covers a watchdog racing a render, bridge enqueue races, and Buttplug4j
+  queue pressure. Superseded writes complete explicitly, and diagnostic test failures no longer
+  quarantine healthy gameplay output.
+- Sweep primitives now return to zero at their duration instead of holding the endpoint indefinitely.
+
 ## [1.0.0-beta.3] - 2026-08-05
 
 The first release with **Minegasm Classic** (legacy Minecraft, back to 1.7.10) alongside the modern

@@ -19,9 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The client tick is the watchdog's caller, so it must reach the watchdog before anything that takes the
- * worker monitor. If a backend is hung inside a synchronized cycle (the monitor is held), the tick must
- * still fire the watchdog and latch output off rather than block on that monitor (review follow-up P1-1).
+ * The client tick is a fast-path watchdog observer and the runtime scheduler is the independent observer.
+ * Both must stop output without taking the worker monitor.
  */
 class HapticRuntimeWatchdogTest {
 
@@ -66,5 +65,42 @@ class HapticRuntimeWatchdogTest {
 
         release.countDown();
         holder.join(2000);
+    }
+
+    @Test
+    void independentSchedulerFiresWithoutAClientTickAndStartIsIdempotent() throws Exception {
+        HapticRuntime rt = new HapticRuntime(new ButtplugProvider(new FakeButtplugServer(), "test"),
+                clock, () -> RuntimeConfig.defaults(), new PackRegistry(), null);
+        rt.start();
+        rt.start();
+        rt.pump(clock.nanoTime());
+
+        CountDownLatch held = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Thread holder = new Thread(() -> {
+            synchronized (rt.worker()) {
+                held.countDown();
+                try {
+                    release.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }, "scheduled-watchdog-monitor-holder");
+        holder.setDaemon(true);
+        holder.start();
+        assertTrue(held.await(2, TimeUnit.SECONDS));
+        clock.advanceMillis(3_000);
+
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (!rt.worker().isWatchdogStopped() && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertTrue(rt.worker().isWatchdogStopped(),
+                "the independent timer fired while no client tick ran and the worker monitor was held");
+
+        release.countDown();
+        holder.join(2_000);
+        rt.shutdown();
     }
 }

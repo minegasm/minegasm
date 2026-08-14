@@ -100,12 +100,11 @@ class DeviceEditorModelTest {
     }
 
     @Test
-    void regionControlCyclesThroughNotSetAndLabelsIt() {
-        assertEquals("Not set", DeviceEditorModel.regionLabel(null));
-        assertEquals(BodyRegion.WHOLE_BODY, DeviceEditorModel.nextRegion(null), "not set steps to the first region");
-        assertEquals("Whole body", DeviceEditorModel.regionLabel(BodyRegion.WHOLE_BODY));
-        BodyRegion last = BodyRegion.values()[BodyRegion.values().length - 1];
-        assertNull(DeviceEditorModel.nextRegion(last), "cycling off the last region returns to not set");
+    void regionControlOffersDirectDistinctChoices() {
+        assertEquals("Unassigned (routes everywhere)", DeviceEditorModel.regionLabel(null));
+        assertEquals("Whole body (intentional)", DeviceEditorModel.regionLabel(BodyRegion.WHOLE_BODY));
+        assertNull(DeviceEditorModel.regionChoices().get(0), "unassigned remains a direct choice");
+        assertTrue(DeviceEditorModel.regionChoices().contains(BodyRegion.WHOLE_BODY));
     }
 
     @Test

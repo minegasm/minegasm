@@ -82,6 +82,23 @@ class WatchdogRecoveryTest {
         assertFalse(worker.isOutputEnabled(), "output stays off while the watchdog stop stands");
     }
 
+    @Test
+    void staleObservationCannotStopANewerHealthyHeartbeat() {
+        FakeClock clock = new FakeClock(1_000_000_000L);
+        RecordingBackend backend = new RecordingBackend();
+        HapticWorker worker = worker(clock, backend);
+
+        worker.cycle(clock.nanoTime());
+        long stale = worker.lastHealthyCycleNs();
+        clock.advanceMillis(3_000);
+        worker.cycle(clock.nanoTime());
+
+        assertFalse(worker.emergencyStopIfHeartbeatStalled(stale, clock.nanoTime(),
+                2_000_000_000L, StopReason.WATCHDOG));
+        assertFalse(worker.isWatchdogStopped());
+        assertFalse(backend.emergencyStopped);
+    }
+
     /** Records the out-of-band stop and the latch fan-out. */
     private static final class RecordingBackend implements HapticBackend {
         volatile boolean emergencyStopped;

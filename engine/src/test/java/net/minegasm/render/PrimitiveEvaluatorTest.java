@@ -45,6 +45,15 @@ class PrimitiveEvaluatorTest {
     }
 
     @Test
+    void sweepExpiresInsteadOfHoldingItsEndpointForever() {
+        var sweep = new HapticPrimitive.Sweep(0.2f, 0.9f, 100,
+                HapticPrimitive.Easing.LINEAR);
+        assertEquals(0.55f, PrimitiveEvaluator.levelAt(sweep, ms(50)), 1e-4);
+        assertEquals(0f, PrimitiveEvaluator.levelAt(sweep, ms(100)), 1e-4);
+        assertEquals(0f, PrimitiveEvaluator.levelAt(sweep, ms(200)), 1e-4);
+    }
+
+    @Test
     void negativeElapsedIsZero() {
         var impulse = new HapticPrimitive.Impulse(1f, 50, 5, 5);
         assertEquals(0f, PrimitiveEvaluator.levelAt(impulse, -10));

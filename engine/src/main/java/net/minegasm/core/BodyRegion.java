@@ -2,7 +2,7 @@ package net.minegasm.core;
 
 /**
  * Where on the body an effect is delivered or a device is worn. Region is the second axis of a logical
- * destination, alongside role: two effects compete only when they share a role and their regions overlap,
+ * destination, alongside role and output class: two effects compete only when all logical axes overlap,
  * so a warning scoped to one region no longer silences an ambient on another. Everything defaults to
  * {@link #WHOLE_BODY}, which reaches every region, so a setup that tags nothing behaves exactly as before
  * region existed.

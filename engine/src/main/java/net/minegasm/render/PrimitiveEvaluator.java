@@ -80,6 +80,9 @@ public final class PrimitiveEvaluator {
 
     private static float sweep(HapticPrimitive.Sweep s, double ms) {
         double dur = s.durationMs();
+        if (ms >= dur) {
+            return 0f;
+        }
         double t = dur <= 0 ? 1.0 : HapticMath.clamp(ms / dur, 0.0, 1.0);
         double eased;
         switch (s.easing()) {

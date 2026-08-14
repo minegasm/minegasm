@@ -108,11 +108,15 @@ class HapticRuntimeBridgeTest {
 
         HapticBackend bridge = bridgeBackend(rt, "late");
         bridge.start(); // connect the adapter link so a drop here can only be the latch, not the socket
-        bridge.onGovernedScenes(Collections.singletonList(scene("a", clock.nanoTime())), clock.nanoTime());
+        HapticScene first = scene("a", clock.nanoTime());
+        clock.advanceMillis(10);
+        bridge.onGovernedOutput(output(first, clock.nanoTime()));
         assertFalse(transport.outputs() > 0, "a bridge added while latched off must not forward output");
 
         rt.worker().clearUserStop(); // panic cleared / resumed
-        bridge.onGovernedScenes(Collections.singletonList(scene("b", clock.nanoTime())), clock.nanoTime());
+        HapticScene second = scene("b", clock.nanoTime());
+        clock.advanceMillis(10);
+        bridge.onGovernedOutput(output(second, clock.nanoTime()));
         assertTrue(transport.outputs() > 0, "once output resumes the bridge forwards normally");
 
         rt.shutdown(); // stop the bridge's reconnect supervisor
@@ -131,6 +135,12 @@ class HapticRuntimeBridgeTest {
                 CouplingMode.MAX, 100, 0L, 300L * 1_000_000L, null);
         return new HapticScene(id, GameEventKind.HURT, 100, Collections.singletonList(layer),
                 now, now + 300L * 1_000_000L, null);
+    }
+
+    private static GovernedOutput output(HapticScene scene, long nowNs) {
+        SceneGovernor governor = new SceneGovernor(1);
+        governor.submit(scene, nowNs);
+        return governor.resolve(nowNs, false, false);
     }
 
     /** An open transport that counts the output frames it is asked to send. */

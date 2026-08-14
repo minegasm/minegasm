@@ -2,22 +2,40 @@ package net.minegasm.backend;
 
 import net.minegasm.core.HapticScene;
 import net.minegasm.runtime.StopReason;
+import net.minegasm.runtime.GovernedOutput;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * One output backend behind the engine's device-neutral seam (brief 0003 §3.2, ADR-018). The neutral
  * governance driver advances the central {@link net.minegasm.runtime.SceneGovernor} once per cycle and
- * fans the governed scene set to every backend through {@link #onGovernedScenes}. What a backend does
- * with that set is its own concern: a <em>rendering</em> backend (Buttplug, a future native integration)
- * samples the effect and dispatches device commands; a <em>semantic</em> backend (the local bridge)
- * forwards the scene to an external adapter change-driven. Any number of each run concurrently.
+ * fans one {@link GovernedOutput} to every backend through {@link #onGovernedOutput}. Rendering backends
+ * use its active scenes for physical routing. Semantic backends use its authoritative logical destination
+ * snapshot. Any number of each run concurrently.
  *
- * <p>{@code stop} and {@code onGovernedScenes} must be non-blocking to the caller and synchronous, so the
- * driver's stop-safety holds transitively: the driver resets the governor and then fans {@code stop} under
- * one monitor, and no backend may render or forward after that returns.
+ * <p>Calls are non-blocking. A stop must synchronously invalidate newer output locally, then report its
+ * eventual transport or hardware completion through {@link BackendOutcome}. Requested and confirmed stop
+ * are deliberately different states.
  */
 public interface HapticBackend extends AutoCloseable {
+
+    /** Install the coordinator's outcome sink. Backends call it from completion threads. */
+    default void setOutcomeListener(Consumer<BackendOutcome> listener) {
+    }
+
+    /** Most recent accepted or completed operation, for status cards and structured test feedback. */
+    default BackendOutcome latestOutcome() {
+        return null;
+    }
+
+    /** Persistent failed or timed-out operation, cleared only by explicit recovery. */
+    default BackendOutcome unresolvedFailure() {
+        return null;
+    }
+
+    default void clearOutcomeFailure() {
+    }
 
     /** Stable identifier for routing, status, and diagnostics (e.g. {@code "buttplug"}). */
     String id();
@@ -35,6 +53,15 @@ public interface HapticBackend extends AutoCloseable {
     }
 
     /**
+     * Consume the complete central result. Rendering backends can retain scene-level physical route
+     * refinement; semantic backends should use the authoritative destination snapshot. The compatibility
+     * default keeps lifecycle-only and existing rendering backends source-simple.
+     */
+    default void onGovernedOutput(GovernedOutput output) {
+        onGovernedScenes(output.scenes(), output.destinations().sampledAtNs());
+    }
+
+    /**
      * Whether this backend is a rendering backend that is currently able to drive the body (enabled, not
      * panicked, with a device present). The driver uses it to decide whether fatigue accrues this cycle:
      * with nothing rendering, nothing fatigues. Semantic backends return false. Default false.
@@ -44,14 +71,18 @@ public interface HapticBackend extends AutoCloseable {
     }
 
     /**
-     * Whether this backend is currently driving the body at all, for fatigue accounting. Rendering
-     * backends answer this with {@link #isRenderingActive}. A semantic backend (the bridge) can also drive
-     * a physical device through its adapter, so an active, connected bridge conservatively counts as
-     * body-driving even though it renders no level itself, until richer downstream feedback exists (review
-     * P1-6). Default follows {@link #isRenderingActive}.
+     * Whether this backend is currently able to drive the body, for fatigue accounting when the governed
+     * result contains output. Rendering backends answer this with {@link #isRenderingActive}. A connected
+     * semantic bridge counts conservatively because its adapter may own a physical device. This is
+     * capability, distinct from {@link #isOutputActive()}.
      */
     default boolean isBodyDriving() {
         return isRenderingActive();
+    }
+
+    /** Whether this backend's most recent authoritative state contains live physical output. */
+    default boolean isOutputActive() {
+        return false;
     }
 
     /**
@@ -73,7 +104,7 @@ public interface HapticBackend extends AutoCloseable {
     default void test(HapticScene scene, long nowNs) {
     }
 
-    /** Stop all output for this backend now. Must be non-blocking and take effect synchronously. */
+    /** Invalidate output now and request a stop. Physical confirmation is reported asynchronously. */
     void stop(StopReason reason);
 
     /**

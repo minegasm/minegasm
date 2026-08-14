@@ -3,25 +3,21 @@ package net.minegasm.bridge;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
 
-import java.util.EnumMap;
 import java.util.Locale;
 
-import net.minegasm.core.HapticRole;
+import net.minegasm.core.LogicalDestination;
+import net.minegasm.runtime.ResolvedDestinationSnapshot;
 
 /**
  * Serializes the bridge wire protocol (brief 0002 §4.3): a small, versioned JSON message per outbound
- * event. The mod-to-adapter types are {@code output} (the authoritative per-role state) and {@code stop}
+ * event. The mod-to-adapter types are {@code output} (the authoritative logical-destination state) and {@code stop}
  * (a first-class stop-all).
  *
- * <p>The output path sends {@code output}: the whole current level per role, 0 to 1, device-neutral.
- * Because every frame is the full state, the adapter just sets each role to what it is handed, so a scene
- * ending or being suppressed retracts at the adapter as soon as its role's level drops (second follow-up
- * review P1-3). This replaced a per-scene stream the adapter combined and could not retract. Every
- * {@code output} carries {@code ttlMs} so a dropped connection self-clears rather than leaving the last
- * levels stuck on. Roles are the device-neutral currency; no Buttplug routing or output kinds ever reach
- * an adapter.
+ * <p>The output path carries current normalized levels by role, body region, and output class. Every frame
+ * is the full state, so a missing destination retracts. A TTL makes a dropped connection self-clear.
  */
 public final class BridgeCodec {
 
@@ -31,20 +27,39 @@ public final class BridgeCodec {
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
     /**
-     * Encode the authoritative per-role output snapshot. Roles are lower-cased on the wire. {@code ttlMs}
+     * Encode the authoritative destination snapshot. Enum names are lower-cased on the wire. {@code ttlMs}
      * is how long the adapter should hold these levels without a fresh snapshot before zeroing, so a
      * dropped link self-clears.
      */
-    public String encodeOutput(EnumMap<HapticRole, Float> levels, long ttlMs) {
+    public String encodeOutput(ResolvedDestinationSnapshot snapshot, long ttlMs) {
+        return encodeOutput(snapshot, ttlMs, false);
+    }
+
+    public String encodeTestOutput(ResolvedDestinationSnapshot snapshot, long ttlMs) {
+        return encodeOutput(snapshot, ttlMs, true);
+    }
+
+    private String encodeOutput(ResolvedDestinationSnapshot snapshot, long ttlMs, boolean test) {
         JsonObject o = new JsonObject();
         o.addProperty("v", PROTOCOL_VERSION);
         o.addProperty("type", "output");
+        o.addProperty("generation", snapshot.generation());
         o.addProperty("ttlMs", Math.max(0L, ttlMs));
-        JsonObject roles = new JsonObject();
-        for (EnumMap.Entry<HapticRole, Float> e : levels.entrySet()) {
-            roles.addProperty(e.getKey().name().toLowerCase(Locale.ROOT), clamp01(e.getValue()));
+        if (test) {
+            o.addProperty("purpose", "test");
         }
-        o.add("roles", roles);
+        JsonArray destinations = new JsonArray();
+        for (java.util.Map.Entry<LogicalDestination, Float> e : snapshot.levels().entrySet()) {
+            LogicalDestination destination = e.getKey();
+            JsonObject encoded = new JsonObject();
+            encoded.addProperty("role", destination.role().name().toLowerCase(Locale.ROOT));
+            encoded.addProperty("region", destination.bodyRegion().name().toLowerCase(Locale.ROOT));
+            encoded.addProperty("outputClass",
+                    destination.outputClass().name().toLowerCase(Locale.ROOT));
+            encoded.addProperty("level", clamp01(e.getValue()));
+            destinations.add(encoded);
+        }
+        o.add("destinations", destinations);
         return GSON.toJson(o);
     }
 
@@ -64,7 +79,10 @@ public final class BridgeCodec {
     public DownstreamState decodeDownstream(String frame) {
         try {
             JsonObject o = JsonParser.parseString(frame).getAsJsonObject();
-            if (!o.has("type") || !o.has("downstream")) {
+            if (!o.has("v") || !o.get("v").isJsonPrimitive()
+                    || !o.getAsJsonPrimitive("v").isNumber()
+                    || o.get("v").getAsDouble() != PROTOCOL_VERSION
+                    || !o.has("type") || !o.has("downstream")) {
                 return null;
             }
             String type = o.get("type").getAsString();

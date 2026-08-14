@@ -293,7 +293,7 @@ public final class MinegasmMod {
             source.sendFailure(Component.translatable("minegasm.command.test_disconnected"));
             return 0;
         }
-        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+        if (!client.isOutputPermitted()) {
             source.sendFailure(Component.translatable("minegasm.command.test_disabled"));
             return 0;
         }
@@ -308,7 +308,7 @@ public final class MinegasmMod {
     }
 
     private int testBridgeFromCommand(CommandSourceStack source, String name) {
-        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+        if (!client.isOutputPermitted()) {
             source.sendFailure(Component.translatable("minegasm.command.test_disabled"));
             return 0;
         }
@@ -358,7 +358,7 @@ public final class MinegasmMod {
             source.sendFailure(Component.translatable("minegasm.command.test_disconnected"));
             return 0;
         }
-        if (!client.config().enabled() || !client.runtime().worker().isOutputEnabled()) {
+        if (!client.isOutputPermitted()) {
             source.sendFailure(Component.translatable("minegasm.command.test_disabled"));
             return 0;
         }
@@ -383,8 +383,7 @@ public final class MinegasmMod {
             source.sendFailure(Component.translatable("minegasm.command.trigger_unknown", name));
             return 0;
         }
-        if (!client.isConnected() || !client.config().enabled()
-                || !client.runtime().worker().isOutputEnabled()) {
+        if (!client.isConnected() || !client.isOutputPermitted()) {
             source.sendFailure(Component.translatable("minegasm.command.trigger_unavailable"));
             return 0;
         }

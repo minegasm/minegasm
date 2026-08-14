@@ -114,6 +114,12 @@ public final class HapticLayer {
                 expiresAfterNs, coalesceKey, bodyRegion);
     }
 
+    /** A copy of this layer with a different route (everything else unchanged). */
+    public HapticLayer withRoute(HapticRoute replacement) {
+        return new HapticLayer(layerId, role, primitive, replacement, coupling, priority, startOffsetNs,
+                expiresAfterNs, coalesceKey, bodyRegion);
+    }
+
     /** A copy of this layer placed in the given body region (everything else unchanged). */
     public HapticLayer withRegion(BodyRegion region) {
         return new HapticLayer(layerId, role, primitive, route, coupling, priority, startOffsetNs,
