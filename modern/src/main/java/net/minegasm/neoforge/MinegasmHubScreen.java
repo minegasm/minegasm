@@ -271,9 +271,9 @@ public final class MinegasmHubScreen extends Screen {
     }
     *///?}
 
-    /** Whether output is latched off by panic/watchdog, so the banner warns it is stopped. */
+    /** Whether the banner warns output is stopped: a user panic or watchdog stall, not a chosen disable. */
     private boolean outputStopped() {
-        return !client.outputStatus().permitted();
+        return client.outputStatus().bannerStopped();
     }
 
     private void openButtplug() {

@@ -230,7 +230,7 @@ public final class HubScreen16 extends Screen {
         GuiComponent.drawCenteredString(pose, font, title, width / 2, 12, 0xFFFFFF);
         GuiComponent.drawCenteredString(pose, font,
                 new TextComponent("Integrations, output, and settings"), width / 2, 26, 0xA0A0A0);
-        if (!client.outputStatus().permitted()) {
+        if (client.outputStatus().bannerStopped()) {
             GuiComponent.drawCenteredString(pose, font,
                     new TextComponent("OUTPUT STOPPED: " + client.outputStatus().blockedReason()),
                     width / 2, 64, 0xFF5555);

@@ -127,6 +127,15 @@ class BridgeBackendTest {
     }
 
     @Test
+    void emergencyStopWhileDisconnectedIsNotAFault() {
+        // Never started, so no transport is connected. A stop against a down link has nothing to stop and
+        // must not record a false unresolved fault that would quarantine the bridge and flag its row.
+        backend.emergencyStop(StopReason.WATCHDOG);
+        assertNull(backend.unresolvedFailure(),
+                "a stop with no live link is vacuously satisfied, not a fault");
+    }
+
+    @Test
     void pauseSendsStopAll() {
         backend.start();
         backend.pause();

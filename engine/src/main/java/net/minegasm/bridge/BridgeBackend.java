@@ -178,17 +178,18 @@ public final class BridgeBackend implements HapticBackend {
         });
     }
 
-    /** Send through the current transport, reporting unavailable or timed-out delivery as a failure. */
+    /** Send through the current transport, reporting timed-out or failed delivery on a live link. */
     private java.util.concurrent.CompletionStage<Void> sendFrame(String frame) {
         BridgeTransport current = transport;
-        java.util.concurrent.CompletionStage<Void> stage;
-        if (current != null && current.isOpen()) {
-            stage = withTimeout(current.send(frame), current);
-        } else {
-            java.util.concurrent.CompletableFuture<Void> failed = new java.util.concurrent.CompletableFuture<>();
-            failed.completeExceptionally(new IllegalStateException("bridge transport is not connected"));
-            stage = failed;
+        if (current == null || !current.isOpen()) {
+            // Not connected: the frame cannot go out, but a disconnected bridge is an expected, visible
+            // state (its row shows the link is down) and it drives nothing, so an undelivered frame here is
+            // not a health fault. A stop is vacuously satisfied since there is no live link left running,
+            // and it stays pending so the reconnect resend re-zeroes the adapter. Record no outcome and
+            // complete normally, so an emergency stop against a down link never raises a false stop fault.
+            return java.util.concurrent.CompletableFuture.completedFuture(null);
         }
+        java.util.concurrent.CompletionStage<Void> stage = withTimeout(current.send(frame), current);
         final long operation = operationGeneration.incrementAndGet();
         final long lifecycle = stopGeneration.get();
         final BackendOperation kind = frame.contains("\"type\":\"stop\"")

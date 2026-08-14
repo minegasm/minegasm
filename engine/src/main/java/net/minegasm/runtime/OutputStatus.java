@@ -65,6 +65,15 @@ public final class OutputStatus {
     }
 
     /**
+     * Whether the red stopped banner should show: a user panic or a watchdog stall, either of which the
+     * user may not expect. A deliberate disable (the Haptics-off toggle) is a chosen state, not an alarm,
+     * so it does not raise the banner even though it gates output.
+     */
+    public boolean bannerStopped() {
+        return userStopped() || watchdogStopped();
+    }
+
+    /**
      * Short labels for just the causes that gate output, for a stopped banner: watchdog, user panic, and
      * disabled, in that order. Empty when output is permitted. A backend fault is deliberately excluded,
      * since it does not stop the global gate; it is shown on the faulting integration's own row instead.
