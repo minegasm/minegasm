@@ -517,6 +517,16 @@ public final class MinegasmMod {
                 status.deviceCount(),
                 Component.translatable("minegasm.adapter."
                         + client.config().raw().buttplug().client().toLowerCase(Locale.ROOT))), false);
+        // The global output gate and any unresolved backend fault, from the same shared view the hub reads.
+        net.minegasm.runtime.OutputStatus output = client.outputStatus();
+        if (!output.permitted()) {
+            source.sendSuccess(() -> Component.translatable("minegasm.command.output_stopped",
+                    output.blockedReason()), false);
+        }
+        for (var fault : client.outputViewState().unresolvedFailures().entrySet()) {
+            source.sendSuccess(() -> Component.literal("Fault: " + fault.getKey() + " "
+                    + fault.getValue() + "."), false);
+        }
         for (String line : client.bridgeStatusLines()) {
             source.sendSuccess(() -> Component.literal(line), false);
         }

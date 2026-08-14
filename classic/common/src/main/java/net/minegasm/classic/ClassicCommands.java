@@ -402,6 +402,16 @@ public final class ClassicCommands {
                 + ", " + status.deviceCount()
                 + (status.deviceCount() == 1 ? " device" : " devices")
                 + ", adapter " + adapter + ".");
+        // The global output gate and any unresolved backend fault, read from the one shared view the
+        // screens use, so the command tells the same truth as the hub.
+        net.minegasm.runtime.OutputStatus output = client.outputStatus();
+        if (!output.permitted()) {
+            out.info("Output stopped: " + output.blockedReason() + ".");
+        }
+        for (Map.Entry<String, net.minegasm.backend.BackendOutcome> fault
+                : client.outputViewState().unresolvedFailures().entrySet()) {
+            out.info("Fault: " + fault.getKey() + " " + fault.getValue() + ".");
+        }
         for (String line : client.bridgeStatusLines()) {
             out.info(line);
         }

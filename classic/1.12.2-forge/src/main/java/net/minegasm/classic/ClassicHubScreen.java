@@ -163,7 +163,8 @@ public final class ClassicHubScreen extends GuiScreen {
         drawCenteredString(fontRenderer, "Minegasm", width / 2, 12, 0xFFFFFF);
         drawCenteredString(fontRenderer, "Integrations, output, and settings", width / 2, 26, 0xA0A0A0);
         if (!client.outputStatus().permitted()) {
-            drawCenteredString(fontRenderer, "OUTPUT STOPPED", width / 2, 64, 0xFF5555);
+            drawCenteredString(fontRenderer, "OUTPUT STOPPED: " + client.outputStatus().blockedReason(),
+                    width / 2, 64, 0xFF5555);
         }
         drawCenteredString(fontRenderer, "Integrations", width / 2, 78, 0xFFFFFF);
         super.drawScreen(mouseX, mouseY, partialTicks);

@@ -231,7 +231,8 @@ public final class HubScreen16 extends Screen {
         GuiComponent.drawCenteredString(pose, font,
                 new TextComponent("Integrations, output, and settings"), width / 2, 26, 0xA0A0A0);
         if (!client.outputStatus().permitted()) {
-            GuiComponent.drawCenteredString(pose, font, new TextComponent("OUTPUT STOPPED"),
+            GuiComponent.drawCenteredString(pose, font,
+                    new TextComponent("OUTPUT STOPPED: " + client.outputStatus().blockedReason()),
                     width / 2, 64, 0xFF5555);
         }
         GuiComponent.drawCenteredString(pose, font, new TextComponent("Integrations"),

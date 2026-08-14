@@ -64,6 +64,25 @@ public final class OutputStatus {
                 && !causes.contains(StopCause.DISABLED);
     }
 
+    /**
+     * Short labels for just the causes that gate output, for a stopped banner: watchdog, user panic, and
+     * disabled, in that order. Empty when output is permitted. A backend fault is deliberately excluded,
+     * since it does not stop the global gate; it is shown on the faulting integration's own row instead.
+     */
+    public String blockedReason() {
+        java.util.List<String> active = new java.util.ArrayList<>();
+        if (causes.contains(StopCause.WATCHDOG)) {
+            active.add("watchdog");
+        }
+        if (causes.contains(StopCause.USER_STOP)) {
+            active.add("user panic");
+        }
+        if (causes.contains(StopCause.DISABLED)) {
+            active.add("disabled");
+        }
+        return String.join(", ", active);
+    }
+
     /** A short status string that retains every active cause. */
     public String reason() {
         if (causes.isEmpty()) {

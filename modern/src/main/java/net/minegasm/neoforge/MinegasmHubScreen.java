@@ -325,7 +325,8 @@ public final class MinegasmHubScreen extends Screen {
         graphics.centeredText(this.font, Component.translatable("minegasm.hub.subtitle"),
                 this.width / 2, 31, 0xFFA0A0A0);
         if (outputStopped()) {
-            graphics.centeredText(this.font, Component.translatable("minegasm.hub.stopped"),
+            graphics.centeredText(this.font,
+                    Component.translatable("minegasm.hub.stopped", client.outputStatus().blockedReason()),
                     this.width / 2, 66, 0xFFFF5555);
         }
         graphics.centeredText(this.font, Component.translatable("minegasm.hub.integrations"),
@@ -342,7 +343,8 @@ public final class MinegasmHubScreen extends Screen {
         graphics.drawCenteredString(this.font, Component.translatable("minegasm.hub.subtitle"),
                 this.width / 2, 31, 0xFFA0A0A0);
         if (outputStopped()) {
-            graphics.drawCenteredString(this.font, Component.translatable("minegasm.hub.stopped"),
+            graphics.drawCenteredString(this.font,
+                    Component.translatable("minegasm.hub.stopped", client.outputStatus().blockedReason()),
                     this.width / 2, 66, 0xFFFF5555);
         }
         graphics.drawCenteredString(this.font, Component.translatable("minegasm.hub.integrations"),
@@ -358,7 +360,8 @@ public final class MinegasmHubScreen extends Screen {
                 Component.translatable("minegasm.hub.subtitle"), this.width / 2, 31, 0xFFA0A0A0);
         if (outputStopped()) {
             GuiComponent.drawCenteredString(poseStack, this.font,
-                    Component.translatable("minegasm.hub.stopped"), this.width / 2, 66, 0xFFFF5555);
+                    Component.translatable("minegasm.hub.stopped", client.outputStatus().blockedReason()),
+                    this.width / 2, 66, 0xFFFF5555);
         }
         GuiComponent.drawCenteredString(poseStack, this.font,
                 Component.translatable("minegasm.hub.integrations"), this.width / 2, 78, 0xFFFFFFFF);
