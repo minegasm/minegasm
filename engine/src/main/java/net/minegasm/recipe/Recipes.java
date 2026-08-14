@@ -38,7 +38,10 @@ final class Recipes {
         long created = ctx.nowNs();
         long expiry = expiryNsOverride > 0 ? expiryNsOverride : timing.expiryNs();
         String id = kind.key() + "@" + ctx.intent().gameTick() + (suffix.isEmpty() ? "" : ":" + suffix);
-        return new HapticScene(id, kind, timing.priority(), layers, created, created + expiry,
+        // Apply the built-in body-region default for this event (reward events go genital, the rest stay
+        // whole-body). Central here so both built-in packs inherit it; a no-op for whole-body events.
+        List<HapticLayer> placed = EventRegions.place(layers, EventRegions.regionFor(kind));
+        return new HapticScene(id, kind, timing.priority(), placed, created, created + expiry,
                 continuousKey);
     }
 

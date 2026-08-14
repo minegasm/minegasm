@@ -114,6 +114,12 @@ public final class HapticLayer {
                 expiresAfterNs, coalesceKey, bodyRegion);
     }
 
+    /** A copy of this layer placed in the given body region (everything else unchanged). */
+    public HapticLayer withRegion(BodyRegion region) {
+        return new HapticLayer(layerId, role, primitive, route, coupling, priority, startOffsetNs,
+                expiresAfterNs, coalesceKey, region);
+    }
+
     public boolean isContinuous() {
         return coalesceKey != null && !coalesceKey.trim().isEmpty();
     }
