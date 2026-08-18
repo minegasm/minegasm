@@ -38,6 +38,12 @@ public final class BackendCoordinator implements AutoCloseable {
     // added, or explicitly on reconnect.
     private final java.util.Set<String> quarantined =
             java.util.concurrent.ConcurrentHashMap.newKeySet();
+    // The last settled test result per backend, so a screen or /mg status can report how a test actually
+    // finished (delivered, failed, timed out, superseded) instead of only the synchronous "accepted". Kept
+    // apart from latestOutcomes() on purpose: an idle send-to-zero on the ordinary path overwrites the
+    // shared latest slot, which would clobber the test result a moment after it lands.
+    private final java.util.concurrent.ConcurrentMap<String, BackendOutcome> lastTestOutcomes =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public BackendCoordinator(List<HapticBackend> backends) {
         this.backends = new CopyOnWriteArrayList<>(backends);
@@ -59,8 +65,19 @@ public final class BackendCoordinator implements AutoCloseable {
 
     private void registerOutcomeListener(final HapticBackend backend) {
         backend.setOutcomeListener(outcome -> {
-            if (outcome == null || !outcome.unresolvedFault()
-                    || outcome.operation() == BackendOperation.TEST) {
+            if (outcome == null) {
+                return;
+            }
+            // A test never becomes a health fault (that early-returns below), but its settled result is
+            // worth showing back to the user. Record the terminal states only; the immediate ACCEPTED is
+            // already what the caller saw synchronously.
+            if (outcome.operation() == BackendOperation.TEST) {
+                if (outcome.state() != BackendOutcomeState.ACCEPTED) {
+                    lastTestOutcomes.put(backend.id(), outcome);
+                }
+                return;
+            }
+            if (!outcome.unresolvedFault()) {
                 return;
             }
             boolean newlyQuarantined = quarantined.add(backend.id());
@@ -89,6 +106,11 @@ public final class BackendCoordinator implements AutoCloseable {
             }
         }
         return java.util.Collections.unmodifiableMap(out);
+    }
+
+    /** The last settled test result for a backend, or null if it has run no test this session. */
+    public BackendOutcome lastTestOutcome(String backendId) {
+        return lastTestOutcomes.get(backendId);
     }
 
     /** Failures stay visible even when a compensating stop or reconnect produces a newer outcome. */

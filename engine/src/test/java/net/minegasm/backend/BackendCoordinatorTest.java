@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -97,6 +98,28 @@ class BackendCoordinatorTest {
 
         assertFalse(coordinator.quarantined().contains("testable"));
         assertEquals(0, coordinator.faultCount());
+        coordinator.close();
+    }
+
+    @Test
+    void aSettledTestResultIsReadableAndSurvivesLaterOrdinaryOutput() {
+        FakeBackend backend = new FakeBackend("testable");
+        BackendCoordinator coordinator = new BackendCoordinator(Collections.singletonList(backend));
+
+        // The synchronous "accepted" is what the caller already saw; it is not a result worth storing.
+        backend.emit(new BackendOutcome("testable", BackendOperation.TEST,
+                BackendOutcomeState.ACCEPTED, 1L, 1L, null));
+        assertNull(coordinator.lastTestOutcome("testable"), "accepted is not a settled test result");
+
+        backend.emit(new BackendOutcome("testable", BackendOperation.TEST,
+                BackendOutcomeState.DELIVERED, 1L, 2L, null));
+        assertEquals(BackendOutcomeState.DELIVERED, coordinator.lastTestOutcome("testable").state());
+
+        // A later send-to-zero on the ordinary path must not clobber the test result the user is reading.
+        backend.emit(new BackendOutcome("testable", BackendOperation.SEND,
+                BackendOutcomeState.DELIVERED, 2L, 3L, null));
+        assertEquals(BackendOperation.TEST, coordinator.lastTestOutcome("testable").operation(),
+                "an ordinary send does not overwrite the settled test result");
         coordinator.close();
     }
 

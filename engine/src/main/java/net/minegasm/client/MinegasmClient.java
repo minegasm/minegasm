@@ -680,6 +680,20 @@ public final class MinegasmClient {
     }
 
     /**
+     * How the last isolated test on this integration actually finished (delivered, failed, timed out, or
+     * superseded), or null if none has run this session. Screens capture this at test time and watch it
+     * change, so the button feedback moves past "accepted" to the real result. Kept separate from
+     * {@link #buttplugOutcome} because ordinary output settling would otherwise overwrite it.
+     */
+    public net.minegasm.backend.BackendOutcome buttplugTestOutcome() {
+        return runtime.lastTestOutcome("buttplug");
+    }
+
+    public net.minegasm.backend.BackendOutcome bridgeTestOutcome(String name) {
+        return runtime.lastTestOutcome(bridgeIdForName(name));
+    }
+
+    /**
      * One immutable snapshot of why output is or isn't flowing, for every screen and command to read (so a
      * button label can't disagree with the live state). Folds the runtime causes the worker owns (user
      * stop, watchdog) together with the config disable toggle. Backend faults stay scoped to their
@@ -713,11 +727,19 @@ public final class MinegasmClient {
         if (buttplugResult != null) {
             lines.add("Buttplug last operation: " + buttplugResult);
         }
+        String buttplugTest = testResultLabel(buttplugTestOutcome());
+        if (buttplugTest != null) {
+            lines.add("Buttplug last test: " + buttplugTest);
+        }
         for (HapticConfig.Bridge bridge : config.get().bridges()) {
             lines.add("Bridge " + bridge.name() + ": " + bridgeStateLabel(bridge));
             net.minegasm.backend.BackendOutcome result = view.latest(bridge.id());
             if (result != null) {
                 lines.add("Bridge " + bridge.name() + " last operation: " + result);
+            }
+            String bridgeTest = testResultLabel(bridgeTestOutcome(bridge.name()));
+            if (bridgeTest != null) {
+                lines.add("Bridge " + bridge.name() + " last test: " + bridgeTest);
             }
         }
         long faults = runtime.backendFaultCount();
@@ -727,6 +749,31 @@ public final class MinegasmClient {
             lines.add("Output faults: " + faults + last);
         }
         return lines;
+    }
+
+    /**
+     * A short human phrase for how a test finished ("delivered", "failed: ...", "timed out", "superseded"),
+     * or null when no test result is present. Shared so every screen and command words the result the same
+     * way. The synchronous ACCEPTED is never stored in the test slot, so it only appears here defensively.
+     */
+    public static String testResultLabel(net.minegasm.backend.BackendOutcome outcome) {
+        if (outcome == null) {
+            return null;
+        }
+        String detail = outcome.detail();
+        switch (outcome.state()) {
+            case DELIVERED:
+                return "delivered";
+            case FAILED:
+                return "failed" + (detail == null || detail.isEmpty() ? "" : ": " + detail);
+            case TIMED_OUT:
+                return "timed out";
+            case SUPERSEDED:
+                return "superseded";
+            case ACCEPTED:
+            default:
+                return "accepted";
+        }
     }
 
     /**

@@ -339,6 +339,11 @@ public final class HapticRuntime {
         return coordinator.recentFaults();
     }
 
+    /** The last settled test result for a backend, or null if none has run this session. */
+    public net.minegasm.backend.BackendOutcome lastTestOutcome(String backendId) {
+        return coordinator.lastTestOutcome(backendId);
+    }
+
     /** One immutable state for global controls, integration cards, commands, and test feedback. */
     public OutputViewState outputViewState() {
         java.util.EnumSet<StopCause> causes = java.util.EnumSet.noneOf(StopCause.class);
