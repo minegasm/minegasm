@@ -32,6 +32,13 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
     private boolean enabled;
     private boolean allowRemote;
     private int fieldsX;
+    private int fieldsWidth;
+
+    // Test feedback: capture the last settled test result at click time, then watch it change so the line
+    // moves from "running" to how the test actually finished (delivered, failed, timed out, superseded).
+    private net.minegasm.backend.BackendOutcome testBaseline;
+    private boolean awaitingTest;
+    private net.minegasm.backend.BackendOutcome testResult;
 
     public ClassicBridgeEditScreen(GuiScreen parent, int index) {
         this.parent = parent;
@@ -52,6 +59,7 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
         int w = Math.min(width - 16, 240);
         int x = width / 2 - w / 2;
         fieldsX = x;
+        fieldsWidth = w;
         List<HapticConfig.Bridge> bridges = BridgeList.bridges(client);
 
         nameField = new GuiTextField(0, fontRendererObj, x, 52, w, 18);
@@ -108,7 +116,7 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
                 mc.displayGuiScreen(parent);
                 break;
             case ID_TEST:
-                client.testBridgeOutput(BridgeList.bridges(client).get(index).name(), 0.25f);
+                fireBridgeTest();
                 break;
             case ID_CANCEL:
                 mc.displayGuiScreen(parent);
@@ -142,6 +150,31 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
     public void updateScreen() {
         nameField.updateCursorCounter();
         urlField.updateCursorCounter();
+        pollTestResult();
+    }
+
+    /** Fire an isolated test on this bridge and start watching for its settled result. */
+    private void fireBridgeTest() {
+        String name = BridgeList.bridges(client).get(index).name();
+        testBaseline = client.bridgeTestOutcome(name);
+        client.testBridgeOutput(name, 0.25f);
+        // The test button is only enabled when output is permitted and the bridge is connected, so a fired
+        // test always settles into a result.
+        awaitingTest = client.isOutputPermitted() && client.bridgeConnected(name);
+        testResult = null;
+    }
+
+    /** Once a test is in flight, latch the first result that differs from the pre-test baseline. */
+    private void pollTestResult() {
+        if (!awaitingTest || !existing) {
+            return;
+        }
+        net.minegasm.backend.BackendOutcome now =
+                client.bridgeTestOutcome(BridgeList.bridges(client).get(index).name());
+        if (now != null && now != testBaseline) {
+            testResult = now;
+            awaitingTest = false;
+        }
     }
 
     @Override
@@ -177,5 +210,35 @@ public final class ClassicBridgeEditScreen extends GuiScreen {
         super.drawScreen(mouseX, mouseY, partialTicks);
         nameField.drawTextBox();
         urlField.drawTextBox();
+        drawTestFeedback();
+    }
+
+    private void drawTestFeedback() {
+        String line = testFeedbackLine();
+        if (line != null) {
+            drawString(fontRendererObj, fontRendererObj.trimStringToWidth(line, fieldsWidth),
+                    fieldsX, height - 40, testFeedbackColor());
+        }
+    }
+
+    private String testFeedbackLine() {
+        if (awaitingTest) {
+            return "Test: running...";
+        }
+        return testResult == null ? null : "Test: " + MinegasmClient.testResultLabel(testResult);
+    }
+
+    private int testFeedbackColor() {
+        if (awaitingTest || testResult == null) {
+            return 0xA0A0A0;
+        }
+        switch (testResult.state()) {
+            case DELIVERED:
+                return 0x55FF55;
+            case SUPERSEDED:
+                return 0xFFFF55;
+            default:
+                return 0xFF5555; // failed or timed out
+        }
     }
 }

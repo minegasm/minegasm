@@ -25,6 +25,14 @@ public final class BridgeEditScreen16 extends Screen {
     private EditBox urlField;
     private boolean enabled;
     private boolean allowRemote;
+    private int fieldsX;
+    private int fieldsWidth;
+
+    // Test feedback: capture the last settled test result at click time, then watch it change so the line
+    // moves from "running" to how the test actually finished (delivered, failed, timed out, superseded).
+    private net.minegasm.backend.BackendOutcome testBaseline;
+    private boolean awaitingTest;
+    private net.minegasm.backend.BackendOutcome testResult;
 
     public BridgeEditScreen16(Screen parent, MinegasmClient client, int index) {
         super(new TextComponent("Edit bridge"));
@@ -45,6 +53,8 @@ public final class BridgeEditScreen16 extends Screen {
         int w = Math.min(width - 16, 260);
         int x = (width - w) / 2;
         int h = 20;
+        fieldsX = x;
+        fieldsWidth = w;
         List<HapticConfig.Bridge> bridges = BridgeList.bridges(client);
 
         nameField = new EditBox(font, x, 52, w, 18, new TextComponent("Name"));
@@ -79,7 +89,7 @@ public final class BridgeEditScreen16 extends Screen {
                     && client.bridgeConnected(bridgeName);
             int half = (w - 4) / 2;
             Button test = addButton(new Button(x, height - 26, half, h, new TextComponent("Test output"),
-                    b -> client.testBridgeOutput(bridgeName, 0.25f)));
+                    b -> fireBridgeTest()));
             test.active = canTest;
             addButton(new Button(x + half + 4, height - 26, half, h, new TextComponent("Cancel"),
                     b -> onClose()));
@@ -120,6 +130,31 @@ public final class BridgeEditScreen16 extends Screen {
     public void tick() {
         nameField.tick();
         urlField.tick();
+        pollTestResult();
+    }
+
+    /** Fire an isolated test on this bridge and start watching for its settled result. */
+    private void fireBridgeTest() {
+        String name = BridgeList.bridges(client).get(index).name();
+        testBaseline = client.bridgeTestOutcome(name);
+        client.testBridgeOutput(name, 0.25f);
+        // The test button is only enabled when output is permitted and the bridge is connected, so a fired
+        // test always settles into a result.
+        awaitingTest = client.isOutputPermitted() && client.bridgeConnected(name);
+        testResult = null;
+    }
+
+    /** Once a test is in flight, latch the first result that differs from the pre-test baseline. */
+    private void pollTestResult() {
+        if (!awaitingTest || !existing) {
+            return;
+        }
+        net.minegasm.backend.BackendOutcome now =
+                client.bridgeTestOutcome(BridgeList.bridges(client).get(index).name());
+        if (now != null && now != testBaseline) {
+            testResult = now;
+            awaitingTest = false;
+        }
     }
 
     @Override
@@ -129,6 +164,40 @@ public final class BridgeEditScreen16 extends Screen {
         GuiComponent.drawCenteredString(pose, font, "Name, then endpoint URL (tcp://host:port)",
                 width / 2, 31, 0xA0A0A0);
         super.render(pose, mouseX, mouseY, partialTicks);
+        drawTestFeedback(pose);
+    }
+
+    private void drawTestFeedback(PoseStack pose) {
+        String line = testFeedbackLine();
+        if (line == null) {
+            return;
+        }
+        java.util.List<net.minecraft.util.FormattedCharSequence> wrapped =
+                font.split(new TextComponent(line), Math.max(40, fieldsWidth));
+        if (!wrapped.isEmpty()) {
+            font.draw(pose, wrapped.get(0), fieldsX, height - 40, testFeedbackColor());
+        }
+    }
+
+    private String testFeedbackLine() {
+        if (awaitingTest) {
+            return "Test: running...";
+        }
+        return testResult == null ? null : "Test: " + MinegasmClient.testResultLabel(testResult);
+    }
+
+    private int testFeedbackColor() {
+        if (awaitingTest || testResult == null) {
+            return 0xA0A0A0;
+        }
+        switch (testResult.state()) {
+            case DELIVERED:
+                return 0x55FF55;
+            case SUPERSEDED:
+                return 0xFFFF55;
+            default:
+                return 0xFF5555; // failed or timed out
+        }
     }
 
     @Override

@@ -34,6 +34,12 @@ public final class MinegasmConfigScreen extends Screen {
     private boolean observedEnabled;
     private int observedErrorCount;
 
+    // Test feedback: capture the last settled test result at click time, then watch it change so the line
+    // moves from "running" to how the test actually finished (delivered, failed, timed out, superseded).
+    private net.minegasm.backend.BackendOutcome testBaseline;
+    private boolean awaitingTest;
+    private net.minegasm.backend.BackendOutcome testResult;
+
     public MinegasmConfigScreen(Screen parent, MinegasmClient client) {
         super(Component.translatable("minegasm.title"));
         this.parent = parent;
@@ -101,7 +107,7 @@ public final class MinegasmConfigScreen extends Screen {
         boolean panic = !client.outputStatus().permitted();
         Button test = addRenderableWidget(button(
                 Component.translatable("minegasm.devices.test_output"),
-                b -> client.testButtplugOutput(0.25f), leftX, y, columnWidth, h));
+                b -> fireButtplugTest(), leftX, y, columnWidth, h));
         test.active = enabled && connected && deviceCount > 0 && !panic;
         y += gap;
 
@@ -124,12 +130,60 @@ public final class MinegasmConfigScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        pollTestResult();
         var snapshot = client.provider().devices();
         if (snapshot.generation() != observedRegistryGeneration
                 || client.status().state() != observedConnectionState
                 || client.config().enabled() != observedEnabled
                 || client.errorHistory().size() != observedErrorCount) {
             rebuildWidgets();
+        }
+    }
+
+    /** Fire an isolated Buttplug test and start watching for its settled result. */
+    private void fireButtplugTest() {
+        testBaseline = client.buttplugTestOutcome();
+        client.testButtplugOutput(0.25f);
+        // A blocked test emits nothing, but the button is disabled in that state, so a fired test always
+        // settles. Only wait when output is actually permitted.
+        awaitingTest = client.isOutputPermitted();
+        testResult = null;
+    }
+
+    /** Once a test is in flight, latch the first result that differs from the pre-test baseline. */
+    private void pollTestResult() {
+        if (!awaitingTest) {
+            return;
+        }
+        net.minegasm.backend.BackendOutcome now = client.buttplugTestOutcome();
+        if (now != null && now != testBaseline) {
+            testResult = now;
+            awaitingTest = false;
+        }
+    }
+
+    /** The test-feedback line, or null when no test has run this session. */
+    private Component testFeedbackText() {
+        if (awaitingTest) {
+            return Component.translatable("minegasm.devices.test.running");
+        }
+        return testResult == null ? null
+                : Component.translatable("minegasm.devices.test.feedback",
+                        MinegasmClient.testResultLabel(testResult));
+    }
+
+    /** ARGB colour matching the feedback state: grey pending, green delivered, yellow superseded, red bad. */
+    private int testFeedbackColor() {
+        if (awaitingTest || testResult == null) {
+            return 0xFFA0A0A0;
+        }
+        switch (testResult.state()) {
+            case DELIVERED:
+                return 0xFF55FF55;
+            case SUPERSEDED:
+                return 0xFFFFFF55;
+            default:
+                return 0xFFFF5555; // failed or timed out
         }
     }
 
@@ -209,6 +263,11 @@ public final class MinegasmConfigScreen extends Screen {
                 Component.translatable("minegasm.errors.heading", client.errorHistory().size()),
                 rightX, 120, 0xFFFFFFFF);
 
+        int leftX = (this.width - totalWidth) / 2;
+        Component testLine = testFeedbackText();
+        if (testLine != null) {
+            graphics.text(this.font, testLine, leftX, 162, testFeedbackColor());
+        }
     }
     //?} elif >=1.20.1 {
     /*@Override
@@ -237,6 +296,11 @@ public final class MinegasmConfigScreen extends Screen {
                 Component.translatable("minegasm.errors.heading", client.errorHistory().size()),
                 rightX, 120, 0xFFFFFFFF);
 
+        int leftX = (this.width - totalWidth) / 2;
+        Component testLine = testFeedbackText();
+        if (testLine != null) {
+            graphics.drawString(this.font, testLine, leftX, 162, testFeedbackColor());
+        }
     }
     *///?} else {
     /*@Override
@@ -264,6 +328,11 @@ public final class MinegasmConfigScreen extends Screen {
                 Component.translatable("minegasm.errors.heading", client.errorHistory().size()),
                 rightX, 120, 0xFFFFFFFF);
 
+        int leftX = (this.width - totalWidth) / 2;
+        Component testLine = testFeedbackText();
+        if (testLine != null) {
+            GuiComponent.drawString(poseStack, this.font, testLine, leftX, 162, testFeedbackColor());
+        }
     }
     *///?}
 

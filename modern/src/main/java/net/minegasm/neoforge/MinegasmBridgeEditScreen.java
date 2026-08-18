@@ -37,6 +37,13 @@ public final class MinegasmBridgeEditScreen extends Screen {
     private EditBox urlBox;
     private boolean enabled;
     private boolean allowRemote;
+    private int fieldsX;
+
+    // Test feedback: capture the last settled test result at click time, then watch it change so the line
+    // moves from "running" to how the test actually finished (delivered, failed, timed out, superseded).
+    private net.minegasm.backend.BackendOutcome testBaseline;
+    private boolean awaitingTest;
+    private net.minegasm.backend.BackendOutcome testResult;
 
     public MinegasmBridgeEditScreen(Screen parent, MinegasmClient client, int index) {
         super(Component.translatable("minegasm.bridges.edit_title"));
@@ -62,6 +69,7 @@ public final class MinegasmBridgeEditScreen extends Screen {
         int width = Math.min(this.width - 16, 300);
         int x = (this.width - width) / 2;
         int h = 20;
+        fieldsX = x;
         List<HapticConfig.Bridge> bridges = client.config().raw().bridges();
 
         nameBox = new EditBox(font, x, 52, width, h, Component.translatable("minegasm.bridges.name"));
@@ -93,13 +101,68 @@ public final class MinegasmBridgeEditScreen extends Screen {
                     && client.bridgeConnected(bridgeName);
             int half = (width - 4) / 2;
             Button test = addRenderableWidget(button(Component.translatable("minegasm.devices.test_output"),
-                    b -> client.testBridgeOutput(bridgeName, 0.25f), x, this.height - 24, half, h));
+                    b -> fireBridgeTest(), x, this.height - 24, half, h));
             test.active = canTest;
             addRenderableWidget(button(Component.translatable("gui.cancel"), b -> onClose(),
                     x + half + 4, this.height - 24, half, h));
         } else {
             addRenderableWidget(button(Component.translatable("gui.cancel"), b -> onClose(),
                     x, this.height - 24, width, h));
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        pollTestResult();
+    }
+
+    /** Fire an isolated test on this bridge and start watching for its settled result. */
+    private void fireBridgeTest() {
+        String name = client.config().raw().bridges().get(index).name();
+        testBaseline = client.bridgeTestOutcome(name);
+        client.testBridgeOutput(name, 0.25f);
+        // The test button is only enabled when output is permitted and the bridge is connected, so a fired
+        // test always settles into a result.
+        awaitingTest = client.isOutputPermitted() && client.bridgeConnected(name);
+        testResult = null;
+    }
+
+    /** Once a test is in flight, latch the first result that differs from the pre-test baseline. */
+    private void pollTestResult() {
+        if (!awaitingTest || !existing) {
+            return;
+        }
+        net.minegasm.backend.BackendOutcome now =
+                client.bridgeTestOutcome(client.config().raw().bridges().get(index).name());
+        if (now != null && now != testBaseline) {
+            testResult = now;
+            awaitingTest = false;
+        }
+    }
+
+    /** The test-feedback line, or null when no test has run this session. */
+    private Component testFeedbackText() {
+        if (awaitingTest) {
+            return Component.translatable("minegasm.devices.test.running");
+        }
+        return testResult == null ? null
+                : Component.translatable("minegasm.devices.test.feedback",
+                        MinegasmClient.testResultLabel(testResult));
+    }
+
+    /** ARGB colour matching the feedback state: grey pending, green delivered, yellow superseded, red bad. */
+    private int testFeedbackColor() {
+        if (awaitingTest || testResult == null) {
+            return 0xFFA0A0A0;
+        }
+        switch (testResult.state()) {
+            case DELIVERED:
+                return 0xFF55FF55;
+            case SUPERSEDED:
+                return 0xFFFFFF55;
+            default:
+                return 0xFFFF5555; // failed or timed out
         }
     }
 
@@ -193,6 +256,10 @@ public final class MinegasmBridgeEditScreen extends Screen {
         graphics.centeredText(this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
         graphics.centeredText(this.font, Component.translatable("minegasm.bridges.edit_subtitle"),
                 this.width / 2, 31, 0xFFA0A0A0);
+        Component testLine = testFeedbackText();
+        if (testLine != null) {
+            graphics.text(this.font, testLine, fieldsX, this.height - 38, testFeedbackColor());
+        }
     }
     //?} elif >=1.20.1 {
     /*@Override
@@ -204,6 +271,10 @@ public final class MinegasmBridgeEditScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
         graphics.drawCenteredString(this.font, Component.translatable("minegasm.bridges.edit_subtitle"),
                 this.width / 2, 31, 0xFFA0A0A0);
+        Component testLine = testFeedbackText();
+        if (testLine != null) {
+            graphics.drawString(this.font, testLine, fieldsX, this.height - 38, testFeedbackColor());
+        }
     }
     *///?} else {
     /*@Override
@@ -213,6 +284,11 @@ public final class MinegasmBridgeEditScreen extends Screen {
         GuiComponent.drawCenteredString(poseStack, this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
         GuiComponent.drawCenteredString(poseStack, this.font,
                 Component.translatable("minegasm.bridges.edit_subtitle"), this.width / 2, 31, 0xFFA0A0A0);
+        Component testLine = testFeedbackText();
+        if (testLine != null) {
+            GuiComponent.drawString(poseStack, this.font, testLine, fieldsX, this.height - 38,
+                    testFeedbackColor());
+        }
     }
     *///?}
 

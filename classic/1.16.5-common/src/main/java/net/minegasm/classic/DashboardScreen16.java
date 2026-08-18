@@ -50,6 +50,14 @@ public final class DashboardScreen16 extends Screen {
     private boolean observedEnabled;
     private int observedErrorCount;
 
+    private int testLineX;
+    private int testLineWidth;
+    // Test feedback: capture the last settled test result at click time, then watch it change so the line
+    // moves from "running" to how the test actually finished (delivered, failed, timed out, superseded).
+    private net.minegasm.backend.BackendOutcome testBaseline;
+    private boolean awaitingTest;
+    private net.minegasm.backend.BackendOutcome testResult;
+
     public DashboardScreen16(Screen parent) {
         super(new TextComponent("Minegasm"));
         this.parent = parent;
@@ -74,6 +82,8 @@ public final class DashboardScreen16 extends Screen {
 
         listX = rightX;
         listWidth = columnWidth;
+        testLineX = leftX;
+        testLineWidth = columnWidth;
         deviceTop = 52;
         deviceHeight = 64;
         errorTop = 132;
@@ -120,7 +130,7 @@ public final class DashboardScreen16 extends Screen {
 
         boolean panic = !client.outputStatus().permitted();
         Button test = addButton(new Button(leftX, y, columnWidth, h,
-                new TextComponent("Test"), b -> client.testButtplugOutput(0.25f)));
+                new TextComponent("Test"), b -> fireButtplugTest()));
         test.active = enabled && connected && devices.size() > 0 && !panic;
         y += gap;
 
@@ -141,11 +151,34 @@ public final class DashboardScreen16 extends Screen {
 
     @Override
     public void tick() {
+        pollTestResult();
         if (client.provider().devices().generation() != observedGeneration
                 || client.status().state() != observedState
                 || client.config().enabled() != observedEnabled
                 || client.errorHistory().size() != observedErrorCount) {
             rebuild();
+        }
+    }
+
+    /** Fire an isolated Buttplug test and start watching for its settled result. */
+    private void fireButtplugTest() {
+        testBaseline = client.buttplugTestOutcome();
+        client.testButtplugOutput(0.25f);
+        // A blocked test emits nothing, but the button is disabled in that state, so a fired test always
+        // settles. Only wait when output is actually permitted.
+        awaitingTest = client.isOutputPermitted();
+        testResult = null;
+    }
+
+    /** Once a test is in flight, latch the first result that differs from the pre-test baseline. */
+    private void pollTestResult() {
+        if (!awaitingTest) {
+            return;
+        }
+        net.minegasm.backend.BackendOutcome now = client.buttplugTestOutcome();
+        if (now != null && now != testBaseline) {
+            testResult = now;
+            awaitingTest = false;
         }
     }
 
@@ -172,6 +205,42 @@ public final class DashboardScreen16 extends Screen {
         GuiComponent.drawString(pose, font,
                 new TextComponent("Errors (" + client.errorHistory().size() + ")"),
                 errorHeadingX, errorHeadingY, 0xFFFFFF);
+        drawTestFeedback(pose);
+    }
+
+    private void drawTestFeedback(PoseStack pose) {
+        String line = testFeedbackLine();
+        if (line == null) {
+            return;
+        }
+        // Split to the column width and draw only the first line, so a long failure detail is clipped
+        // rather than bleeding across the screen (same idiom the error list uses).
+        java.util.List<net.minecraft.util.FormattedCharSequence> wrapped =
+                font.split(new TextComponent(line), Math.max(40, testLineWidth));
+        if (!wrapped.isEmpty()) {
+            font.draw(pose, wrapped.get(0), testLineX, 160, testFeedbackColor());
+        }
+    }
+
+    private String testFeedbackLine() {
+        if (awaitingTest) {
+            return "Test: running...";
+        }
+        return testResult == null ? null : "Test: " + MinegasmClient.testResultLabel(testResult);
+    }
+
+    private int testFeedbackColor() {
+        if (awaitingTest || testResult == null) {
+            return 0xA0A0A0;
+        }
+        switch (testResult.state()) {
+            case DELIVERED:
+                return 0x55FF55;
+            case SUPERSEDED:
+                return 0xFFFF55;
+            default:
+                return 0xFF5555; // failed or timed out
+        }
     }
 
     /**

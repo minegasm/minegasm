@@ -52,6 +52,12 @@ public final class ClassicConfigScreen extends GuiScreen {
     private GuiButton adapterBtn;
     private GuiButton clearErrorsBtn;
 
+    // Test feedback: capture the last settled test result at click time, then watch it change so the line
+    // moves from "running" to how the test actually finished (delivered, failed, timed out, superseded).
+    private net.minegasm.backend.BackendOutcome testBaseline;
+    private boolean awaitingTest;
+    private net.minegasm.backend.BackendOutcome testResult;
+
     private int leftX;
     private int rightX;
     private int columnWidth;
@@ -132,7 +138,7 @@ public final class ClassicConfigScreen extends GuiScreen {
                 client.refreshDevices();
                 break;
             case ID_TEST:
-                client.testButtplugOutput(0.25f);
+                fireButtplugTest();
                 break;
             case ID_CLEAR_ERRORS:
                 client.clearErrorHistory();
@@ -154,7 +160,30 @@ public final class ClassicConfigScreen extends GuiScreen {
 
     @Override
     public void updateScreen() {
+        pollTestResult();
         refreshActionButtons();
+    }
+
+    /** Fire an isolated Buttplug test and start watching for its settled result. */
+    private void fireButtplugTest() {
+        testBaseline = client.buttplugTestOutcome();
+        client.testButtplugOutput(0.25f);
+        // A blocked test emits nothing, but the button is disabled in that state, so a fired test always
+        // settles. Only wait when output is actually permitted.
+        awaitingTest = client.isOutputPermitted();
+        testResult = null;
+    }
+
+    /** Once a test is in flight, latch the first result that differs from the pre-test baseline. */
+    private void pollTestResult() {
+        if (!awaitingTest) {
+            return;
+        }
+        net.minegasm.backend.BackendOutcome now = client.buttplugTestOutcome();
+        if (now != null && now != testBaseline) {
+            testResult = now;
+            awaitingTest = false;
+        }
     }
 
     @Override
@@ -192,6 +221,36 @@ public final class ClassicConfigScreen extends GuiScreen {
 
         drawDevicePanel();
         drawErrorPanel();
+        drawTestFeedback();
+    }
+
+    private void drawTestFeedback() {
+        String line = testFeedbackLine();
+        if (line != null) {
+            drawString(fontRendererObj, fontRendererObj.trimStringToWidth(line, columnWidth),
+                    leftX, 160, testFeedbackColor());
+        }
+    }
+
+    private String testFeedbackLine() {
+        if (awaitingTest) {
+            return "Test: running...";
+        }
+        return testResult == null ? null : "Test: " + MinegasmClient.testResultLabel(testResult);
+    }
+
+    private int testFeedbackColor() {
+        if (awaitingTest || testResult == null) {
+            return 0xA0A0A0;
+        }
+        switch (testResult.state()) {
+            case DELIVERED:
+                return 0x55FF55;
+            case SUPERSEDED:
+                return 0xFFFF55;
+            default:
+                return 0xFF5555; // failed or timed out
+        }
     }
 
     @Override

@@ -40,6 +40,8 @@
   "minegasm.devices.enable": "Enable",
   "minegasm.devices.cap": "Intensity cap",
   "minegasm.devices.test_output": "Test device output",
+  "minegasm.devices.test.running": "Test: running...",
+  "minegasm.devices.test.feedback": "Test: %s",
   "minegasm.devices.stop": "Stop",
   "minegasm.devices.none": "No devices. Start Intiface and scan.",
   "minegasm.devices.none_short": "No devices found",
