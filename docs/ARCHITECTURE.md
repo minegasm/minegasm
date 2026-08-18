@@ -27,7 +27,7 @@ Driver + backends      (net.minegasm.runtime, net.minegasm.backend, net.minegasm
     │       → ButtplugProvider → ButtplugCodec → ButtplugTransport → Intiface → devices
     ├─ (a future native integration implements the same seam and runs alongside)
     └─ BridgeBackend    (semantic) destination snapshot → BridgeDestinationForwarder (change-driven)
-          → BridgeCodec v2 → OutboundQueue → BridgeTransport (TCP) → adapter
+          → BridgeCodec → OutboundQueue → BridgeTransport (TCP) → adapter
 
   BackendOutcomeTracker: accepted → delivered | failed | timed out | superseded
           → BackendCoordinator quarantine + OutputViewState

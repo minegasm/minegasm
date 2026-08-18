@@ -252,6 +252,10 @@ fatigue-attenuated, by design). Diagnosing further needs runtime evidence (e.g. 
 `MinegasmClient.testPulse`/`HapticWorker.cycle`/`FeatureScheduler.accept` during a live repro), not
 more static code reading.
 
+The Test button now shows how the test settled (delivered, failed, or timed out). This does not fix or
+explain the quirk, but it narrows a repro: a run that reads "delivered" while nothing moves places the
+fault below the command path, in the device or its motor rather than in the mod's dispatch.
+
 ## CI and release automation
 
 The Forgejo Actions workflow is implemented for Codeberg's `codeberg-medium-lazy` runner. It runs

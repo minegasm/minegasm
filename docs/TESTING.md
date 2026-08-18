@@ -98,7 +98,8 @@ version-specific changed: items 1-4, one representative event from item 10, and 
    Fabric).
 2. Connect → scan: connected devices appear in the list, and output reaches all of them, not just the
    first.
-3. **Test Device Output** produces a pulse.
+3. **Test Device Output** produces a pulse, and the result line under the buttons reports how it settled
+   (delivered, or failed/timed out).
 4. Enable haptics; pick a recipe pack and mode.
 5. `/minegasm stop` stops output immediately; `/minegasm resume` re-enables it. Neither needs operator
    permission.
@@ -136,7 +137,9 @@ between releases.
 - **Test Device Output, all variants**: intermittent, sometimes produces no pulse even when the
   button is active and the same device vibrates from gameplay in the same session. Pressing
   **Emergency Stop** then **Resume after emergency** once clears it for the rest of the session
-  (workaround succeeds in every observed case). See Known issues in `docs/STATUS.md`.
+  (workaround succeeds in every observed case). The test now shows its settled result, so note whether a
+  silent test reads "delivered" (fault below the command path) or "failed"/"timed out". See Known issues
+  in `docs/STATUS.md`.
 
 ## Tips
 

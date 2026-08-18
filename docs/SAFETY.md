@@ -52,9 +52,10 @@ uncertainty (brief §12).
   user-run adapter; it never accepts connections.
 - Inbound Buttplug frame size is capped (`WebSocketTransport`), malformed frames/ranges are rejected,
   and unknown output types are represented but never executed.
-- The bridge is **off by default** and only vibration-class scenes flow over it today; electrical
-  stimulation is not part of the shipped output model and is gated behind a separate opt-in and safety
-  review (`docs/adr/ADR-016-electrostim-opt-in-modality.md`).
+- The bridge is **off by default**. It carries the authoritative output set (levels keyed by role, body
+  region, and output class), which today drives vibration and movement outputs. Electrical stimulation is
+  not part of the shipped output model and is gated behind a separate opt-in and safety review
+  (`docs/adr/ADR-016-electrostim-opt-in-modality.md`).
 
 ## Privacy
 

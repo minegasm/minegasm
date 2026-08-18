@@ -11,8 +11,14 @@ All notable changes to Minegasm are documented in this file. The format follows
 
 - Backend operations now report accepted, delivered, failed, timed out, or superseded. Late send and
   stop failures remain visible per integration and quarantine only the affected backend.
-- Device editors now show direct body-region choices. Unassigned and intentional whole-body routing are
-  explained separately.
+- The Test buttons and `/minegasm status` now report how a test finished (delivered, failed, timed out,
+  or superseded) rather than only that it was accepted, so a test that reaches no device says so.
+- Body regions are a second routing axis. Device editors show direct body-region choices, with unassigned
+  and intentional whole-body routing explained separately; scene packs can tag a layer with a region; and
+  the built-in packs feel the reward events (experience, advancements, and fishing catches) on the genital
+  region by default. An unassigned device still receives every effect.
+- The hub shows a stopped-output banner naming each active stop cause (panic, watchdog). Turning haptics
+  off is a chosen state, not an alarm, so it does not raise the banner.
 
 ### Changed
 
@@ -29,6 +35,8 @@ All notable changes to Minegasm are documented in this file. The format follows
 - Delayed, expired, shaped, and gapped primitives no longer turn into immediate constant bridge output.
 - XToys no longer holds its state mutex during WebSocket writes. A lower or stopped generation can
   interrupt an uncommitted write, and an uncertain nonzero write keeps a zero obligation through reconnect.
+- An emergency stop against a bridge that is not connected no longer records a false stop fault, and
+  toggling the bridge back on clears the error.
 - Concurrent watchdog observers now serialize their transition, runtime start is idempotent, and the real
   independent timer path is covered while the worker monitor is blocked.
 - Backend stop ordering now also covers a watchdog racing a render, bridge enqueue races, and Buttplug4j
@@ -275,6 +283,7 @@ engine, targeting NeoForge 26.2 and 26.1.2 on Java 25.
 See `docs/STATUS.md` for the full verification breakdown (automated, live Intiface, and
 in-game/physical) and `docs/TESTING.md` for how to reproduce it.
 
-[Unreleased]: https://codeberg.org/minegasm/minegasm/compare/v1.0.0-beta.2...HEAD
+[Unreleased]: https://codeberg.org/minegasm/minegasm/compare/v1.0.0-beta.3...HEAD
+[1.0.0-beta.3]: https://codeberg.org/minegasm/minegasm/compare/v1.0.0-beta.2...v1.0.0-beta.3
 [1.0.0-beta.2]: https://codeberg.org/minegasm/minegasm/compare/v1.0.0-beta.1...v1.0.0-beta.2
 [1.0.0-beta.1]: https://codeberg.org/minegasm/minegasm/releases/tag/v1.0.0-beta.1
