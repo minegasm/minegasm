@@ -28,9 +28,11 @@ public final class BridgeEditScreen16 extends Screen {
     private int fieldsX;
     private int fieldsWidth;
 
-    // Test feedback: capture the last settled test result at click time, then watch it change so the line
-    // moves from "running" to how the test actually finished (delivered, failed, timed out, superseded).
-    private net.minegasm.backend.BackendOutcome testBaseline;
+    // Test feedback: record the ordinal of the test this screen fired, then wait for the bridge's settle
+    // count to reach it so the line moves from "running" to how that exact test finished. Waiting on the
+    // ordinal (not a baseline outcome) means rapid repeated clicks always report the latest test, never an
+    // earlier superseded one.
+    private long myTestFire;
     private boolean awaitingTest;
     private net.minegasm.backend.BackendOutcome testResult;
 
@@ -133,26 +135,28 @@ public final class BridgeEditScreen16 extends Screen {
         pollTestResult();
     }
 
-    /** Fire an isolated test on this bridge and start watching for its settled result. */
+    /** Fire an isolated test on this bridge and start watching for the settled result of this exact test. */
     private void fireBridgeTest() {
         String name = BridgeList.bridges(client).get(index).name();
-        testBaseline = client.bridgeTestOutcome(name);
+        long before = client.bridgeTestFireCount(name);
         client.testBridgeOutput(name, 0.25f);
-        // The test button is only enabled when output is permitted and the bridge is connected, so a fired
-        // test always settles into a result.
-        awaitingTest = client.isOutputPermitted() && client.bridgeConnected(name);
-        testResult = null;
+        long after = client.bridgeTestFireCount(name);
+        // Only wait if the click actually dispatched a test; a blocked one leaves the fire count unchanged.
+        if (after != before) {
+            myTestFire = after;
+            awaitingTest = true;
+            testResult = null;
+        }
     }
 
-    /** Once a test is in flight, latch the first result that differs from the pre-test baseline. */
+    /** Wait for the test this screen fired (and every test before it) to settle, then show its result. */
     private void pollTestResult() {
         if (!awaitingTest || !existing) {
             return;
         }
-        net.minegasm.backend.BackendOutcome now =
-                client.bridgeTestOutcome(BridgeList.bridges(client).get(index).name());
-        if (now != null && now != testBaseline) {
-            testResult = now;
+        String name = BridgeList.bridges(client).get(index).name();
+        if (client.bridgeTestSettleCount(name) >= myTestFire) {
+            testResult = client.bridgeTestOutcome(name);
             awaitingTest = false;
         }
     }

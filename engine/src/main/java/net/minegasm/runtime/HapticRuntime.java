@@ -308,6 +308,7 @@ public final class HapticRuntime {
 
     /** Fire an isolated test on the Buttplug backend only (its own devices), not the other integrations. */
     public void testButtplug(HapticScene scene, long nowNs) {
+        coordinator.recordTestFire("buttplug"); // count the dispatch so the caller can await this test
         buttplug.test(scene, nowNs);
     }
 
@@ -315,6 +316,7 @@ public final class HapticRuntime {
     public void testBridge(String name, HapticScene scene, long nowNs) {
         BridgeBackend backend = bridgeBackends.get(name);
         if (backend != null) {
+            coordinator.recordTestFire(name); // count only a real dispatch, so fires and settles stay paired
             backend.test(scene, nowNs);
         }
     }
@@ -342,6 +344,16 @@ public final class HapticRuntime {
     /** The last settled test result for a backend, or null if none has run this session. */
     public net.minegasm.backend.BackendOutcome lastTestOutcome(String backendId) {
         return coordinator.lastTestOutcome(backendId);
+    }
+
+    /** How many tests have been dispatched on a backend so far (the latest fire ordinal). */
+    public long testFireCount(String backendId) {
+        return coordinator.testFireCount(backendId);
+    }
+
+    /** How many dispatched tests on a backend have reached a terminal state. */
+    public long testSettleCount(String backendId) {
+        return coordinator.testSettleCount(backendId);
     }
 
     /** One immutable state for global controls, integration cards, commands, and test feedback. */

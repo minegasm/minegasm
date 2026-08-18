@@ -694,6 +694,28 @@ public final class MinegasmClient {
     }
 
     /**
+     * Test fire and settle counts, so a screen can wait for the exact test it fired to finish instead of
+     * latching on an earlier superseded one. Read the fire count right after firing to learn that test's
+     * ordinal, then poll until the settle count reaches it and read {@link #buttplugTestOutcome}. The fire
+     * count only advances on a real dispatch, so a click that was blocked leaves it unchanged.
+     */
+    public long buttplugTestFireCount() {
+        return runtime.testFireCount("buttplug");
+    }
+
+    public long buttplugTestSettleCount() {
+        return runtime.testSettleCount("buttplug");
+    }
+
+    public long bridgeTestFireCount(String name) {
+        return runtime.testFireCount(bridgeIdForName(name));
+    }
+
+    public long bridgeTestSettleCount(String name) {
+        return runtime.testSettleCount(bridgeIdForName(name));
+    }
+
+    /**
      * One immutable snapshot of why output is or isn't flowing, for every screen and command to read (so a
      * button label can't disagree with the live state). Folds the runtime causes the worker owns (user
      * stop, watchdog) together with the config disable toggle. Backend faults stay scoped to their

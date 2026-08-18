@@ -53,9 +53,11 @@ public final class ClassicConfigScreen extends GuiScreen {
     private GuiButton adapterBtn;
     private GuiButton clearErrorsBtn;
 
-    // Test feedback: capture the last settled test result at click time, then watch it change so the line
-    // moves from "running" to how the test actually finished (delivered, failed, timed out, superseded).
-    private net.minegasm.backend.BackendOutcome testBaseline;
+    // Test feedback: record the ordinal of the test this screen fired, then wait for the backend's settle
+    // count to reach it so the line moves from "running" to how that exact test finished. Waiting on the
+    // ordinal (not a baseline outcome) means rapid repeated clicks always report the latest test, never an
+    // earlier superseded one.
+    private long myTestFire;
     private boolean awaitingTest;
     private net.minegasm.backend.BackendOutcome testResult;
 
@@ -164,24 +166,23 @@ public final class ClassicConfigScreen extends GuiScreen {
         refreshActionButtons();
     }
 
-    /** Fire an isolated Buttplug test and start watching for its settled result. */
+    /** Fire an isolated Buttplug test and start watching for the settled result of this exact test. */
     private void fireButtplugTest() {
-        testBaseline = client.buttplugTestOutcome();
+        long before = client.buttplugTestFireCount();
         client.testButtplugOutput(0.25f);
-        // A blocked test emits nothing, but the button is disabled in that state, so a fired test always
-        // settles. Only wait when output is actually permitted.
-        awaitingTest = client.isOutputPermitted();
-        testResult = null;
+        long after = client.buttplugTestFireCount();
+        // Only wait if the click actually dispatched a test; a blocked one leaves the fire count unchanged.
+        if (after != before) {
+            myTestFire = after;
+            awaitingTest = true;
+            testResult = null;
+        }
     }
 
-    /** Once a test is in flight, latch the first result that differs from the pre-test baseline. */
+    /** Wait for the test this screen fired (and every test before it) to settle, then show its result. */
     private void pollTestResult() {
-        if (!awaitingTest) {
-            return;
-        }
-        net.minegasm.backend.BackendOutcome now = client.buttplugTestOutcome();
-        if (now != null && now != testBaseline) {
-            testResult = now;
+        if (awaitingTest && client.buttplugTestSettleCount() >= myTestFire) {
+            testResult = client.buttplugTestOutcome();
             awaitingTest = false;
         }
     }

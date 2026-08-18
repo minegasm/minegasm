@@ -44,6 +44,14 @@ public final class BackendCoordinator implements AutoCloseable {
     // shared latest slot, which would clobber the test result a moment after it lands.
     private final java.util.concurrent.ConcurrentMap<String, BackendOutcome> lastTestOutcomes =
             new java.util.concurrent.ConcurrentHashMap<>();
+    // Per-backend test fire and settle counts, so a caller can tell when the specific test it fired (and
+    // every test before it) has settled, rather than latching on an earlier superseded one. A fire is
+    // counted synchronously at dispatch; a settle is counted when that test reaches a terminal state. The
+    // caller records the fire ordinal it got and waits for the settle count to reach it.
+    private final java.util.concurrent.ConcurrentMap<String, AtomicLong> testFires =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<String, AtomicLong> testSettles =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public BackendCoordinator(List<HapticBackend> backends) {
         this.backends = new CopyOnWriteArrayList<>(backends);
@@ -73,7 +81,10 @@ public final class BackendCoordinator implements AutoCloseable {
             // already what the caller saw synchronously.
             if (outcome.operation() == BackendOperation.TEST) {
                 if (outcome.state() != BackendOutcomeState.ACCEPTED) {
+                    // Store the result and count the settle together, so a caller that has already seen the
+                    // settle count reach its fire ordinal is guaranteed to read this outcome, not a stale one.
                     lastTestOutcomes.put(backend.id(), outcome);
+                    counter(testSettles, backend.id()).incrementAndGet();
                 }
                 return;
             }
@@ -111,6 +122,26 @@ public final class BackendCoordinator implements AutoCloseable {
     /** The last settled test result for a backend, or null if it has run no test this session. */
     public BackendOutcome lastTestOutcome(String backendId) {
         return lastTestOutcomes.get(backendId);
+    }
+
+    /** Count a dispatched test on a backend and return its fire ordinal, for the caller to wait on. */
+    public long recordTestFire(String backendId) {
+        return counter(testFires, backendId).incrementAndGet();
+    }
+
+    /** How many tests have been dispatched on a backend so far (the latest fire ordinal). */
+    public long testFireCount(String backendId) {
+        return counter(testFires, backendId).get();
+    }
+
+    /** How many dispatched tests on a backend have reached a terminal state. */
+    public long testSettleCount(String backendId) {
+        return counter(testSettles, backendId).get();
+    }
+
+    private static AtomicLong counter(java.util.concurrent.ConcurrentMap<String, AtomicLong> map,
+                                      String backendId) {
+        return map.computeIfAbsent(backendId, id -> new AtomicLong());
     }
 
     /** Failures stay visible even when a compensating stop or reconnect produces a newer outcome. */

@@ -124,6 +124,41 @@ class BackendCoordinatorTest {
     }
 
     @Test
+    void fireAndSettleCountsLetACallerWaitForItsOwnTest() {
+        FakeBackend backend = new FakeBackend("testable");
+        BackendCoordinator coordinator = new BackendCoordinator(Collections.singletonList(backend));
+
+        // Two rapid fires: the second supersedes the first. A caller that recorded the second fire's ordinal
+        // must not see its wait satisfied until both have settled, so it reports the latest, not the
+        // superseded first.
+        long first = coordinator.recordTestFire("testable");
+        long second = coordinator.recordTestFire("testable");
+        assertEquals(1L, first);
+        assertEquals(2L, second);
+        assertEquals(0L, coordinator.testSettleCount("testable"));
+
+        backend.emit(new BackendOutcome("testable", BackendOperation.TEST,
+                BackendOutcomeState.SUPERSEDED, 1L, 4L, null));
+        assertTrue(coordinator.testSettleCount("testable") < second,
+                "the second fire is not yet satisfied while only the first (superseded) test has settled");
+
+        backend.emit(new BackendOutcome("testable", BackendOperation.TEST,
+                BackendOutcomeState.DELIVERED, 2L, 5L, null));
+        assertTrue(coordinator.testSettleCount("testable") >= second,
+                "once both settle, a caller waiting on the second fire is satisfied");
+        assertEquals(BackendOutcomeState.DELIVERED, coordinator.lastTestOutcome("testable").state(),
+                "and it reads the latest result, not the superseded one");
+
+        // The bare accepted is not a settle: it must not advance the count toward a caller's fire ordinal.
+        long before = coordinator.testSettleCount("testable");
+        backend.emit(new BackendOutcome("testable", BackendOperation.TEST,
+                BackendOutcomeState.ACCEPTED, 3L, 6L, null));
+        assertEquals(before, coordinator.testSettleCount("testable"),
+                "accepted is not a terminal settle");
+        coordinator.close();
+    }
+
+    @Test
     void aBackendThrowingDuringFanOutIsStoppedAndRecordedNotSwallowed() {
         FakeBackend boom = new FakeBackend("boom");
         boom.throwOnGoverned = true;
